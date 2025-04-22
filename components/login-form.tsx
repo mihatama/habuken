@@ -53,8 +53,6 @@ export function LoginForm() {
         })
       } else {
         // ログイン成功
-        document.cookie = "logged_in=true; path=/; max-age=86400" // 24時間有効
-
         toast({
           title: "ログイン成功",
           description: "ログインに成功しました。",

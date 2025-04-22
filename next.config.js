@@ -1,9 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  reactStrictMode: true,
   // SSR enabled by default (removing output: "export")
 
   // Enable image optimization (removing unoptimized: true)
   images: {
+    unoptimized: true,
     domains: ["v0.blob.com"], // Add any domains you need for external images
   },
 

@@ -182,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("Supabaseクライアントが初期化されていません")
         return {
           error: {
-            message: "Supabase環境変数が設定されていないため、認証できません。デモモードをご利用ください。",
+            message: "Supabase環境変数が設定されていないため、認証できません。",
           } as AuthError,
           data: null,
         }

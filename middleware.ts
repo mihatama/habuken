@@ -1,49 +1,69 @@
+import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs"
 
-export async function middleware(request: NextRequest) {
-  // Initialize Supabase Auth middleware client
+// 認証が必要なパス
+const protectedPaths = [
+  "/dashboard",
+  "/projects",
+  "/tasks",
+  "/staff",
+  "/reports",
+  "/tools",
+  "/shifts",
+  "/leave",
+  "/profile",
+  "/settings",
+  "/admin",
+  "/master",
+  "/inspection",
+  "/report",
+]
+
+// 認証が不要なパス
+const publicPaths = ["/", "/login", "/signup", "/forgot-password", "/reset-password"]
+
+export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ req: request, res })
+  const supabase = createMiddlewareClient({ req, res })
 
-  // Check if the user is authenticated
+  // セッションを取得
   const {
     data: { session },
   } = await supabase.auth.getSession()
 
-  // Get the pathname from the URL
-  const { pathname } = request.nextUrl
+  const path = req.nextUrl.pathname
 
-  // Define public routes that don't require authentication
-  const publicRoutes = ["/login", "/signup", "/forgot-password", "/reset-password"]
-  const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route))
+  // 保護されたパスへのアクセスで認証されていない場合はログインページにリダイレクト
+  const isProtectedPath = protectedPaths.some(
+    (protectedPath) => path === protectedPath || path.startsWith(`${protectedPath}/`),
+  )
 
-  // Redirect logic
-  if (!session && !isPublicRoute && pathname !== "/") {
-    // Redirect to login if not authenticated and trying to access protected route
-    const redirectUrl = new URL("/login", request.url)
+  if (isProtectedPath && !session) {
+    const redirectUrl = new URL("/login", req.url)
+    redirectUrl.searchParams.set("redirect", path)
     return NextResponse.redirect(redirectUrl)
   }
 
-  if (session && (pathname === "/login" || pathname === "/signup" || pathname === "/")) {
-    // Redirect to dashboard if already authenticated and trying to access login/signup
-    const redirectUrl = new URL("/dashboard", request.url)
-    return NextResponse.redirect(redirectUrl)
+  // 認証済みユーザーがログインページなどにアクセスした場合はダッシュボードにリダイレクト
+  const isAuthPath = publicPaths.some((publicPath) => path === publicPath || path.startsWith(`${publicPath}/`))
+
+  if (isAuthPath && session) {
+    return NextResponse.redirect(new URL("/dashboard", req.url))
   }
 
   return res
 }
 
-// Configure which paths the middleware runs on
 export const config = {
   matcher: [
     /*
-     * Match all request paths except:
+     * Match all request paths except for the ones starting with:
      * - _next/static (static files)
      * - _next/image (image optimization files)
-     * - favicon.ico, images, fonts (static assets)
+     * - favicon.ico (favicon file)
+     * - public (public files)
      */
-    "/((?!_next/static|_next/image|favicon.ico|images|fonts).*)",
+    "/((?!_next/static|_next/image|favicon.ico|public).*)",
   ],
 }
