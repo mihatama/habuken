@@ -13,26 +13,39 @@ import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/auth-context"
 
 // バリデーションスキーマ
-const formSchema = z.object({
-  email: z.string().email({
-    message: "有効なメールアドレスを入力してください。",
-  }),
-  password: z.string().min(8, {
-    message: "パスワードは8文字以上である必要があります。",
-  }),
-})
+const formSchema = z
+  .object({
+    fullName: z.string().min(2, {
+      message: "名前は2文字以上である必要があります。",
+    }),
+    email: z.string().email({
+      message: "有効なメールアドレスを入力してください。",
+    }),
+    password: z.string().min(8, {
+      message: "パスワードは8文字以上である必要があります。",
+    }),
+    confirmPassword: z.string().min(8, {
+      message: "パスワードは8文字以上である必要があります。",
+    }),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "パスワードが一致しません。",
+    path: ["confirmPassword"],
+  })
 
-export function LoginForm() {
+export function SignupForm() {
   const router = useRouter()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
-  const { signIn } = useAuth()
+  const { signUp } = useAuth()
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      fullName: "",
       email: "",
       password: "",
+      confirmPassword: "",
     },
   })
 
@@ -42,11 +55,13 @@ export function LoginForm() {
       setIsLoading(true)
 
       try {
-        const { error } = await signIn(values.email, values.password)
+        const { error } = await signUp(values.email, values.password, {
+          full_name: values.fullName,
+        })
 
         if (error) {
           toast({
-            title: "ログインエラー",
+            title: "登録エラー",
             description: error.message,
             variant: "destructive",
           })
@@ -55,27 +70,39 @@ export function LoginForm() {
         }
 
         toast({
-          title: "ログイン成功",
-          description: "ダッシュボードへようこそ",
+          title: "登録成功",
+          description: "確認メールを送信しました。メールを確認してアカウントを有効化してください。",
         })
 
-        router.push("/dashboard")
-        router.refresh()
+        router.push("/login")
       } catch (error) {
         toast({
           title: "エラーが発生しました",
-          description: "ログイン処理中にエラーが発生しました。",
+          description: "登録処理中にエラーが発生しました。",
           variant: "destructive",
         })
         setIsLoading(false)
       }
     },
-    [router, toast, signIn],
+    [router, toast, signUp],
   )
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <FormField
+          control={form.control}
+          name="fullName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-base">氏名</FormLabel>
+              <FormControl>
+                <Input placeholder="山田 太郎" {...field} className="text-base h-12" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <FormField
           control={form.control}
           name="email"
@@ -102,8 +129,21 @@ export function LoginForm() {
             </FormItem>
           )}
         />
+        <FormField
+          control={form.control}
+          name="confirmPassword"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-base">パスワード（確認）</FormLabel>
+              <FormControl>
+                <Input type="password" placeholder="パスワードを再入力" {...field} className="text-base h-12" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <Button type="submit" className="w-full text-base h-12" disabled={isLoading}>
-          {isLoading ? "ログイン中..." : "ログイン"}
+          {isLoading ? "登録中..." : "アカウント登録"}
         </Button>
       </form>
     </Form>

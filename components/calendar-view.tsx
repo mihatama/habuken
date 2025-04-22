@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -46,24 +46,61 @@ const events = [
   },
 ]
 
+// イベントの型定義
+interface CalendarEvent {
+  id: number
+  title: string
+  date: Date
+  startTime: string
+  endTime: string
+  staff: string[]
+  location: string
+  tools: string[]
+  color: string
+}
+
+// 日本語の曜日配列をメモ化
+const DAYS_OF_WEEK = ["日", "月", "火", "水", "木", "金", "土"]
+
 export function CalendarView() {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
-  const [selectedEvent, setSelectedEvent] = useState<any | null>(null)
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
 
-  const getDaysInMonth = (year: number, month: number) => {
+  // 月の日数を取得する関数
+  const getDaysInMonth = useCallback((year: number, month: number) => {
     return new Date(year, month + 1, 0).getDate()
-  }
+  }, [])
 
-  const getFirstDayOfMonth = (year: number, month: number) => {
+  // 月の最初の日の曜日を取得する関数
+  const getFirstDayOfMonth = useCallback((year: number, month: number) => {
     return new Date(year, month, 1).getDay()
-  }
+  }, [])
 
-  const renderCalendar = () => {
+  // 前月へ移動
+  const prevMonth = useCallback(() => {
+    setCurrentMonth((prevDate) => new Date(prevDate.getFullYear(), prevDate.getMonth() - 1, 1))
+  }, [])
+
+  // 次月へ移動
+  const nextMonth = useCallback(() => {
+    setCurrentMonth((prevDate) => new Date(prevDate.getFullYear(), prevDate.getMonth() + 1, 1))
+  }, [])
+
+  // 今日へ移動
+  const goToToday = useCallback(() => {
+    const today = new Date()
+    setCurrentMonth(new Date(today.getFullYear(), today.getMonth(), 1))
+    setSelectedDate(today)
+  }, [])
+
+  // カレンダーのレンダリングをメモ化
+  const calendarDays = useMemo(() => {
     const year = currentMonth.getFullYear()
     const month = currentMonth.getMonth()
     const daysInMonth = getDaysInMonth(year, month)
     const firstDayOfMonth = getFirstDayOfMonth(year, month)
+    const today = new Date()
 
     const days = []
 
@@ -75,7 +112,7 @@ export function CalendarView() {
     // 月の各日のセルを追加
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day)
-      const isToday = new Date().toDateString() === date.toDateString()
+      const isToday = today.toDateString() === date.toDateString()
       const isSelected = selectedDate?.toDateString() === date.toDateString()
 
       // この日のイベントを検索
@@ -152,29 +189,19 @@ export function CalendarView() {
     }
 
     return days
-  }
+  }, [currentMonth, selectedDate, getDaysInMonth, getFirstDayOfMonth])
 
-  const prevMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))
-  }
-
-  const nextMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))
-  }
-
-  const goToToday = () => {
-    setCurrentMonth(new Date())
-    setSelectedDate(new Date())
-  }
+  // 現在の月の表示をメモ化
+  const currentMonthDisplay = useMemo(() => {
+    return currentMonth.toLocaleDateString("ja-JP", { year: "numeric", month: "long" })
+  }, [currentMonth])
 
   return (
     <Card>
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center">
-            <h2 className="text-xl font-semibold">
-              {currentMonth.toLocaleDateString("ja-JP", { year: "numeric", month: "long" })}
-            </h2>
+            <h2 className="text-xl font-semibold">{currentMonthDisplay}</h2>
           </div>
           <div className="flex items-center space-x-2">
             <Button variant="outline" size="sm" onClick={goToToday}>
@@ -193,13 +220,13 @@ export function CalendarView() {
           </div>
         </div>
         <div className="grid grid-cols-7 gap-1 mb-1">
-          {["日", "月", "火", "水", "木", "金", "土"].map((day) => (
+          {DAYS_OF_WEEK.map((day) => (
             <div key={day} className="text-center font-medium py-2">
               {day}
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7 gap-1">{renderCalendar()}</div>
+        <div className="grid grid-cols-7 gap-1">{calendarDays}</div>
       </CardContent>
     </Card>
   )

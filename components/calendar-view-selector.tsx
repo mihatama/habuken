@@ -1,4 +1,6 @@
 "use client"
+
+import { useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Calendar, Users, Truck, Clock } from "lucide-react"
 
@@ -18,13 +20,29 @@ export function CalendarViewSelector({
   timeframe,
   setTimeframe,
 }: CalendarViewSelectorProps) {
+  // ビュー変更ハンドラをメモ化
+  const handleViewChange = useCallback(
+    (view: ViewType) => {
+      setActiveView(view)
+    },
+    [setActiveView],
+  )
+
+  // タイムフレーム変更ハンドラをメモ化
+  const handleTimeframeChange = useCallback(
+    (tf: TimeframeType) => {
+      setTimeframe(tf)
+    },
+    [setTimeframe],
+  )
+
   return (
     <div className="flex flex-wrap gap-2 justify-between">
       <div className="flex flex-wrap gap-2">
         <Button
           variant={activeView === "project" ? "default" : "outline"}
           className="text-base h-12 px-4"
-          onClick={() => setActiveView("project")}
+          onClick={() => handleViewChange("project")}
         >
           <Calendar className="mr-2 h-5 w-5" />
           Project View
@@ -32,7 +50,7 @@ export function CalendarViewSelector({
         <Button
           variant={activeView === "staff" ? "default" : "outline"}
           className="text-base h-12 px-4"
-          onClick={() => setActiveView("staff")}
+          onClick={() => handleViewChange("staff")}
         >
           <Users className="mr-2 h-5 w-5" />
           Staff View
@@ -40,7 +58,7 @@ export function CalendarViewSelector({
         <Button
           variant={activeView === "resource" ? "default" : "outline"}
           className="text-base h-12 px-4"
-          onClick={() => setActiveView("resource")}
+          onClick={() => handleViewChange("resource")}
         >
           <Truck className="mr-2 h-5 w-5" />
           Resource View
@@ -48,7 +66,7 @@ export function CalendarViewSelector({
         <Button
           variant={activeView === "timeline" ? "default" : "outline"}
           className="text-base h-12 px-4"
-          onClick={() => setActiveView("timeline")}
+          onClick={() => handleViewChange("timeline")}
         >
           <Clock className="mr-2 h-5 w-5" />
           Timeline View
@@ -59,14 +77,14 @@ export function CalendarViewSelector({
         <Button
           variant={timeframe === "month" ? "default" : "outline"}
           className="text-base h-12 px-4"
-          onClick={() => setTimeframe("month")}
+          onClick={() => handleTimeframeChange("month")}
         >
           Month
         </Button>
         <Button
           variant={timeframe === "week" ? "default" : "outline"}
           className="text-base h-12 px-4"
-          onClick={() => setTimeframe("week")}
+          onClick={() => handleTimeframeChange("week")}
         >
           Week
         </Button>

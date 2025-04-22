@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast"
 
+// バリデーションスキーマ
 const profileFormSchema = z.object({
   name: z.string().min(2, {
     message: "Name must be at least 2 characters.",
@@ -40,7 +41,7 @@ export function ProfileForm() {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
 
-  // Default values for the form
+  // デフォルト値
   const defaultValues: Partial<ProfileFormValues> = {
     name: "John Doe",
     email: "john.doe@example.com",
@@ -55,18 +56,58 @@ export function ProfileForm() {
     defaultValues,
   })
 
-  function onSubmit(data: ProfileFormValues) {
-    setIsLoading(true)
+  // フォーム送信ハンドラをメモ化
+  const onSubmit = useCallback(
+    (data: ProfileFormValues) => {
+      setIsLoading(true)
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false)
-      toast({
-        title: "Profile updated",
-        description: "Your profile has been updated successfully.",
-      })
-    }, 1000)
-  }
+      // API呼び出しをシミュレート
+      setTimeout(() => {
+        setIsLoading(false)
+        toast({
+          title: "Profile updated",
+          description: "Your profile has been updated successfully.",
+        })
+      }, 1000)
+    },
+    [toast],
+  )
+
+  // パスワード変更ハンドラをメモ化
+  const handleChangePassword = useCallback(() => {
+    // パスワード変更ロジックをここに実装
+    toast({
+      title: "Feature not implemented",
+      description: "Password change functionality is not implemented yet.",
+    })
+  }, [toast])
+
+  // 通知設定ハンドラをメモ化
+  const handleNotificationSettings = useCallback(() => {
+    // 通知設定ロジックをここに実装
+    toast({
+      title: "Feature not implemented",
+      description: "Notification settings functionality is not implemented yet.",
+    })
+  }, [toast])
+
+  // 2FA有効化ハンドラをメモ化
+  const handleEnable2FA = useCallback(() => {
+    // 2FA有効化ロジックをここに実装
+    toast({
+      title: "Feature not implemented",
+      description: "Two-factor authentication functionality is not implemented yet.",
+    })
+  }, [toast])
+
+  // アカウント無効化ハンドラをメモ化
+  const handleDeactivateAccount = useCallback(() => {
+    // アカウント無効化ロジックをここに実装
+    toast({
+      title: "Feature not implemented",
+      description: "Account deactivation functionality is not implemented yet.",
+    })
+  }, [toast])
 
   return (
     <div className="grid gap-6 md:grid-cols-2">
@@ -198,7 +239,7 @@ export function ProfileForm() {
           <div>
             <h3 className="text-lg font-medium mb-2">Password</h3>
             <p className="text-sm text-muted-foreground mb-4">Change your password to keep your account secure.</p>
-            <Button variant="outline" className="text-base">
+            <Button variant="outline" className="text-base" onClick={handleChangePassword}>
               Change Password
             </Button>
           </div>
@@ -206,7 +247,7 @@ export function ProfileForm() {
           <div>
             <h3 className="text-lg font-medium mb-2">Notifications</h3>
             <p className="text-sm text-muted-foreground mb-4">Configure how you receive notifications and alerts.</p>
-            <Button variant="outline" className="text-base">
+            <Button variant="outline" className="text-base" onClick={handleNotificationSettings}>
               Notification Settings
             </Button>
           </div>
@@ -214,13 +255,13 @@ export function ProfileForm() {
           <div>
             <h3 className="text-lg font-medium mb-2">Two-Factor Authentication</h3>
             <p className="text-sm text-muted-foreground mb-4">Add an extra layer of security to your account.</p>
-            <Button variant="outline" className="text-base">
+            <Button variant="outline" className="text-base" onClick={handleEnable2FA}>
               Enable 2FA
             </Button>
           </div>
         </CardContent>
         <CardFooter className="border-t pt-6">
-          <Button variant="destructive" className="text-base">
+          <Button variant="destructive" className="text-base" onClick={handleDeactivateAccount}>
             Deactivate Account
           </Button>
         </CardFooter>

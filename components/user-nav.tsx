@@ -1,5 +1,6 @@
 "use client"
 
+import { useCallback } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -15,6 +16,19 @@ import { useRouter } from "next/navigation"
 
 export function UserNav() {
   const router = useRouter()
+
+  // ナビゲーション関数をメモ化
+  const navigateToProfile = useCallback(() => {
+    router.push("/profile")
+  }, [router])
+
+  const navigateToSettings = useCallback(() => {
+    router.push("/settings")
+  }, [router])
+
+  const navigateToLogin = useCallback(() => {
+    router.push("/login")
+  }, [router])
 
   return (
     <DropdownMenu>
@@ -35,15 +49,15 @@ export function UserNav() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem className="cursor-pointer" onClick={() => router.push("/profile")}>
+          <DropdownMenuItem className="cursor-pointer" onClick={navigateToProfile}>
             プロフィール
           </DropdownMenuItem>
-          <DropdownMenuItem className="cursor-pointer" onClick={() => router.push("/settings")}>
+          <DropdownMenuItem className="cursor-pointer" onClick={navigateToSettings}>
             設定
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="cursor-pointer" onClick={() => router.push("/login")}>
+        <DropdownMenuItem className="cursor-pointer" onClick={navigateToLogin}>
           ログアウト
         </DropdownMenuItem>
       </DropdownMenuContent>

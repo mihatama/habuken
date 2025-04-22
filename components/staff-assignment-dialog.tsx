@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -9,6 +9,19 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
+// 型定義
+interface StaffMember {
+  id: number
+  name: string
+  skills: string[]
+}
+
+interface Tool {
+  id: number
+  name: string
+  category: string
+}
+
 interface StaffAssignmentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -16,7 +29,7 @@ interface StaffAssignmentDialogProps {
 }
 
 // モックデータ
-const allStaff = [
+const allStaff: StaffMember[] = [
   { id: 1, name: "石川遼", skills: ["エル", "A.スコット", "参宮池沙希"] },
   { id: 2, name: "しおこ", skills: ["J.トーマス", "J.ラーム", "J.スピース"] },
   { id: 3, name: "イチロー", skills: ["参宮池沙希", "高橋周士", "DJ"] },
@@ -29,7 +42,7 @@ const allStaff = [
   { id: 10, name: "参宮池沙希", skills: ["石川遼"] },
 ]
 
-const allTools = [
+const allTools: Tool[] = [
   { id: 1, name: "洗浄機B", category: "洗浄機" },
   { id: 2, name: "洗浄機A", category: "洗浄機" },
   { id: 3, name: "3号車", category: "車両" },
@@ -53,25 +66,48 @@ export function StaffAssignmentDialog({ open, onOpenChange, eventData }: StaffAs
   const [searchStaff, setSearchStaff] = useState("")
   const [searchTools, setSearchTools] = useState("")
 
-  const filteredStaff = allStaff.filter((staff) => staff.name.toLowerCase().includes(searchStaff.toLowerCase()))
+  // フィルタリングされたスタッフリストをメモ化
+  const filteredStaff = useMemo(() => {
+    return allStaff.filter((staff) => staff.name.toLowerCase().includes(searchStaff.toLowerCase()))
+  }, [searchStaff])
 
-  const filteredTools = allTools.filter((tool) => tool.name.toLowerCase().includes(searchTools.toLowerCase()))
+  // フィルタリングされたツールリストをメモ化
+  const filteredTools = useMemo(() => {
+    return allTools.filter((tool) => tool.name.toLowerCase().includes(searchTools.toLowerCase()))
+  }, [searchTools])
 
-  const handleStaffChange = (staffId: number, checked: boolean) => {
-    if (checked) {
-      setSelectedStaff([...selectedStaff, staffId])
-    } else {
-      setSelectedStaff(selectedStaff.filter((id) => id !== staffId))
-    }
-  }
+  // スタッフの選択状態を変更するハンドラ
+  const handleStaffChange = useCallback((staffId: number, checked: boolean) => {
+    setSelectedStaff((prev) => {
+      if (checked) {
+        return [...prev, staffId]
+      } else {
+        return prev.filter((id) => id !== staffId)
+      }
+    })
+  }, [])
 
-  const handleToolChange = (toolId: number, checked: boolean) => {
-    if (checked) {
-      setSelectedTools([...selectedTools, toolId])
-    } else {
-      setSelectedTools(selectedTools.filter((id) => id !== toolId))
-    }
-  }
+  // ツールの選択状態を変更するハンドラ
+  const handleToolChange = useCallback((toolId: number, checked: boolean) => {
+    setSelectedTools((prev) => {
+      if (checked) {
+        return [...prev, toolId]
+      } else {
+        return prev.filter((id) => id !== toolId)
+      }
+    })
+  }, [])
+
+  // ダイアログを閉じるハンドラ
+  const handleClose = useCallback(() => {
+    onOpenChange(false)
+  }, [onOpenChange])
+
+  // 保存ハンドラ
+  const handleSave = useCallback(() => {
+    // 実際の保存処理をここに実装
+    onOpenChange(false)
+  }, [onOpenChange])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -157,8 +193,10 @@ export function StaffAssignmentDialog({ open, onOpenChange, eventData }: StaffAs
           </Tabs>
         </div>
         <DialogFooter>
-          <Button onClick={() => onOpenChange(false)}>閉じる</Button>
-          <Button type="submit">保存</Button>
+          <Button onClick={handleClose}>閉じる</Button>
+          <Button type="submit" onClick={handleSave}>
+            保存
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

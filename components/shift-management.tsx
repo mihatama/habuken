@@ -1,16 +1,26 @@
 "use client"
 
-import React from "react"
-
-import { useState } from "react"
+import React, { useState, useMemo, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ChevronLeft, ChevronRight, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+// 型定義
+interface Shift {
+  day: number
+  type: string
+}
+
+interface StaffShift {
+  id: number
+  name: string
+  shifts: Shift[]
+}
+
 // モックデータ
-const staffShifts = [
+const staffShifts: StaffShift[] = [
   {
     id: 1,
     name: "目黒太郎",
@@ -92,75 +102,102 @@ const staffShifts = [
   },
 ]
 
+// 日付の配列を生成（1日から12日まで）- メモ化して再計算を防止
+const DAYS = Array.from({ length: 12 }, (_, i) => i + 1)
+
+// シフトタイプに応じたスタイルのマッピング
+const SHIFT_STYLES = {
+  日勤: {
+    bgColor: "bg-amber-100",
+    textColor: "text-amber-800",
+  },
+  夜勤: {
+    bgColor: "bg-blue-100",
+    textColor: "text-blue-800",
+  },
+  有給: {
+    bgColor: "bg-green-100",
+    textColor: "text-green-800",
+  },
+}
+
 export function ShiftManagement() {
   const [currentDate, setCurrentDate] = useState(new Date(2023, 6, 1))
   const [searchTerm, setSearchTerm] = useState("")
 
-  const filteredStaff = staffShifts.filter((staff) => staff.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  // フィルタリングされたスタッフリストをメモ化
+  const filteredStaff = useMemo(() => {
+    return staffShifts.filter((staff) => staff.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  }, [searchTerm])
 
-  const prevMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
-  }
+  // 前月へ移動
+  const prevMonth = useCallback(() => {
+    setCurrentDate((prevDate) => new Date(prevDate.getFullYear(), prevDate.getMonth() - 1, 1))
+  }, [])
 
-  const nextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
-  }
+  // 次月へ移動
+  const nextMonth = useCallback(() => {
+    setCurrentDate((prevDate) => new Date(prevDate.getFullYear(), prevDate.getMonth() + 1, 1))
+  }, [])
 
-  const getShiftType = (staffId: number, day: number) => {
+  // シフトタイプを取得する関数
+  const getShiftType = useCallback((staffId: number, day: number) => {
     const staff = staffShifts.find((s) => s.id === staffId)
     if (!staff) return null
 
     const shift = staff.shifts.find((s) => s.day === day)
     return shift ? shift.type : null
-  }
+  }, [])
 
-  const renderShiftCell = (staffId: number, day: number) => {
-    const shiftType = getShiftType(staffId, day)
+  // シフトセルをレンダリングする関数
+  const renderShiftCell = useCallback(
+    (staffId: number, day: number) => {
+      const shiftType = getShiftType(staffId, day)
 
-    if (!shiftType) return <div className="h-10 border-b border-r"></div>
+      if (!shiftType) return <div className="h-10 border-b border-r"></div>
 
-    let bgColor = ""
-    let textColor = ""
+      const { bgColor, textColor } = SHIFT_STYLES[shiftType as keyof typeof SHIFT_STYLES] || {}
 
-    switch (shiftType) {
-      case "日勤":
-        bgColor = "bg-amber-100"
-        textColor = "text-amber-800"
-        break
-      case "夜勤":
-        bgColor = "bg-blue-100"
-        textColor = "text-blue-800"
-        break
-      case "有給":
-        bgColor = "bg-green-100"
-        textColor = "text-green-800"
-        break
-    }
+      return (
+        <div
+          className={cn(
+            "h-10 border-b border-r flex items-center justify-center text-xs font-medium",
+            bgColor,
+            textColor,
+          )}
+        >
+          {shiftType}
+        </div>
+      )
+    },
+    [getShiftType],
+  )
 
-    return (
-      <div
-        className={cn(
-          "h-10 border-b border-r flex items-center justify-center text-xs font-medium",
-          bgColor,
-          textColor,
-        )}
-      >
-        {shiftType}
+  // 現在の月の表示をメモ化
+  const currentMonthDisplay = useMemo(() => {
+    return currentDate.toLocaleDateString("ja-JP", { year: "numeric", month: "long" })
+  }, [currentDate])
+
+  // 日付ヘッダーをメモ化
+  const dateHeaders = useMemo(() => {
+    return DAYS.map((day) => (
+      <div key={day} className="font-medium p-2 text-center border-b border-r">
+        <div>{day}日</div>
+        <div className="text-xs text-muted-foreground">
+          {new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toLocaleDateString("ja-JP", {
+            weekday: "short",
+          })}
+        </div>
       </div>
-    )
-  }
-
-  // 日付の配列を生成（1日から12日まで）
-  const days = Array.from({ length: 12 }, (_, i) => i + 1)
+    ))
+  }, [currentDate])
 
   return (
     <Card>
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center">
-            <h2 className="text-xl font-semibold">
-              {currentDate.toLocaleDateString("ja-JP", { year: "numeric", month: "long" })}
-            </h2>
+            <h2 className="text-xl font-semibold">{currentMonthDisplay}</h2>
           </div>
           <div className="flex items-center space-x-4">
             <div className="relative">
@@ -188,16 +225,7 @@ export function ShiftManagement() {
             <div className="grid grid-cols-[200px_repeat(12,1fr)]">
               {/* ヘッダー行 */}
               <div className="font-medium p-2 border-b border-r">スタッフ</div>
-              {days.map((day) => (
-                <div key={day} className="font-medium p-2 text-center border-b border-r">
-                  <div>{day}日</div>
-                  <div className="text-xs text-muted-foreground">
-                    {new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toLocaleDateString("ja-JP", {
-                      weekday: "short",
-                    })}
-                  </div>
-                </div>
-              ))}
+              {dateHeaders}
 
               {/* スタッフ行 */}
               {filteredStaff.map((staff) => (
@@ -208,7 +236,7 @@ export function ShiftManagement() {
                     </div>
                     <span>{staff.name}</span>
                   </div>
-                  {days.map((day) => (
+                  {DAYS.map((day) => (
                     <div key={`${staff.id}-${day}`}>{renderShiftCell(staff.id, day)}</div>
                   ))}
                 </React.Fragment>
