@@ -32,22 +32,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
-  // Add cache control headers for different types of resources
-  const url = request.nextUrl.pathname
-
-  // Static assets caching
-  if (url.includes("/_next/static")) {
-    res.headers.set("Cache-Control", "public, max-age=31536000, immutable")
-  }
-  // API routes - no caching
-  else if (url.includes("/api/")) {
-    res.headers.set("Cache-Control", "no-store, max-age=0")
-  }
-  // Dynamic pages - short cache
-  else if (!isPublicRoute && !url.includes(".")) {
-    res.headers.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300")
-  }
-
   return res
 }
 
