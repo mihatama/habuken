@@ -14,15 +14,15 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 
 // Define the props interface
-export interface SettingsTabsProps {
+interface SettingsTabsProps {
   items?: Array<{
     title: string
     href: string
   }>
 }
 
-// Export the component with the correct props type
-export function SettingsTabs({ items = [] }: SettingsTabsProps) {
+// Define the component
+function SettingsTabsComponent({ items = [] }: SettingsTabsProps) {
   const pathname = usePathname()
   const [calendarSettings, setCalendarSettings] = useState({
     showStaffNames: true,
@@ -419,3 +419,6 @@ export function SettingsTabs({ items = [] }: SettingsTabsProps) {
     </div>
   )
 }
+
+// Export the component
+export { SettingsTabsComponent as SettingsTabs }

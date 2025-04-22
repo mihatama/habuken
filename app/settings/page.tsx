@@ -16,7 +16,9 @@ export default function SettingsPage() {
       <main className="flex-1 p-6">
         <div className="container mx-auto">
           <h1 className="text-2xl font-bold mb-6">設定</h1>
-          <SettingsTabs items={settingsTabItems} />
+          <div>
+            <SettingsTabs items={settingsTabItems} />
+          </div>
         </div>
       </main>
     </div>
