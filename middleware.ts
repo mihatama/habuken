@@ -1,54 +1,45 @@
-// 静的エクスポート用に一時的にミドルウェアを無効化
-// Amplifyでのデプロイが成功したら、必要に応じて再度有効化してください
-
-/*
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase"
 
-// 認証が必要なパス
-const protectedPaths = [
+// 保護されたルートのリスト
+const protectedRoutes = [
   "/dashboard",
   "/projects",
+  "/tasks",
   "/staff",
   "/tools",
-  "/shifts",
-  "/leave",
   "/reports",
-  "/profile",
   "/settings",
+  "/profile",
+  "/leave",
+  "/shifts",
   "/master",
   "/admin",
-  "/report",
   "/inspection",
+  "/report",
 ]
 
-// 認証済みユーザーがアクセスできないパス
-const authRoutes = ["/login", "/signup", "/forgot-password", "/reset-password"]
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
 
-export async function middleware(request: NextRequest) {
-  const supabase = createServerSupabaseClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  // デモモード用のクッキーチェック
+  const isLoggedIn = request.cookies.has("logged_in")
 
-  const path = request.nextUrl.pathname
+  // 開発環境ではログインチェックをスキップ
+  const isDevelopment = process.env.NODE_ENV === "development"
 
-  // 認証が必要なパスへのアクセスで未認証の場合
-  const isProtectedPath = protectedPaths.some(
-    (protectedPath) => path === protectedPath || path.startsWith(`${protectedPath}/`),
-  )
-
-  if (isProtectedPath && !session) {
-    const redirectUrl = new URL("/login", request.url)
-    redirectUrl.searchParams.set("redirect", path)
-    return NextResponse.redirect(redirectUrl)
+  // ルートパスへのアクセスをログインページにリダイレクト
+  if (pathname === "/") {
+    return NextResponse.redirect(new URL("/login", request.url))
   }
 
-  // 認証済みユーザーが認証ページにアクセスした場合
-  const isAuthRoute = authRoutes.some((route) => path === route || path.startsWith(`${route}/`))
+  // 保護されたルートへのアクセスで、ログインしていない場合はログインページへリダイレクト
+  if (protectedRoutes.some((route) => pathname.startsWith(route)) && !isLoggedIn && !isDevelopment) {
+    return NextResponse.redirect(new URL("/login", request.url))
+  }
 
-  if (isAuthRoute && session) {
+  // ログイン済みでログインページにアクセスした場合はダッシュボードへリダイレクト
+  if ((pathname === "/login" || pathname === "/signup") && isLoggedIn) {
     return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
@@ -57,14 +48,13 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public (public files)
+     */
     "/((?!_next/static|_next/image|favicon.ico|public).*)",
   ],
-}
-*/
-
-// 静的エクスポート用の空のミドルウェア
-export function middleware() {}
-
-export const config = {
-  matcher: [],
 }
