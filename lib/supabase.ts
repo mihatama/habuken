@@ -1,40 +1,49 @@
 import { createClient } from "@supabase/supabase-js"
+import type { Database } from "@/types/database"
 
-// サーバーサイドのSupabaseクライアント
-export const createServerSupabaseClient = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+// サーバーコンポーネント用のSupabaseクライアント
+export function createServerSupabaseClient() {
+  const supabaseUrl = process.env.SUPABASE_URL!
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
   if (!supabaseUrl || !supabaseKey) {
-    throw new Error("Missing Supabase environment variables")
+    console.error("サーバー側のSupabase環境変数が設定されていません")
+    throw new Error("サーバー側のSupabase環境変数が設定されていません")
   }
 
-  return createClient(supabaseUrl, supabaseKey, {
+  return createClient<Database>(supabaseUrl, supabaseKey, {
     auth: {
       persistSession: false,
     },
   })
 }
 
-// クライアントサイドのSupabaseクライアント（シングルトンパターン）
-let clientSupabaseClient: ReturnType<typeof createClient> | null = null
+// シングルトンパターンでクライアント側のSupabaseインスタンスを管理
+let clientInstance: ReturnType<typeof createClient> | null = null
 
-export const getClientSupabaseInstance = () => {
-  if (clientSupabaseClient) return clientSupabaseClient
+// クライアントコンポーネント用のSupabaseクライアント
+export function getClientSupabaseInstance() {
+  if (clientInstance) return clientInstance
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  // 環境変数が存在するか確認し、コンソールに出力（デバッグ用）
+  console.log("NEXT_PUBLIC_SUPABASE_URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
+  console.log("NEXT_PUBLIC_SUPABASE_ANON_KEY exists:", !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
   if (!supabaseUrl || !supabaseKey) {
-    throw new Error("Missing Supabase environment variables")
+    console.error("クライアント側のSupabase環境変数が設定されていません")
+    console.warn("デモモードのみ利用可能です")
+    // エラーをスローせず、nullを返す
+    return null
   }
 
-  clientSupabaseClient = createClient(supabaseUrl, supabaseKey, {
-    auth: {
-      persistSession: true,
-      storageKey: "supabase-auth",
-    },
-  })
-
-  return clientSupabaseClient
+  try {
+    clientInstance = createClient<Database>(supabaseUrl, supabaseKey)
+    return clientInstance
+  } catch (error) {
+    console.error("Supabaseクライアントの作成に失敗しました:", error)
+    return null
+  }
 }
