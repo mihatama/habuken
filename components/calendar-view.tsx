@@ -1,20 +1,41 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ProjectCalendar } from "@/components/project-calendar"
 import { StaffCalendar } from "@/components/staff-calendar"
 import { ToolCalendar } from "@/components/tool-calendar"
 import { CalendarViewSelector, type ViewType, type TimeframeType } from "@/components/calendar-view-selector"
 
-// カレンダービューのprops型定義
+// CalendarViewProps インターフェースを更新して、activeView と timeframe プロパティも受け入れるようにします
 interface CalendarViewProps {
   initialView?: ViewType
   initialTimeframe?: TimeframeType
+  activeView?: ViewType
+  timeframe?: TimeframeType
 }
 
-export function CalendarView({ initialView = "project", initialTimeframe = "month" }: CalendarViewProps) {
-  const [activeView, setActiveView] = useState<ViewType>(initialView)
-  const [timeframe, setTimeframe] = useState<TimeframeType>(initialTimeframe)
+// コンポーネントの引数を更新して、新しいプロパティを使用します
+export function CalendarView({
+  initialView = "project",
+  initialTimeframe = "month",
+  activeView: externalActiveView,
+  timeframe: externalTimeframe,
+}: CalendarViewProps) {
+  const [activeView, setActiveView] = useState<ViewType>(externalActiveView || initialView)
+  const [timeframe, setTimeframe] = useState<TimeframeType>(externalTimeframe || initialTimeframe)
+
+  // 外部から提供された値が変更された場合に状態を更新
+  useEffect(() => {
+    if (externalActiveView) {
+      setActiveView(externalActiveView)
+    }
+  }, [externalActiveView])
+
+  useEffect(() => {
+    if (externalTimeframe) {
+      setTimeframe(externalTimeframe)
+    }
+  }, [externalTimeframe])
 
   return (
     <div className="space-y-6">
