@@ -4,6 +4,20 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session, User, AuthError } from "@supabase/supabase-js"
 import { getClientSupabaseInstance } from "@/lib/supabase"
 
+// パスワード強度チェック用の正規表現
+const PASSWORD_REGEX = {
+  minLength: /.{8,}/,
+  hasUpperCase: /[A-Z]/,
+  hasLowerCase: /[a-z]/,
+  hasNumber: /[0-9]/,
+  hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/,
+}
+
+export type PasswordStrength = {
+  isValid: boolean
+  errors: string[]
+}
+
 type AuthContextType = {
   user: User | null
   session: Session | null
@@ -28,6 +42,7 @@ type AuthContextType = {
     error: AuthError | null
     data: {} | null
   }>
+  checkPasswordStrength: (password: string) => PasswordStrength
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -36,11 +51,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const supabase = getClientSupabaseInstance()
+  const [supabase, setSupabase] = useState<any>(null)
+
+  // Supabaseクライアントの初期化
+  useEffect(() => {
+    try {
+      const client = getClientSupabaseInstance()
+      setSupabase(client)
+    } catch (error) {
+      console.error("Supabaseクライアントの初期化に失敗しました:", error)
+    }
+  }, [])
 
   useEffect(() => {
     // セッションの初期化
     const initializeSession = async () => {
+      if (!supabase) return
+
       try {
         console.log("Initializing session...")
         const { data, error } = await supabase.auth.getSession()
@@ -73,11 +100,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    initializeSession()
-  }, [])
+    if (supabase) {
+      initializeSession()
+    }
+  }, [supabase])
+
+  // パスワード強度チェック
+  const checkPasswordStrength = (password: string): PasswordStrength => {
+    const errors: string[] = []
+
+    if (!PASSWORD_REGEX.minLength.test(password)) {
+      errors.push("パスワードは8文字以上である必要があります")
+    }
+
+    if (!PASSWORD_REGEX.hasUpperCase.test(password)) {
+      errors.push("大文字を含める必要があります")
+    }
+
+    if (!PASSWORD_REGEX.hasLowerCase.test(password)) {
+      errors.push("小文字を含める必要があります")
+    }
+
+    if (!PASSWORD_REGEX.hasNumber.test(password)) {
+      errors.push("数字を含める必要があります")
+    }
+
+    if (!PASSWORD_REGEX.hasSpecialChar.test(password)) {
+      errors.push("特殊文字を含める必要があります")
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+    }
+  }
 
   const signUp = async (email: string, password: string, metadata?: { full_name?: string }) => {
     try {
+      if (!supabase) {
+        return {
+          error: {
+            message: "Supabase環境変数が設定されていないため、サインアップできません。",
+          } as AuthError,
+          data: null,
+        }
+      }
+
+      // パスワード強度チェック
+      const passwordCheck = checkPasswordStrength(password)
+      if (!passwordCheck.isValid) {
+        return {
+          error: {
+            message: `パスワードが要件を満たしていません: ${passwordCheck.errors.join(", ")}`,
+          } as AuthError,
+          data: null,
+        }
+      }
+
       console.log("Signing up with:", email)
       const result = await supabase.auth.signUp({
         email,
@@ -123,6 +202,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try {
+      if (!supabase) {
+        console.error("Supabaseクライアントが初期化されていません")
+        return
+      }
+
       await supabase.auth.signOut()
     } catch (err) {
       console.error("Sign out error:", err)
@@ -131,6 +215,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = async (email: string) => {
     try {
+      if (!supabase) {
+        return {
+          error: {
+            message: "Supabase環境変数が設定されていないため、パスワードリセットできません。",
+          } as AuthError,
+          data: null,
+        }
+      }
+
       return await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       })
@@ -148,6 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signIn,
     signOut,
     resetPassword,
+    checkPasswordStrength,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
