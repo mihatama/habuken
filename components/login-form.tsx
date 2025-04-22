@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
+import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -128,6 +129,11 @@ export function LoginForm() {
                 <Input type="password" placeholder="パスワードを入力" {...field} className="text-base h-12" />
               </FormControl>
               <FormMessage />
+              <div className="text-sm text-right">
+                <Link href="/forgot-password" className="text-primary hover:underline">
+                  パスワードをお忘れですか？
+                </Link>
+              </div>
             </FormItem>
           )}
         />
