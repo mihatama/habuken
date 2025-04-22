@@ -112,17 +112,39 @@ function InspectionPreview({
   formData,
   inspectionItems,
   projectName,
-  getDayOfWeek,
-  getReiwaYear,
-  getWeatherIcon,
 }: {
   formData: any
   inspectionItems: InspectionItem[]
   projectName: string | undefined
-  getDayOfWeek: (date: string) => string
-  getReiwaYear: (date: string) => number
-  getWeatherIcon: () => JSX.Element
 }) {
+  // 曜日を取得する関数
+  const getDayOfWeek = (dateString: string) => {
+    const date = new Date(dateString)
+    return format(date, "EEEE", { locale: ja })
+  }
+
+  // 令和年を取得する関数
+  const getReiwaYear = (dateString: string) => {
+    const date = new Date(dateString)
+    const year = date.getFullYear()
+    // 令和は2019年5月1日から
+    return year - 2018
+  }
+
+  // 天気アイコンを取得
+  const getWeatherIcon = () => {
+    switch (formData.weather) {
+      case "sunny":
+        return <Sun className="h-5 w-5 text-yellow-500" aria-label="晴れ" />
+      case "cloudy":
+        return <Cloud className="h-5 w-5 text-gray-500" aria-label="曇り" />
+      case "rainy":
+        return <CloudRain className="h-5 w-5 text-blue-500" aria-label="雨" />
+      default:
+        return <Sun className="h-5 w-5 text-yellow-500" aria-label="晴れ" />
+    }
+  }
+
   return (
     <div className="border rounded-md p-4 bg-white">
       <div className="text-center text-2xl font-bold mb-4">安全巡視記録</div>
@@ -208,7 +230,7 @@ function InspectionPreview({
 }
 
 export function SafetyInspectionForm() {
-  // 既存のuseStateを保持
+  // 状態管理
   const [inspectionItems, setInspectionItems] = useState<InspectionItem[]>([
     { id: 1, category: "作業環境", item: "作業場所の整理整頓", status: "ok", notes: "" },
     { id: 2, category: "安全対策", item: "安全帯の着用", status: "ok", notes: "" },
@@ -222,24 +244,9 @@ export function SafetyInspectionForm() {
     generalNotes: "",
   })
 
-  // 新しいuseStateとuseToastを追加
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
   const { toast } = useToast()
-
-  // 曜日を取得する関数
-  const getDayOfWeek = (dateString: string) => {
-    const date = new Date(dateString)
-    return format(date, "EEEE", { locale: ja })
-  }
-
-  // 令和年を取得する関数
-  const getReiwaYear = (dateString: string) => {
-    const date = new Date(dateString)
-    const year = date.getFullYear()
-    // 令和は2019年5月1日から
-    return year - 2018
-  }
 
   // 点検項目を追加
   const addInspectionItem = () => {
@@ -254,13 +261,7 @@ export function SafetyInspectionForm() {
 
   // 点検項目情報の更新
   const updateInspectionItem = (id: number, field: string, value: string) => {
-    const updatedItems = inspectionItems.map((item) => {
-      if (item.id === id) {
-        return { ...item, [field]: value }
-      }
-      return item
-    })
-    setInspectionItems(updatedItems)
+    setInspectionItems(inspectionItems.map((item) => (item.id === id ? { ...item, [field]: value } : item)))
   }
 
   // フォームバリデーション
@@ -304,7 +305,6 @@ export function SafetyInspectionForm() {
       console.log("保存された安全巡視記録:", inspectionData)
       // ここで実際のAPIに保存処理を実装
 
-      // 成功トースト
       toast({
         title: "保存完了",
         description: "安全巡視記録が保存されました",
@@ -324,11 +324,7 @@ export function SafetyInspectionForm() {
   // Excelとして出力
   const exportToExcel = () => {
     try {
-      console.log("Excel出力:", {
-        ...formData,
-        inspectionItems,
-      })
-      // ここで実際のExcel出力処理を実装
+      console.log("Excel出力:", { ...formData, inspectionItems })
       toast({
         title: "Excel出力",
         description: "Excelファイルがダウンロードされます",
@@ -345,25 +341,10 @@ export function SafetyInspectionForm() {
 
   // 写真を撮影
   const takePhoto = () => {
-    // カメラ機能の実装
     toast({
       title: "カメラ機能",
       description: "カメラ機能は実装中です",
     })
-  }
-
-  // 天気アイコンを取得
-  const getWeatherIcon = () => {
-    switch (formData.weather) {
-      case "sunny":
-        return <Sun className="h-5 w-5 text-yellow-500" aria-label="晴れ" />
-      case "cloudy":
-        return <Cloud className="h-5 w-5 text-gray-500" aria-label="曇り" />
-      case "rainy":
-        return <CloudRain className="h-5 w-5 text-blue-500" aria-label="雨" />
-      default:
-        return <Sun className="h-5 w-5 text-yellow-500" aria-label="晴れ" />
-    }
   }
 
   // 選択されたプロジェクト名を取得
@@ -422,7 +403,9 @@ export function SafetyInspectionForm() {
             <Label htmlFor="weather">天候</Label>
             <Select value={formData.weather} onValueChange={(value) => setFormData({ ...formData, weather: value })}>
               <SelectTrigger id="weather" className="flex items-center">
-                {getWeatherIcon()}
+                {formData.weather === "sunny" && <Sun className="h-5 w-5 text-yellow-500" aria-label="晴れ" />}
+                {formData.weather === "cloudy" && <Cloud className="h-5 w-5 text-gray-500" aria-label="曇り" />}
+                {formData.weather === "rainy" && <CloudRain className="h-5 w-5 text-blue-500" aria-label="雨" />}
                 <SelectValue className="ml-2" />
               </SelectTrigger>
               <SelectContent>
@@ -530,14 +513,7 @@ export function SafetyInspectionForm() {
 
       <div className="mt-8 border-t pt-6">
         <h3 className="text-lg font-medium mb-4">プレビュー</h3>
-        <InspectionPreview
-          formData={formData}
-          inspectionItems={inspectionItems}
-          projectName={selectedProject?.name}
-          getDayOfWeek={getDayOfWeek}
-          getReiwaYear={getReiwaYear}
-          getWeatherIcon={getWeatherIcon}
-        />
+        <InspectionPreview formData={formData} inspectionItems={inspectionItems} projectName={selectedProject?.name} />
       </div>
     </div>
   )

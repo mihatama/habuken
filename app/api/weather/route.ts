@@ -38,7 +38,6 @@ async function fetchWeatherFromAPI(city: string) {
 }
 
 export async function GET(request: Request) {
-  // searchParamsを使用するが、headers()は使用しない
   const { searchParams } = new URL(request.url)
   const city = searchParams.get("city") || "Tokyo"
 

@@ -8,58 +8,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import {
-  Mic,
-  MicOff,
-  Plus,
-  Trash2,
-  Save,
-  Download,
-  Camera,
-  Sun,
-  Cloud,
-  CloudRain,
-  CloudSnow,
-  Cloudy,
-} from "lucide-react"
+import { Mic, MicOff, Plus, Trash2, Save, Download, Camera, Sun, Cloud, CloudRain, CloudSnow } from "lucide-react"
 import { sampleProjects, sampleStaff } from "@/data/sample-data"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
 import { getWeatherData } from "@/lib/weather-api"
 import { useToast } from "@/components/ui/use-toast"
 
-// Web Speech API の型定義
-interface SpeechRecognitionEvent extends Event {
-  resultIndex: number
-  results: {
-    length: number
-    item(index: number): {
-      item(index: number): {
-        transcript: string
-      }
-      isFinal: boolean
-    }
-    [index: number]: {
-      [index: number]: {
-        transcript: string
-      }
-      isFinal: boolean
-    }
-  }
-}
-
-interface SpeechRecognition extends EventTarget {
-  continuous: boolean
-  interimResults: boolean
-  lang: string
-  start: () => void
-  stop: () => void
-  onresult: (event: SpeechRecognitionEvent) => void
-  onerror: (event: Event) => void
-  onend: () => void
-}
-
-// Worker型の定義
+// 基本的な型定義
 type Worker = {
   id: number
   name: string
@@ -69,7 +25,6 @@ type Worker = {
   workContent: string
 }
 
-// Material型の定義
 type Material = {
   id: number
   name: string
@@ -82,7 +37,6 @@ type Material = {
   status: string
 }
 
-// OtherMachine型の定義
 type OtherMachine = {
   id: number
   name: string
@@ -91,7 +45,6 @@ type OtherMachine = {
   status: string
 }
 
-// FormData型の定義
 type FormDataType = {
   projectId: string
   date: string
@@ -101,8 +54,495 @@ type FormDataType = {
   weatherIcon: string
 }
 
+// 作業員行コンポーネント
+function WorkerRow({
+  worker,
+  index,
+  updateWorker,
+  removeWorker,
+  isRemoveDisabled,
+  isRecording,
+  startSpeechRecognition,
+  stopSpeechRecognition,
+}: {
+  worker: Worker
+  index: number
+  updateWorker: (id: number, field: string, value: string) => void
+  removeWorker: (id: number) => void
+  isRemoveDisabled: boolean
+  isRecording: boolean
+  startSpeechRecognition: (workerId: number) => void
+  stopSpeechRecognition: () => void
+}) {
+  return (
+    <TableRow>
+      <TableCell>{index + 1}</TableCell>
+      <TableCell>
+        <Select value={worker.name} onValueChange={(value) => updateWorker(worker.id, "name", value)}>
+          <SelectTrigger className="h-8">
+            <SelectValue placeholder="選択" />
+          </SelectTrigger>
+          <SelectContent>
+            {sampleStaff.map((staff) => (
+              <SelectItem key={staff.id} value={staff.name}>
+                {staff.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </TableCell>
+      <TableCell>
+        <Input
+          type="number"
+          value={worker.workHours}
+          onChange={(e) => updateWorker(worker.id, "workHours", e.target.value)}
+          className="h-8"
+          placeholder="時間"
+          aria-label={`作業員${index + 1}の労働時間`}
+        />
+      </TableCell>
+      <TableCell>
+        <Input
+          type="number"
+          value={worker.overtimeHours}
+          onChange={(e) => updateWorker(worker.id, "overtimeHours", e.target.value)}
+          className="h-8"
+          placeholder="時間"
+          aria-label={`作業員${index + 1}の残業時間`}
+        />
+      </TableCell>
+      <TableCell>
+        <Input
+          value={worker.notes}
+          onChange={(e) => updateWorker(worker.id, "notes", e.target.value)}
+          className="h-8"
+          placeholder="記事"
+          aria-label={`作業員${index + 1}の記事`}
+        />
+      </TableCell>
+      <TableCell className="relative">
+        <div className="flex">
+          <Textarea
+            value={worker.workContent}
+            onChange={(e) => updateWorker(worker.id, "workContent", e.target.value)}
+            className="min-h-[60px] text-sm"
+            placeholder="作業内容"
+            aria-label={`作業員${index + 1}の作業内容`}
+          />
+          <div className="flex flex-col ml-1">
+            {isRecording ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={stopSpeechRecognition}
+                className="h-8 w-8 text-red-500"
+                aria-label="音声入力停止"
+              >
+                <MicOff className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => startSpeechRecognition(worker.id)}
+                className="h-8 w-8"
+                aria-label="音声入力開始"
+              >
+                <Mic className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </TableCell>
+      <TableCell>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => removeWorker(worker.id)}
+          disabled={isRemoveDisabled}
+          aria-label={`作業員${index + 1}を削除`}
+        >
+          <Trash2 className="h-4 w-4 text-red-500" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  )
+}
+
+// 資材行コンポーネント
+function MaterialRow({
+  material,
+  index,
+  updateMaterial,
+  removeMaterial,
+  isRemoveDisabled,
+}: {
+  material: Material
+  index: number
+  updateMaterial: (id: number, field: string, value: string) => void
+  removeMaterial: (id: number) => void
+  isRemoveDisabled: boolean
+}) {
+  return (
+    <TableRow>
+      <TableCell>
+        <Input
+          value={material.name}
+          onChange={(e) => updateMaterial(material.id, "name", e.target.value)}
+          className="h-8"
+          placeholder="資材名"
+          aria-label={`資材${index + 1}の名前`}
+        />
+      </TableCell>
+      <TableCell>
+        <Input
+          value={material.spec}
+          onChange={(e) => updateMaterial(material.id, "spec", e.target.value)}
+          className="h-8"
+          placeholder="規格"
+          aria-label={`資材${index + 1}の規格`}
+        />
+      </TableCell>
+      <TableCell>
+        <Input
+          value={material.unit}
+          onChange={(e) => updateMaterial(material.id, "unit", e.target.value)}
+          className="h-8"
+          placeholder="単位"
+          aria-label={`資材${index + 1}の単位`}
+        />
+      </TableCell>
+      <TableCell>
+        <Input
+          type="number"
+          value={material.quantity}
+          onChange={(e) => updateMaterial(material.id, "quantity", e.target.value)}
+          className="h-8"
+          placeholder="数量"
+          aria-label={`資材${index + 1}の数量`}
+        />
+      </TableCell>
+      <TableCell>
+        <Input
+          value={material.machineType}
+          onChange={(e) => updateMaterial(material.id, "machineType", e.target.value)}
+          className="h-8"
+          placeholder="機械名"
+          aria-label={`資材${index + 1}の機械名`}
+        />
+      </TableCell>
+      <TableCell>
+        <Input
+          value={material.model}
+          onChange={(e) => updateMaterial(material.id, "model", e.target.value)}
+          className="h-8"
+          placeholder="型式"
+          aria-label={`資材${index + 1}の型式`}
+        />
+      </TableCell>
+      <TableCell>
+        <Input
+          type="number"
+          value={material.units}
+          onChange={(e) => updateMaterial(material.id, "units", e.target.value)}
+          className="h-8"
+          placeholder="台数"
+          aria-label={`資材${index + 1}の台数`}
+        />
+      </TableCell>
+      <TableCell>
+        <Input
+          value={material.status}
+          onChange={(e) => updateMaterial(material.id, "status", e.target.value)}
+          className="h-8"
+          placeholder="稼働"
+          aria-label={`資材${index + 1}の稼働状況`}
+        />
+      </TableCell>
+      <TableCell>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => removeMaterial(material.id)}
+          disabled={isRemoveDisabled}
+          aria-label={`資材${index + 1}を削除`}
+        >
+          <Trash2 className="h-4 w-4 text-red-500" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  )
+}
+
+// 他社機械行コンポーネント
+function OtherMachineRow({
+  machine,
+  index,
+  updateOtherMachine,
+  removeOtherMachine,
+  isRemoveDisabled,
+}: {
+  machine: OtherMachine
+  index: number
+  updateOtherMachine: (id: number, field: string, value: string) => void
+  removeOtherMachine: (id: number) => void
+  isRemoveDisabled: boolean
+}) {
+  return (
+    <TableRow>
+      <TableCell>
+        <Input
+          value={machine.name}
+          onChange={(e) => updateOtherMachine(machine.id, "name", e.target.value)}
+          className="h-8"
+          placeholder="機械名"
+          aria-label={`他社機械${index + 1}の名前`}
+        />
+      </TableCell>
+      <TableCell>
+        <Input
+          value={machine.operator}
+          onChange={(e) => updateOtherMachine(machine.id, "operator", e.target.value)}
+          className="h-8"
+          placeholder="業者名"
+          aria-label={`他社機械${index + 1}の業者名`}
+        />
+      </TableCell>
+      <TableCell>
+        <Input
+          type="number"
+          value={machine.units}
+          onChange={(e) => updateOtherMachine(machine.id, "units", e.target.value)}
+          className="h-8"
+          placeholder="台数"
+          aria-label={`他社機械${index + 1}の台数`}
+        />
+      </TableCell>
+      <TableCell>
+        <Input
+          value={machine.status}
+          onChange={(e) => updateOtherMachine(machine.id, "status", e.target.value)}
+          className="h-8"
+          placeholder="稼働"
+          aria-label={`他社機械${index + 1}の稼働状況`}
+        />
+      </TableCell>
+      <TableCell>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => removeOtherMachine(machine.id)}
+          disabled={isRemoveDisabled}
+          aria-label={`他社機械${index + 1}を削除`}
+        >
+          <Trash2 className="h-4 w-4 text-red-500" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  )
+}
+
+// 日報プレビューコンポーネント
+function DailyReportPreview({
+  formData,
+  workers,
+  materials,
+  otherMachines,
+  selectedProject,
+}: {
+  formData: FormDataType
+  workers: Worker[]
+  materials: Material[]
+  otherMachines: OtherMachine[]
+  selectedProject: any
+}) {
+  // 曜日を取得する関数
+  const getDayOfWeek = (dateString: string) => {
+    const date = new Date(dateString)
+    return format(date, "EEEE", { locale: ja })
+  }
+
+  // 令和年を取得する関数
+  const getReiwaYear = (dateString: string) => {
+    const date = new Date(dateString)
+    const year = date.getFullYear()
+    // 令和は2019年5月1日から
+    return year - 2018
+  }
+
+  // 天気アイコンを取得
+  const getWeatherIcon = () => {
+    switch (formData.weather) {
+      case "sunny":
+        return <Sun className="h-5 w-5 text-yellow-500" aria-label="晴れ" />
+      case "cloudy":
+        return <Cloud className="h-5 w-5 text-gray-500" aria-label="曇り" />
+      case "rainy":
+        return <CloudRain className="h-5 w-5 text-blue-500" aria-label="雨" />
+      case "snowy":
+        return <CloudSnow className="h-5 w-5 text-blue-200" aria-label="雪" />
+      default:
+        return <Sun className="h-5 w-5 text-yellow-500" aria-label="晴れ" />
+    }
+  }
+
+  return (
+    <div className="border rounded-md p-4 bg-white">
+      <div className="text-center text-2xl font-bold mb-4">作業日報</div>
+
+      <div className="border border-gray-300">
+        <div className="grid grid-cols-4 border-b border-gray-300">
+          <div className="col-span-3 border-r border-gray-300 p-2">
+            <div className="font-bold">工事名</div>
+            <div>{selectedProject?.name || "未選択"}</div>
+          </div>
+          <div className="p-2">
+            <div className="font-bold">記録番号</div>
+            <div>自動採番</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-6 border-b border-gray-300">
+          <div className="col-span-4 border-r border-gray-300 p-2">
+            <div className="flex items-center">
+              <span>令和</span>
+              <span className="mx-2">{getReiwaYear(formData.date)}</span>
+              <span>年</span>
+              <span className="mx-2">{new Date(formData.date).getMonth() + 1}</span>
+              <span>月</span>
+              <span className="mx-2">{new Date(formData.date).getDate()}</span>
+              <span>日</span>
+              <span className="mx-2">（{getDayOfWeek(formData.date)}）</span>
+            </div>
+          </div>
+          <div className="col-span-1 border-r border-gray-300 p-2 flex items-center justify-center">
+            <div className="text-center">
+              <div className="font-bold">天候</div>
+              <div className="flex flex-col items-center">
+                {getWeatherIcon()}
+                <div className="text-sm mt-1">{formData.temperature > 0 && `${formData.temperature}°C`}</div>
+              </div>
+            </div>
+          </div>
+          <div className="col-span-1 p-2">
+            <div className="font-bold">承認</div>
+            <div></div>
+          </div>
+        </div>
+
+        <div className="border-b border-gray-300">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr>
+                <th className="border-r border-b border-gray-300 p-2 w-10">No.</th>
+                <th className="border-r border-b border-gray-300 p-2">氏名</th>
+                <th className="border-r border-b border-gray-300 p-2 w-24 text-center" colSpan={2}>
+                  <div>労働時間</div>
+                  <div className="grid grid-cols-2">
+                    <div className="border-r border-gray-300 p-1">時間</div>
+                    <div className="p-1">残業</div>
+                  </div>
+                </th>
+                <th className="border-r border-b border-gray-300 p-2">記事</th>
+                <th className="border-b border-gray-300 p-2">作業内容</th>
+              </tr>
+            </thead>
+            <tbody>
+              {workers.map((worker, index) => (
+                <tr key={worker.id}>
+                  <td className="border-r border-b border-gray-300 p-2 text-center">{index + 1}</td>
+                  <td className="border-r border-b border-gray-300 p-2">{worker.name}</td>
+                  <td className="border-r border-b border-gray-300 p-2 text-center">{worker.workHours}h</td>
+                  <td className="border-r border-b border-gray-300 p-2 text-center">{worker.overtimeHours}h</td>
+                  <td className="border-r border-b border-gray-300 p-2">{worker.notes}</td>
+                  <td className="border-b border-gray-300 p-2">{worker.workContent}</td>
+                </tr>
+              ))}
+              <tr>
+                <td className="border-r border-gray-300 p-2 text-center" colSpan={2}>
+                  計
+                </td>
+                <td className="border-r border-gray-300 p-2 text-center">
+                  {workers.reduce((sum, worker) => sum + (Number.parseFloat(worker.workHours) || 0), 0)}h
+                </td>
+                <td className="border-r border-gray-300 p-2 text-center">
+                  {workers.reduce((sum, worker) => sum + (Number.parseFloat(worker.overtimeHours) || 0), 0)}h
+                </td>
+                <td className="border-r border-gray-300 p-2"></td>
+                <td className="p-2"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="border-b border-gray-300">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr>
+                <th className="border-r border-b border-gray-300 p-2">資材名</th>
+                <th className="border-r border-b border-gray-300 p-2">規格</th>
+                <th className="border-r border-b border-gray-300 p-2">単位</th>
+                <th className="border-r border-b border-gray-300 p-2">搬入数</th>
+                <th className="border-r border-b border-gray-300 p-2">自社機械名</th>
+                <th className="border-r border-b border-gray-300 p-2">型式</th>
+                <th className="border-r border-b border-gray-300 p-2">台数</th>
+                <th className="border-b border-gray-300 p-2">稼働</th>
+              </tr>
+            </thead>
+            <tbody>
+              {materials.map((material) => (
+                <tr key={material.id}>
+                  <td className="border-r border-b border-gray-300 p-2">{material.name}</td>
+                  <td className="border-r border-b border-gray-300 p-2">{material.spec}</td>
+                  <td className="border-r border-b border-gray-300 p-2">{material.unit}</td>
+                  <td className="border-r border-b border-gray-300 p-2">{material.quantity}</td>
+                  <td className="border-r border-b border-gray-300 p-2">{material.machineType}</td>
+                  <td className="border-r border-b border-gray-300 p-2">{material.model}</td>
+                  <td className="border-r border-b border-gray-300 p-2">{material.units}</td>
+                  <td className="border-b border-gray-300 p-2">{material.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div>
+          <table className="w-full border-collapse">
+            <thead>
+              <tr>
+                <th className="border-r border-b border-gray-300 p-2" colSpan={4}>
+                  合計
+                </th>
+                <th className="border-r border-b border-gray-300 p-2">他社機械名</th>
+                <th className="border-r border-b border-gray-300 p-2">業者名</th>
+                <th className="border-r border-b border-gray-300 p-2">台数</th>
+                <th className="border-b border-gray-300 p-2">稼働</th>
+              </tr>
+            </thead>
+            <tbody>
+              {otherMachines.map((machine) => (
+                <tr key={machine.id}>
+                  <td className="border-r border-gray-300 p-2" colSpan={4}></td>
+                  <td className="border-r border-gray-300 p-2">{machine.name}</td>
+                  <td className="border-r border-gray-300 p-2">{machine.operator}</td>
+                  <td className="border-r border-gray-300 p-2">{machine.units}</td>
+                  <td className="p-2">{machine.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function DailyReportForm() {
+  // 状態管理
   const [isRecording, setIsRecording] = useState(false)
+  const [activeWorkerId, setActiveWorkerId] = useState<number | null>(null)
   const [workers, setWorkers] = useState<Worker[]>([
     { id: 1, name: "", workHours: "", overtimeHours: "", notes: "", workContent: "" },
   ])
@@ -121,24 +561,11 @@ export function DailyReportForm() {
     weatherIcon: "",
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [activeTab, setActiveTab] = useState("workers")
   const { toast } = useToast()
 
   // Web Speech API用の参照
-  const recognitionRef = useRef<SpeechRecognition | null>(null)
-
-  // 曜日を取得する関数
-  const getDayOfWeek = (dateString: string) => {
-    const date = new Date(dateString)
-    return format(date, "EEEE", { locale: ja })
-  }
-
-  // 令和年を取得する関数
-  const getReiwaYear = (dateString: string) => {
-    const date = new Date(dateString)
-    const year = date.getFullYear()
-    // 令和は2019年5月1日から
-    return year - 2018
-  }
+  const recognitionRef = useRef<any>(null)
 
   // 作業員を追加
   const addWorker = () => {
@@ -188,32 +615,30 @@ export function DailyReportForm() {
     }
 
     try {
-      // 型アサーションを使用して、TypeScriptに型を伝える
-      const WebkitSpeechRecognition = window.webkitSpeechRecognition as unknown as {
-        new (): SpeechRecognition
+      // 既に録音中の場合は停止
+      if (isRecording) {
+        stopSpeechRecognition()
       }
 
-      recognitionRef.current = new WebkitSpeechRecognition()
+      // 新しい音声認識インスタンスを作成
+      const SpeechRecognition = window.webkitSpeechRecognition
+      recognitionRef.current = new SpeechRecognition()
       recognitionRef.current.lang = "ja-JP"
       recognitionRef.current.continuous = true
       recognitionRef.current.interimResults = true
 
-      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
-        let interimTranscript = ""
+      recognitionRef.current.onresult = (event) => {
         let finalTranscript = ""
 
-        try {
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i]?.[0]?.transcript || ""
-            if (event.results[i]?.isFinal) {
-              finalTranscript += transcript
-            } else {
-              interimTranscript += transcript
-            }
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript
           }
+        }
 
-          if (finalTranscript) {
-            const updatedWorkers = workers.map((worker) => {
+        if (finalTranscript) {
+          setWorkers(
+            workers.map((worker) => {
               if (worker.id === workerId) {
                 return {
                   ...worker,
@@ -221,22 +646,14 @@ export function DailyReportForm() {
                 }
               }
               return worker
-            })
-            setWorkers(updatedWorkers)
-          }
-        } catch (error) {
-          console.error("音声認識結果の処理中にエラーが発生しました:", error)
-          toast({
-            title: "音声認識エラー",
-            description: "音声認識結果の処理中にエラーが発生しました。",
-            variant: "destructive",
-          })
+            }),
+          )
         }
       }
 
-      recognitionRef.current.onerror = (event: Event) => {
-        console.error("音声認識エラー:", event)
+      recognitionRef.current.onerror = () => {
         setIsRecording(false)
+        setActiveWorkerId(null)
         toast({
           title: "音声認識エラー",
           description: "音声認識中にエラーが発生しました。",
@@ -244,14 +661,9 @@ export function DailyReportForm() {
         })
       }
 
-      recognitionRef.current.onend = () => {
-        if (isRecording) {
-          recognitionRef.current?.start()
-        }
-      }
-
       recognitionRef.current.start()
       setIsRecording(true)
+      setActiveWorkerId(workerId)
       toast({
         title: "音声認識開始",
         description: "音声認識を開始しました。話してください。",
@@ -271,6 +683,7 @@ export function DailyReportForm() {
     if (recognitionRef.current) {
       recognitionRef.current.stop()
       setIsRecording(false)
+      setActiveWorkerId(null)
       toast({
         title: "音声認識停止",
         description: "音声認識を停止しました。",
@@ -280,35 +693,17 @@ export function DailyReportForm() {
 
   // 作業員情報の更新
   const updateWorker = (id: number, field: string, value: string) => {
-    const updatedWorkers = workers.map((worker) => {
-      if (worker.id === id) {
-        return { ...worker, [field]: value }
-      }
-      return worker
-    })
-    setWorkers(updatedWorkers)
+    setWorkers(workers.map((worker) => (worker.id === id ? { ...worker, [field]: value } : worker)))
   }
 
   // 資材情報の更新
   const updateMaterial = (id: number, field: string, value: string) => {
-    const updatedMaterials = materials.map((material) => {
-      if (material.id === id) {
-        return { ...material, [field]: value }
-      }
-      return material
-    })
-    setMaterials(updatedMaterials)
+    setMaterials(materials.map((material) => (material.id === id ? { ...material, [field]: value } : material)))
   }
 
   // 他社機械情報の更新
   const updateOtherMachine = (id: number, field: string, value: string) => {
-    const updatedOtherMachines = otherMachines.map((machine) => {
-      if (machine.id === id) {
-        return { ...machine, [field]: value }
-      }
-      return machine
-    })
-    setOtherMachines(updatedOtherMachines)
+    setOtherMachines(otherMachines.map((machine) => (machine.id === id ? { ...machine, [field]: value } : machine)))
   }
 
   // 日報を保存
@@ -325,7 +720,6 @@ export function DailyReportForm() {
       console.log("保存された日報:", reportData)
       // ここで実際のAPIに保存処理を実装
 
-      // 成功トースト
       toast({
         title: "保存完了",
         description: "日報が保存されました",
@@ -351,7 +745,6 @@ export function DailyReportForm() {
         materials,
         otherMachines,
       })
-      // ここで実際のExcel出力処理を実装
       toast({
         title: "Excel出力",
         description: "Excelファイルがダウンロードされます",
@@ -368,7 +761,6 @@ export function DailyReportForm() {
 
   // 写真を撮影
   const takePhoto = () => {
-    // カメラ機能の実装
     toast({
       title: "カメラ機能",
       description: "カメラ機能は実装中です",
@@ -386,8 +778,6 @@ export function DailyReportForm() {
         return <CloudRain className="h-5 w-5 text-blue-500" aria-label="雨" />
       case "snowy":
         return <CloudSnow className="h-5 w-5 text-blue-200" aria-label="雪" />
-      case "foggy":
-        return <Cloudy className="h-5 w-5 text-gray-400" aria-label="霧" />
       default:
         return <Sun className="h-5 w-5 text-yellow-500" aria-label="晴れ" />
     }
@@ -407,16 +797,11 @@ export function DailyReportForm() {
         }))
       } catch (error) {
         console.error("天気情報の取得に失敗しました:", error)
-        toast({
-          title: "天気情報エラー",
-          description: "天気情報の取得に失敗しました。",
-          variant: "destructive",
-        })
       }
     }
 
     fetchWeatherData()
-  }, [toast])
+  }, [])
 
   // コンポーネントがアンマウントされるときに音声認識を停止
   useEffect(() => {
@@ -426,6 +811,11 @@ export function DailyReportForm() {
       }
     }
   }, [])
+
+  // 選択されたプロジェクト名を取得
+  const selectedProject = formData.projectId
+    ? sampleProjects.find((p) => p.id.toString() === formData.projectId)
+    : undefined
 
   return (
     <div className="space-y-6">
@@ -470,7 +860,6 @@ export function DailyReportForm() {
                 <SelectItem value="cloudy">曇り</SelectItem>
                 <SelectItem value="rainy">雨</SelectItem>
                 <SelectItem value="snowy">雪</SelectItem>
-                <SelectItem value="foggy">霧</SelectItem>
               </SelectContent>
             </Select>
             {formData.temperature > 0 && (
@@ -482,7 +871,7 @@ export function DailyReportForm() {
         </div>
       </div>
 
-      <Tabs defaultValue="workers">
+      <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid grid-cols-3 mb-4">
           <TabsTrigger value="workers">作業員情報</TabsTrigger>
           <TabsTrigger value="materials">資材情報</TabsTrigger>
@@ -514,99 +903,17 @@ export function DailyReportForm() {
                 </TableHeader>
                 <TableBody>
                   {workers.map((worker, index) => (
-                    <TableRow key={worker.id}>
-                      <TableCell>{index + 1}</TableCell>
-                      <TableCell>
-                        <Select value={worker.name} onValueChange={(value) => updateWorker(worker.id, "name", value)}>
-                          <SelectTrigger className="h-8">
-                            <SelectValue placeholder="選択" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {sampleStaff.map((staff) => (
-                              <SelectItem key={staff.id} value={staff.name}>
-                                {staff.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={worker.workHours}
-                          onChange={(e) => updateWorker(worker.id, "workHours", e.target.value)}
-                          className="h-8"
-                          placeholder="時間"
-                          aria-label={`作業員${index + 1}の労働時間`}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={worker.overtimeHours}
-                          onChange={(e) => updateWorker(worker.id, "overtimeHours", e.target.value)}
-                          className="h-8"
-                          placeholder="時間"
-                          aria-label={`作業員${index + 1}の残業時間`}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={worker.notes}
-                          onChange={(e) => updateWorker(worker.id, "notes", e.target.value)}
-                          className="h-8"
-                          placeholder="記事"
-                          aria-label={`作業員${index + 1}の記事`}
-                        />
-                      </TableCell>
-                      <TableCell className="relative">
-                        <div className="flex">
-                          <Textarea
-                            value={worker.workContent}
-                            onChange={(e) => updateWorker(worker.id, "workContent", e.target.value)}
-                            className="min-h-[60px] text-sm"
-                            placeholder="作業内容"
-                            aria-label={`作業員${index + 1}の作業内容`}
-                          />
-                          <div className="flex flex-col ml-1">
-                            {isRecording && worker.id === workers.find((w) => w.id === worker.id)?.id ? (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                onClick={stopSpeechRecognition}
-                                className="h-8 w-8 text-red-500"
-                                aria-label="音声入力停止"
-                              >
-                                <MicOff className="h-4 w-4" />
-                              </Button>
-                            ) : (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                onClick={() => startSpeechRecognition(worker.id)}
-                                className="h-8 w-8"
-                                aria-label="音声入力開始"
-                              >
-                                <Mic className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeWorker(worker.id)}
-                          disabled={workers.length <= 1}
-                          aria-label={`作業員${index + 1}を削除`}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+                    <WorkerRow
+                      key={worker.id}
+                      worker={worker}
+                      index={index}
+                      updateWorker={updateWorker}
+                      removeWorker={removeWorker}
+                      isRemoveDisabled={workers.length <= 1}
+                      isRecording={isRecording && activeWorkerId === worker.id}
+                      startSpeechRecognition={startSpeechRecognition}
+                      stopSpeechRecognition={stopSpeechRecognition}
+                    />
                   ))}
                 </TableBody>
               </Table>
@@ -641,93 +948,14 @@ export function DailyReportForm() {
                 </TableHeader>
                 <TableBody>
                   {materials.map((material, index) => (
-                    <TableRow key={material.id}>
-                      <TableCell>
-                        <Input
-                          value={material.name}
-                          onChange={(e) => updateMaterial(material.id, "name", e.target.value)}
-                          className="h-8"
-                          placeholder="資材名"
-                          aria-label={`資材${index + 1}の名前`}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={material.spec}
-                          onChange={(e) => updateMaterial(material.id, "spec", e.target.value)}
-                          className="h-8"
-                          placeholder="規格"
-                          aria-label={`資材${index + 1}の規格`}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={material.unit}
-                          onChange={(e) => updateMaterial(material.id, "unit", e.target.value)}
-                          className="h-8"
-                          placeholder="単位"
-                          aria-label={`資材${index + 1}の単位`}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={material.quantity}
-                          onChange={(e) => updateMaterial(material.id, "quantity", e.target.value)}
-                          className="h-8"
-                          placeholder="数量"
-                          aria-label={`資材${index + 1}の数量`}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={material.machineType}
-                          onChange={(e) => updateMaterial(material.id, "machineType", e.target.value)}
-                          className="h-8"
-                          placeholder="機械名"
-                          aria-label={`資材${index + 1}の機械名`}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={material.model}
-                          onChange={(e) => updateMaterial(material.id, "model", e.target.value)}
-                          className="h-8"
-                          placeholder="型式"
-                          aria-label={`資材${index + 1}の型式`}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={material.units}
-                          onChange={(e) => updateMaterial(material.id, "units", e.target.value)}
-                          className="h-8"
-                          placeholder="台数"
-                          aria-label={`資材${index + 1}の台数`}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={material.status}
-                          onChange={(e) => updateMaterial(material.id, "status", e.target.value)}
-                          className="h-8"
-                          placeholder="稼働"
-                          aria-label={`資材${index + 1}の稼働状況`}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeMaterial(material.id)}
-                          disabled={materials.length <= 1}
-                          aria-label={`資材${index + 1}を削除`}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+                    <MaterialRow
+                      key={material.id}
+                      material={material}
+                      index={index}
+                      updateMaterial={updateMaterial}
+                      removeMaterial={removeMaterial}
+                      isRemoveDisabled={materials.length <= 1}
+                    />
                   ))}
                 </TableBody>
               </Table>
@@ -758,56 +986,14 @@ export function DailyReportForm() {
                 </TableHeader>
                 <TableBody>
                   {otherMachines.map((machine, index) => (
-                    <TableRow key={machine.id}>
-                      <TableCell>
-                        <Input
-                          value={machine.name}
-                          onChange={(e) => updateOtherMachine(machine.id, "name", e.target.value)}
-                          className="h-8"
-                          placeholder="機械名"
-                          aria-label={`他社機械${index + 1}の名前`}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={machine.operator}
-                          onChange={(e) => updateOtherMachine(machine.id, "operator", e.target.value)}
-                          className="h-8"
-                          placeholder="業者名"
-                          aria-label={`他社機械${index + 1}の業者名`}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={machine.units}
-                          onChange={(e) => updateOtherMachine(machine.id, "units", e.target.value)}
-                          className="h-8"
-                          placeholder="台数"
-                          aria-label={`他社機械${index + 1}の台数`}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={machine.status}
-                          onChange={(e) => updateOtherMachine(machine.id, "status", e.target.value)}
-                          className="h-8"
-                          placeholder="稼働"
-                          aria-label={`他社機械${index + 1}の稼働状況`}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeOtherMachine(machine.id)}
-                          disabled={otherMachines.length <= 1}
-                          aria-label={`他社機械${index + 1}を削除`}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+                    <OtherMachineRow
+                      key={machine.id}
+                      machine={machine}
+                      index={index}
+                      updateOtherMachine={updateOtherMachine}
+                      removeOtherMachine={removeOtherMachine}
+                      isRemoveDisabled={otherMachines.length <= 1}
+                    />
                   ))}
                 </TableBody>
               </Table>
@@ -846,157 +1032,13 @@ export function DailyReportForm() {
 
       <div className="mt-8 border-t pt-6">
         <h3 className="text-lg font-medium mb-4">プレビュー</h3>
-        <div className="border rounded-md p-4 bg-white">
-          <div className="text-center text-2xl font-bold mb-4">作業日報</div>
-
-          <div className="border border-gray-300">
-            <div className="grid grid-cols-4 border-b border-gray-300">
-              <div className="col-span-3 border-r border-gray-300 p-2">
-                <div className="font-bold">工事名</div>
-                <div>
-                  {formData.projectId
-                    ? sampleProjects.find((p) => p.id.toString() === formData.projectId)?.name
-                    : "未選択"}
-                </div>
-              </div>
-              <div className="p-2">
-                <div className="font-bold">記録番号</div>
-                <div>自動採番</div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-6 border-b border-gray-300">
-              <div className="col-span-4 border-r border-gray-300 p-2">
-                <div className="flex items-center">
-                  <span>令和</span>
-                  <span className="mx-2">{getReiwaYear(formData.date)}</span>
-                  <span>年</span>
-                  <span className="mx-2">{new Date(formData.date).getMonth() + 1}</span>
-                  <span>月</span>
-                  <span className="mx-2">{new Date(formData.date).getDate()}</span>
-                  <span>日</span>
-                  <span className="mx-2">（{getDayOfWeek(formData.date)}）</span>
-                </div>
-              </div>
-              <div className="col-span-1 border-r border-gray-300 p-2 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="font-bold">天候</div>
-                  <div className="flex flex-col items-center">
-                    {getWeatherIcon()}
-                    <div className="text-sm mt-1">{formData.temperature > 0 && `${formData.temperature}°C`}</div>
-                  </div>
-                </div>
-              </div>
-              <div className="col-span-1 p-2">
-                <div className="font-bold">承認</div>
-                <div></div>
-              </div>
-            </div>
-
-            <div className="border-b border-gray-300">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr>
-                    <th className="border-r border-b border-gray-300 p-2 w-10">No.</th>
-                    <th className="border-r border-b border-gray-300 p-2">氏名</th>
-                    <th className="border-r border-b border-gray-300 p-2 w-24 text-center" colSpan={2}>
-                      <div>労働時間</div>
-                      <div className="grid grid-cols-2">
-                        <div className="border-r border-gray-300 p-1">時間</div>
-                        <div className="p-1">残業</div>
-                      </div>
-                    </th>
-                    <th className="border-r border-b border-gray-300 p-2">記事</th>
-                    <th className="border-b border-gray-300 p-2">作業内容</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {workers.map((worker, index) => (
-                    <tr key={worker.id}>
-                      <td className="border-r border-b border-gray-300 p-2 text-center">{index + 1}</td>
-                      <td className="border-r border-b border-gray-300 p-2">{worker.name}</td>
-                      <td className="border-r border-b border-gray-300 p-2 text-center">{worker.workHours}h</td>
-                      <td className="border-r border-b border-gray-300 p-2 text-center">{worker.overtimeHours}h</td>
-                      <td className="border-r border-b border-gray-300 p-2">{worker.notes}</td>
-                      <td className="border-b border-gray-300 p-2">{worker.workContent}</td>
-                    </tr>
-                  ))}
-                  <tr>
-                    <td className="border-r border-gray-300 p-2 text-center" colSpan={2}>
-                      計
-                    </td>
-                    <td className="border-r border-gray-300 p-2 text-center">
-                      {workers.reduce((sum, worker) => sum + (Number.parseFloat(worker.workHours) || 0), 0)}h
-                    </td>
-                    <td className="border-r border-gray-300 p-2 text-center">
-                      {workers.reduce((sum, worker) => sum + (Number.parseFloat(worker.overtimeHours) || 0), 0)}h
-                    </td>
-                    <td className="border-r border-gray-300 p-2"></td>
-                    <td className="p-2"></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div className="border-b border-gray-300">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr>
-                    <th className="border-r border-b border-gray-300 p-2">資材名</th>
-                    <th className="border-r border-b border-gray-300 p-2">規格</th>
-                    <th className="border-r border-b border-gray-300 p-2">単位</th>
-                    <th className="border-r border-b border-gray-300 p-2">搬入数</th>
-                    <th className="border-r border-b border-gray-300 p-2">自社機械名</th>
-                    <th className="border-r border-b border-gray-300 p-2">型式</th>
-                    <th className="border-r border-b border-gray-300 p-2">台数</th>
-                    <th className="border-b border-gray-300 p-2">稼働</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {materials.map((material) => (
-                    <tr key={material.id}>
-                      <td className="border-r border-b border-gray-300 p-2">{material.name}</td>
-                      <td className="border-r border-b border-gray-300 p-2">{material.spec}</td>
-                      <td className="border-r border-b border-gray-300 p-2">{material.unit}</td>
-                      <td className="border-r border-b border-gray-300 p-2">{material.quantity}</td>
-                      <td className="border-r border-b border-gray-300 p-2">{material.machineType}</td>
-                      <td className="border-r border-b border-gray-300 p-2">{material.model}</td>
-                      <td className="border-r border-b border-gray-300 p-2">{material.units}</td>
-                      <td className="border-b border-gray-300 p-2">{material.status}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div>
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr>
-                    <th className="border-r border-b border-gray-300 p-2" colSpan={4}>
-                      合計
-                    </th>
-                    <th className="border-r border-b border-gray-300 p-2">他社機械名</th>
-                    <th className="border-r border-b border-gray-300 p-2">業者名</th>
-                    <th className="border-r border-b border-gray-300 p-2">台数</th>
-                    <th className="border-b border-gray-300 p-2">稼働</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {otherMachines.map((machine) => (
-                    <tr key={machine.id}>
-                      <td className="border-r border-gray-300 p-2" colSpan={4}></td>
-                      <td className="border-r border-gray-300 p-2">{machine.name}</td>
-                      <td className="border-r border-gray-300 p-2">{machine.operator}</td>
-                      <td className="border-r border-gray-300 p-2">{machine.units}</td>
-                      <td className="p-2">{machine.status}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+        <DailyReportPreview
+          formData={formData}
+          workers={workers}
+          materials={materials}
+          otherMachines={otherMachines}
+          selectedProject={selectedProject}
+        />
       </div>
     </div>
   )

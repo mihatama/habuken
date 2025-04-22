@@ -21,6 +21,9 @@ export default function DebugPage() {
       NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
         ? "設定済み（セキュリティのため値は表示しません）"
         : undefined,
+      OPENWEATHER_API_KEY: process.env.OPENWEATHER_API_KEY
+        ? "設定済み（セキュリティのため値は表示しません）"
+        : undefined,
     }
     setEnvVars(vars)
 
