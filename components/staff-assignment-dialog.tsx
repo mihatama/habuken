@@ -133,39 +133,39 @@ export function StaffAssignmentDialog({
   // Load staff and resources data if not provided
   useEffect(() => {
     const loadData = async () => {
-      if (open && (!staff || staff.length === 0 || !resources || resources.length === 0)) {
+      if (open) {
         setDataLoading(true)
         try {
-          // Load staff data if not provided
-          if (!staff || staff.length === 0) {
-            const supabase = getClientSupabaseInstance()
-            const { data: staffData } = await supabase.from("staff").select("*").order("full_name", { ascending: true })
-            if (staffData && staffData.length > 0) {
-              // Update local state only if props weren't provided
-              if (!staff || staff.length === 0) {
-                // @ts-ignore - we're handling this internally
-                setStaffData(staffData)
-              }
-            }
+          const supabase = getClientSupabaseInstance()
+
+          // Always load fresh staff data
+          const { data: staffData, error: staffError } = await supabase
+            .from("staff")
+            .select("*")
+            .order("full_name", { ascending: true })
+
+          if (staffError) throw new Error(`スタッフ取得エラー: ${staffError.message}`)
+          if (staffData && staffData.length > 0) {
+            setStaffData(staffData)
           }
 
-          // Load resources data if not provided
-          if (!resources || resources.length === 0) {
-            const supabase = getClientSupabaseInstance()
-            const { data: resourceData } = await supabase
-              .from("resources")
-              .select("*")
-              .order("name", { ascending: true })
-            if (resourceData && resourceData.length > 0) {
-              // Update local state only if props weren't provided
-              if (!resources || resources.length === 0) {
-                // @ts-ignore - we're handling this internally
-                setResourceData(resourceData)
-              }
-            }
+          // Always load fresh resource data
+          const { data: resourceData, error: resourceError } = await supabase
+            .from("resources")
+            .select("*")
+            .order("name", { ascending: true })
+
+          if (resourceError) throw new Error(`リソース取得エラー: ${resourceError.message}`)
+          if (resourceData && resourceData.length > 0) {
+            setResourceData(resourceData)
           }
         } catch (error) {
           console.error("データ読み込みエラー:", error)
+          toast({
+            title: "データ読み込みエラー",
+            description: error instanceof Error ? error.message : "スタッフと機材データの読み込みに失敗しました",
+            variant: "destructive",
+          })
         } finally {
           setDataLoading(false)
         }
@@ -173,7 +173,7 @@ export function StaffAssignmentDialog({
     }
 
     loadData()
-  }, [open, staff, resources])
+  }, [open, toast])
 
   // Format date for input field (YYYY-MM-DD)
   const formatDateForInput = (date: Date) => {
@@ -186,16 +186,20 @@ export function StaffAssignmentDialog({
   }
 
   // Filter staff based on search
-  const allStaff = staff && staff.length > 0 ? staff : staffData
-  const filteredStaff = allStaff.filter(
-    (s) =>
-      s.name?.toLowerCase().includes(searchStaff.toLowerCase()) ||
-      s.full_name?.toLowerCase().includes(searchStaff.toLowerCase()),
-  )
+  const filteredStaff = dataLoading
+    ? []
+    : (staffData.length > 0 ? staffData : staff).filter(
+        (s) =>
+          s.name?.toLowerCase().includes(searchStaff.toLowerCase()) ||
+          s.full_name?.toLowerCase().includes(searchStaff.toLowerCase()),
+      )
 
   // Filter resources based on search
-  const allResources = resources && resources.length > 0 ? resources : resourceData
-  const filteredResources = allResources.filter((r) => r.name?.toLowerCase().includes(searchResources.toLowerCase()))
+  const filteredResources = dataLoading
+    ? []
+    : (resourceData.length > 0 ? resourceData : resources).filter((r) =>
+        r.name?.toLowerCase().includes(searchResources.toLowerCase()),
+      )
 
   // Handle form submission
   const handleSubmit = async () => {
@@ -441,37 +445,34 @@ export function StaffAssignmentDialog({
                 />
               </div>
               <ScrollArea className="h-[200px]">
-                {staff.length > 0 ? (
-                  <div className="space-y-2">
-                    {filteredStaff.map((s) => (
-                      <div key={s.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`staff-${s.id}`}
-                          checked={selectedStaff.includes(s.id)}
-                          onCheckedChange={(checked) => handleStaffChange(s.id, checked as boolean)}
-                        />
-                        <Label htmlFor={`staff-${s.id}`} className="flex-1">
-                          {s.full_name || s.name} {s.position && `(${s.position})`}
-                        </Label>
+                {dataLoading ? (
+                  <div className="flex flex-col items-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin mb-2" />
+                    <span>スタッフデータを読み込み中...</span>
+                  </div>
+                ) : (
+                  <>
+                    {filteredStaff.length > 0 ? (
+                      <div className="space-y-2">
+                        {filteredStaff.map((s) => (
+                          <div key={s.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`staff-${s.id}`}
+                              checked={selectedStaff.includes(s.id)}
+                              onCheckedChange={(checked) => handleStaffChange(s.id, checked as boolean)}
+                            />
+                            <Label htmlFor={`staff-${s.id}`} className="flex-1">
+                              {s.full_name || s.name} {s.position && `(${s.position})`}
+                            </Label>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                    {filteredStaff.length === 0 && (
+                    ) : (
                       <div className="text-center py-4 text-muted-foreground">
                         検索条件に一致するスタッフが見つかりません
                       </div>
                     )}
-                  </div>
-                ) : (
-                  <div className="text-center py-4 text-muted-foreground">
-                    {dataLoading ? (
-                      <div className="flex flex-col items-center">
-                        <Loader2 className="h-8 w-8 animate-spin mb-2" />
-                        <span>スタッフデータを読み込み中...</span>
-                      </div>
-                    ) : (
-                      "スタッフが見つかりません"
-                    )}
-                  </div>
+                  </>
                 )}
               </ScrollArea>
             </TabsContent>
@@ -484,37 +485,34 @@ export function StaffAssignmentDialog({
                 />
               </div>
               <ScrollArea className="h-[200px]">
-                {resources.length > 0 ? (
-                  <div className="space-y-2">
-                    {filteredResources.map((r) => (
-                      <div key={r.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`resource-${r.id}`}
-                          checked={selectedResources.includes(r.id)}
-                          onCheckedChange={(checked) => handleResourceChange(r.id, checked as boolean)}
-                        />
-                        <Label htmlFor={`resource-${r.id}`} className="flex-1">
-                          {r.name} {r.type && `(${r.type})`}
-                        </Label>
+                {dataLoading ? (
+                  <div className="flex flex-col items-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin mb-2" />
+                    <span>機材データを読み込み中...</span>
+                  </div>
+                ) : (
+                  <>
+                    {filteredResources.length > 0 ? (
+                      <div className="space-y-2">
+                        {filteredResources.map((r) => (
+                          <div key={r.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`resource-${r.id}`}
+                              checked={selectedResources.includes(r.id)}
+                              onCheckedChange={(checked) => handleResourceChange(r.id, checked as boolean)}
+                            />
+                            <Label htmlFor={`resource-${r.id}`} className="flex-1">
+                              {r.name} {r.type && `(${r.type})`}
+                            </Label>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                    {filteredResources.length === 0 && (
+                    ) : (
                       <div className="text-center py-4 text-muted-foreground">
                         検索条件に一致する機材が見つかりません
                       </div>
                     )}
-                  </div>
-                ) : (
-                  <div className="text-center py-4 text-muted-foreground">
-                    {dataLoading ? (
-                      <div className="flex flex-col items-center">
-                        <Loader2 className="h-8 w-8 animate-spin mb-2" />
-                        <span>機材データを読み込み中...</span>
-                      </div>
-                    ) : (
-                      "機材が見つかりません"
-                    )}
-                  </div>
+                  </>
                 )}
               </ScrollArea>
             </TabsContent>
