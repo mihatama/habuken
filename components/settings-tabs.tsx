@@ -13,15 +13,15 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 
-// 明示的にPropsの型を定義
-interface SettingsTabsProps {
+// Define the props interface
+export interface SettingsTabsProps {
   items?: Array<{
     title: string
     href: string
   }>
 }
 
-// Then update the component to provide a default value for items
+// Export the component with the correct props type
 export function SettingsTabs({ items = [] }: SettingsTabsProps) {
   const pathname = usePathname()
   const [calendarSettings, setCalendarSettings] = useState({
