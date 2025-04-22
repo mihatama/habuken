@@ -36,6 +36,11 @@ export async function middleware(req: NextRequest) {
 
   // デバッグ用ログ
   console.log(`Middleware: Path=${path}, Session=${session ? "exists" : "null"}`)
+  if (session) {
+    console.log(`User authenticated: ${session.user.email}, User ID: ${session.user.id}`)
+  } else {
+    console.log("No active session found")
+  }
 
   // 保護されたパスへのアクセスで認証されていない場合はログインページにリダイレクト
   const isProtectedPath = protectedPaths.some(

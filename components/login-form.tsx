@@ -60,15 +60,17 @@ export function LoginForm() {
           description: "ログインに成功しました。",
         })
 
-        // 強制的にページをリロードしてセッションを反映
-        window.location.href = "/dashboard"
+        // セッションが確実に設定されるようにする
+        setTimeout(() => {
+          router.push("/dashboard")
+        }, 500)
       }
     } catch (error) {
       console.error("Login error:", error)
       toast({
         variant: "destructive",
         title: "エラー",
-        description: "ログイン処理中にエラーが発生しました。",
+        description: "ログイン処理中にエラーが発生しました。" + (error instanceof Error ? error.message : ""),
       })
     } finally {
       setIsLoading(false)

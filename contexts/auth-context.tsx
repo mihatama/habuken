@@ -145,13 +145,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         password,
       })
+
       console.log("Sign in result:", result)
 
-      // セッションを即時更新
-      // if (result.data.session) {
-      //   setSession(result.data.session)
-      //   setUser(result.data.user)
-      // }
+      // エラーがある場合は詳細をログに出力
+      if (result.error) {
+        console.error("Supabase auth error:", result.error)
+      }
+
+      // セッションが存在する場合はユーザー状態を更新
+      if (result.data.session) {
+        setUser(result.data.user)
+        // セッションが正しく設定されたことをログに出力
+        console.log("Session set successfully:", result.data.session)
+      }
 
       return result
     } catch (err) {
