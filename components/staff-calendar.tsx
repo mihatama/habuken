@@ -6,8 +6,6 @@ import moment from "moment"
 import "moment/locale/ja"
 import "react-big-calendar/lib/css/react-big-calendar.css"
 import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
 import { StaffAssignmentDialog } from "@/components/staff-assignment-dialog"
 
 // 日本語ロケールを設定
@@ -179,10 +177,6 @@ export function StaffCalendar({
       <CardContent className="p-6">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-medium">スタッフスケジュール</h3>
-          <Button onClick={handleNewEventClick} size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            新規作成
-          </Button>
         </div>
         <div style={{ height: 700 }}>
           <Calendar

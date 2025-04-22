@@ -6,14 +6,12 @@ import { Calendar, momentLocalizer } from "react-big-calendar"
 import moment from "moment"
 import "moment/locale/ja"
 import "react-big-calendar/lib/css/react-big-calendar.css"
-import { ChevronLeft, ChevronRight, Plus, Users, Briefcase, Wrench, MapPin } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Users, Briefcase, Wrench, MapPin } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { sampleProjects, sampleStaff, sampleTools } from "@/data/sample-data"
 import { StaffAssignmentDialog } from "@/components/staff-assignment-dialog"
 
@@ -1371,52 +1369,6 @@ export function ToolCalendar({
   return (
     <Card>
       <CardContent className="p-6">
-        <div className="flex flex-wrap items-center justify-end mb-6 gap-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <Select value={filterTool} onValueChange={setFilterTool}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="ツールを選択" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">すべてのツール</SelectItem>
-                {filteredByCategory.map((tool) => (
-                  <SelectItem key={tool.id} value={tool.id.toString()}>
-                    {tool.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={viewMode} onValueChange={(value: "month" | "week" | "day") => setViewMode(value)}>
-              <SelectTrigger className="w-[120px]">
-                <SelectValue placeholder="表示形式" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="month">月表示</SelectItem>
-                <SelectItem value="week">週表示</SelectItem>
-                <SelectItem value="day">日表示</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button variant="outline" size="sm" onClick={goToToday}>
-              今日
-            </Button>
-            <Button variant="outline" size="icon" onClick={prevPeriod}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="icon" onClick={nextPeriod}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button size="sm" onClick={handleNewEventClick}>
-              <Plus className="h-4 w-4 mr-2" />
-              新規作成
-            </Button>
-          </div>
-        </div>
-
-        {/*{viewMode === "month" && renderMonthCalendar()}
-        {viewMode === "week" && renderWeekCalendar()}
-        {viewMode === "day" && renderDayCalendar()}*/}
         <div style={{ height: 700 }}>
           <Calendar
             localizer={localizer}
