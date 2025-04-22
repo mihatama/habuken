@@ -10,6 +10,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Project Management SaaS",
   description: "Comprehensive project management solution for construction industry",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://your-domain.com"),
   icons: {
     icon: [
       {

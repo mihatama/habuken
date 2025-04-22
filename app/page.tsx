@@ -1,24 +1,20 @@
-export default function Home() {
-  // 静的エクスポートでは動的リダイレクトが機能しないため、
-  // クライアントサイドでリダイレクトを行うHTMLを返す
-  return (
-    <html>
-      <head>
-        <meta httpEquiv="refresh" content="0;url=/login/" />
-        <title>Redirecting to Login</title>
-      </head>
-      <body>
-        <p>
-          Redirecting to <a href="/login/">login page</a>...
-        </p>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-            window.location.href = "/login/";
-          `,
-          }}
-        />
-      </body>
-    </html>
-  )
+import { redirect } from "next/navigation"
+import { createServerSupabaseClient } from "@/lib/supabase"
+
+export default async function Home() {
+  // Server-side redirect using Next.js App Router
+  const supabase = createServerSupabaseClient()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  // Redirect based on authentication status
+  if (session) {
+    redirect("/dashboard")
+  } else {
+    redirect("/login")
+  }
+
+  // This won't be reached due to the redirects above
+  return null
 }

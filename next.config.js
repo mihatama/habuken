@@ -1,22 +1,54 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 静的エクスポートの設定
-  output: "export",
-  // 画像の最適化を無効化（静的エクスポートに必要）
+  // SSR enabled by default (removing output: "export")
+
+  // Enable image optimization (removing unoptimized: true)
   images: {
-    unoptimized: true,
+    domains: ["v0.blob.com"], // Add any domains you need for external images
   },
-  // トレイリングスラッシュを追加（Amplifyでの互換性向上）
-  trailingSlash: true,
-  // ビルド時のエラーチェックを無効化
+
+  // Remove trailing slash (not needed for Vercel)
+  trailingSlash: false,
+
+  // Enable build-time checks for better quality
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
-  // 静的エクスポートでは動的なリダイレクトが使えないため削除
-  // redirectsを完全に削除
+
+  // Add security headers
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value:
+              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://v0.blob.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://*.vercel-insights.com",
+          },
+          {
+            key: "X-Frame-Options",
+            value: "DENY",
+          },
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "origin-when-cross-origin",
+          },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
+          },
+        ],
+      },
+    ]
+  },
 }
 
 module.exports = nextConfig
