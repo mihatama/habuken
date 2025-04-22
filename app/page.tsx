@@ -1,17 +1,16 @@
-import { redirect } from "next/navigation"
-
 export const dynamic = "force-static"
 
 export default function Home() {
-  // 静的エクスポートでは cookies() は使用できないため、
-  // 単純なリダイレクトに変更
-  redirect("/login")
-
-  // リダイレクトが機能しない場合のフォールバック
-  // 実際にはこのコードは実行されない
+  // 静的エクスポートでは、このリダイレクトは実際には機能しませんが、
+  // フォールバックとして残しておきます
+  // 実際のリダイレクトはpublic/index.htmlで行います
   return (
-    <div className="flex h-screen items-center justify-center">
-      <p>リダイレクト中...</p>
+    <div className="flex min-h-screen flex-col items-center justify-center p-4 text-center">
+      <h1 className="text-2xl font-bold mb-4">リダイレクト中...</h1>
+      <p className="mb-4">自動的にログインページにリダイレクトされます。</p>
+      <a href="/login/" className="text-blue-600 hover:underline">
+        リダイレクトされない場合はこちらをクリック
+      </a>
     </div>
   )
 }

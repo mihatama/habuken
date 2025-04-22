@@ -10,6 +10,7 @@ frontend:
         - echo "NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL" >> .env.local
         - echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY" >> .env.local
         - pnpm run build
+        - cp public/index.html out/
   artifacts:
     baseDirectory: out
     files:
