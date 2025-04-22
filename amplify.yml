@@ -11,6 +11,13 @@ frontend:
       commands:
         - echo "Building Next.js app..."
         - pnpm run build
+        # 重要: required-server-files.jsonを明示的に生成
+        - echo "Creating required Amplify compatibility files..."
+        - mkdir -p out/.next/server
+        - echo '{"middleware":{},"functions":{},"version":1}' > out/.next/server/middleware-manifest.json
+        - echo '{"config":{"configFile":"next.config.js","trailingSlash":true,"output":"export"},"pages":{}}' > out/required-server-files.json
+        - echo "Verifying required files exist..."
+        - ls -la out/required-server-files.json || echo "ERROR: required-server-files.json not found!"
         - echo "Build completed"
         - ls -la out/
   artifacts:

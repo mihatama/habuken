@@ -9,6 +9,7 @@ function createRequiredServerFiles() {
   // outディレクトリが存在するか確認
   if (!fs.existsSync(outDir)) {
     console.error("Error: 'out' directory does not exist. Build may have failed.")
+    process.exit(1) // エラーで終了して問題を明確にする
     return
   }
 
@@ -27,8 +28,9 @@ function createRequiredServerFiles() {
       version: 1,
     }
 
-    fs.writeFileSync(path.join(nextServerDir, "middleware-manifest.json"), JSON.stringify(middlewareManifest, null, 2))
-    console.log("Created middleware-manifest.json")
+    const middlewareManifestPath = path.join(nextServerDir, "middleware-manifest.json")
+    fs.writeFileSync(middlewareManifestPath, JSON.stringify(middlewareManifest, null, 2))
+    console.log(`Created middleware-manifest.json at ${middlewareManifestPath}`)
 
     // required-server-files.json を作成
     const requiredServerFiles = {
@@ -40,23 +42,22 @@ function createRequiredServerFiles() {
       pages: {},
     }
 
-    fs.writeFileSync(path.join(outDir, "required-server-files.json"), JSON.stringify(requiredServerFiles, null, 2))
-    console.log("Created required-server-files.json")
+    const requiredServerFilesPath = path.join(outDir, "required-server-files.json")
+    fs.writeFileSync(requiredServerFilesPath, JSON.stringify(requiredServerFiles, null, 2))
+    console.log(`Created required-server-files.json at ${requiredServerFilesPath}`)
 
-    // prerender-manifest.json を作成
-    const prerenderManifest = {
-      version: 4,
-      routes: {},
-      dynamicRoutes: {},
-      notFoundRoutes: [],
+    // ファイルが実際に作成されたか確認
+    if (fs.existsSync(requiredServerFilesPath)) {
+      console.log("Verified required-server-files.json exists")
+    } else {
+      console.error("ERROR: Failed to create required-server-files.json")
+      process.exit(1)
     }
-
-    fs.writeFileSync(path.join(outDir, ".next", "prerender-manifest.json"), JSON.stringify(prerenderManifest, null, 2))
-    console.log("Created prerender-manifest.json")
 
     console.log("Created all required server files for static export")
   } catch (error) {
     console.error("Error creating required server files:", error)
+    process.exit(1) // エラーで終了して問題を明確にする
   }
 }
 
