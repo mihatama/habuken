@@ -11,9 +11,12 @@ frontend:
         - echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY" >> .env.local
         - pnpm run build
         - cp public/index.html out/
-        # Amplifyのデプロイエラー対策
+        # Amplifyのデプロイエラー対策 - 改善版
+        - mkdir -p out/.next/server
+        - touch out/.next/server/middleware-manifest.json
+        - echo '{"middleware":{"/":{}},"functions":{},"version":1}' > out/.next/server/middleware-manifest.json
         - touch out/required-server-files.json
-        - echo '{"config":{},"pages":{}}' > out/required-server-files.json
+        - echo '{"config":{"configFile":"next.config.js","trailingSlash":true,"output":"export"},"pages":{}}' > out/required-server-files.json
         - cp public/404.html out/404.html || true
   artifacts:
     baseDirectory: out

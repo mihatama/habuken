@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-// 静的エクスポートではミドルウェアは機能しないため、
-// 最小限の実装に変更
-
+// 静的エクスポート用の最小限のミドルウェア実装
 export function middleware(request: NextRequest) {
-  // 静的エクスポートでは機能しないため、空の実装
   return NextResponse.next()
 }
 
+// 静的エクスポートでは空のmatcherを使用
 export const config = {
   matcher: [],
 }

@@ -26,11 +26,7 @@ const nextConfig = {
   },
   // トレイリングスラッシュを追加（Amplifyでの互換性向上）
   trailingSlash: true,
-  // 静的エクスポートの設定
-  experimental: {
-    // Amplifyのデプロイエラー対策
-    disableStaticImages: true,
-  },
+  // 削除: experimental.disableStaticImages は無効なオプションなので削除
 }
 
 module.exports = nextConfig
