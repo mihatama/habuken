@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // swcMinify オプションを削除（Next.js 15では非推奨）
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -11,12 +10,20 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Amplifyデプロイのための設定
-  output: "standalone",
-  // 動的ルートの静的生成を無効化
+  // Amplifyでのデプロイに最適化された設定
+  output: "export", // 静的エクスポートに変更
+  // SSRを使用しない設定
   experimental: {
-    // 必要に応じて実験的機能を設定
+    // 実験的機能の設定
   },
+  // 環境変数の設定
+  env: {
+    // 必要な環境変数をここに追加
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  },
+  // 静的ページのみを生成
+  distDir: ".next",
 }
 
 module.exports = nextConfig
