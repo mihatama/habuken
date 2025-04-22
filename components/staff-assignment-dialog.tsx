@@ -59,6 +59,7 @@ export function StaffAssignmentDialog({
   const [isLoading, setIsLoading] = useState(false)
   const [searchStaff, setSearchStaff] = useState("")
   const [searchResources, setSearchResources] = useState("")
+  const [dataLoading, setDataLoading] = useState(false)
 
   // Reset form when dialog opens/closes or eventData changes
   useEffect(() => {
@@ -101,7 +102,13 @@ export function StaffAssignmentDialog({
       setTitle("")
 
       const start = eventData?.start ? new Date(eventData.start) : new Date()
-      const end = eventData?.end ? new Date(eventData.end) : new Date(start.getTime() + 60 * 60 * 1000)
+      const end = eventData?.end ? new Date(eventData.end) : new Date(start.getTime() + 9 * 60 * 60 * 1000)
+
+      // Set default times to 8:00-17:00
+      if (!eventData?.start) {
+        start.setHours(8, 0, 0, 0)
+        end.setHours(17, 0, 0, 0)
+      }
 
       setStartDate(formatDateForInput(start))
       setStartTime(formatTimeForInput(start))
@@ -379,23 +386,38 @@ export function StaffAssignmentDialog({
                 />
               </div>
               <ScrollArea className="h-[200px]">
-                <div className="space-y-2">
-                  {filteredStaff.map((s) => (
-                    <div key={s.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`staff-${s.id}`}
-                        checked={selectedStaff.includes(s.id)}
-                        onCheckedChange={(checked) => handleStaffChange(s.id, checked as boolean)}
-                      />
-                      <Label htmlFor={`staff-${s.id}`} className="flex-1">
-                        {s.full_name || s.name} {s.position && `(${s.position})`}
-                      </Label>
-                    </div>
-                  ))}
-                  {filteredStaff.length === 0 && (
-                    <div className="text-center py-4 text-muted-foreground">スタッフが見つかりません</div>
-                  )}
-                </div>
+                {staff.length > 0 ? (
+                  <div className="space-y-2">
+                    {filteredStaff.map((s) => (
+                      <div key={s.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`staff-${s.id}`}
+                          checked={selectedStaff.includes(s.id)}
+                          onCheckedChange={(checked) => handleStaffChange(s.id, checked as boolean)}
+                        />
+                        <Label htmlFor={`staff-${s.id}`} className="flex-1">
+                          {s.full_name || s.name} {s.position && `(${s.position})`}
+                        </Label>
+                      </div>
+                    ))}
+                    {filteredStaff.length === 0 && (
+                      <div className="text-center py-4 text-muted-foreground">
+                        検索条件に一致するスタッフが見つかりません
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground">
+                    {dataLoading ? (
+                      <div className="flex flex-col items-center">
+                        <Loader2 className="h-8 w-8 animate-spin mb-2" />
+                        <span>スタッフデータを読み込み中...</span>
+                      </div>
+                    ) : (
+                      "スタッフが見つかりません"
+                    )}
+                  </div>
+                )}
               </ScrollArea>
             </TabsContent>
             <TabsContent value="resources" className="border rounded-md p-4">
@@ -407,23 +429,38 @@ export function StaffAssignmentDialog({
                 />
               </div>
               <ScrollArea className="h-[200px]">
-                <div className="space-y-2">
-                  {filteredResources.map((r) => (
-                    <div key={r.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`resource-${r.id}`}
-                        checked={selectedResources.includes(r.id)}
-                        onCheckedChange={(checked) => handleResourceChange(r.id, checked as boolean)}
-                      />
-                      <Label htmlFor={`resource-${r.id}`} className="flex-1">
-                        {r.name} {r.category && `(${r.category})`}
-                      </Label>
-                    </div>
-                  ))}
-                  {filteredResources.length === 0 && (
-                    <div className="text-center py-4 text-muted-foreground">機材が見つかりません</div>
-                  )}
-                </div>
+                {resources.length > 0 ? (
+                  <div className="space-y-2">
+                    {filteredResources.map((r) => (
+                      <div key={r.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`resource-${r.id}`}
+                          checked={selectedResources.includes(r.id)}
+                          onCheckedChange={(checked) => handleResourceChange(r.id, checked as boolean)}
+                        />
+                        <Label htmlFor={`resource-${r.id}`} className="flex-1">
+                          {r.name} {r.type && `(${r.type})`}
+                        </Label>
+                      </div>
+                    ))}
+                    {filteredResources.length === 0 && (
+                      <div className="text-center py-4 text-muted-foreground">
+                        検索条件に一致する機材が見つかりません
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground">
+                    {dataLoading ? (
+                      <div className="flex flex-col items-center">
+                        <Loader2 className="h-8 w-8 animate-spin mb-2" />
+                        <span>機材データを読み込み中...</span>
+                      </div>
+                    ) : (
+                      "機材が見つかりません"
+                    )}
+                  </div>
+                )}
               </ScrollArea>
             </TabsContent>
           </Tabs>
