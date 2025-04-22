@@ -20,23 +20,7 @@ const nextConfig = {
   },
   // 静的ページのみを生成
   distDir: ".next",
-  // 静的エクスポートでは、動的ルートを事前に定義する必要があります
-  exportPathMap: async (defaultPathMap) => ({
-    "/": { page: "/" },
-    "/login": { page: "/login" },
-    "/dashboard": { page: "/dashboard" },
-    "/projects": { page: "/projects" },
-    "/staff": { page: "/staff" },
-    "/shifts": { page: "/shifts" },
-    "/tools": { page: "/tools" },
-    "/leave": { page: "/leave" },
-    "/reports": { page: "/reports" },
-    "/profile": { page: "/profile" },
-    "/settings": { page: "/settings" },
-    "/forgot-password": { page: "/forgot-password" },
-    "/reset-password": { page: "/reset-password" },
-    // 他の静的ページを追加
-  }),
+  // exportPathMapを削除 - App Routerでは使用できません
 }
 
 module.exports = nextConfig
