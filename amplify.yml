@@ -3,30 +3,40 @@ frontend:
   phases:
     preBuild:
       commands:
+        - echo "Node version: $(node -v)"
+        - echo "NPM version: $(npm -v)"
         - npm install -g pnpm
+        - echo "PNPM version: $(pnpm -v)"
         - pnpm install
     build:
       commands:
+        - echo "Setting up environment variables..."
         - echo "NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL" >> .env.local
         - echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY" >> .env.local
+        - cat .env.local | grep -v "^#" | grep "."
         # 静的ファイルを事前に準備
         - mkdir -p public/static
         - touch public/static/.placeholder
         # ビルド実行
+        - echo "Starting build process..."
         - pnpm run build
         # 静的ファイルの配置を確認
+        - echo "Checking build output..."
         - ls -la out/
         # インデックスファイルのコピー
-        - cp public/index.html out/ || echo "index.html already exists"
+        - cp public/index.html out/ || echo "index.html already exists or failed to copy"
         # 404ページの準備
         - cp public/404.html out/404.html || echo "Creating default 404 page"
         - test -f out/404.html || echo "<html><body><h1>Page Not Found</h1></body></html>" > out/404.html
         # Amplifyのデプロイエラー対策 - 改善版
+        - echo "Setting up Amplify compatibility files..."
         - mkdir -p out/.next/server
         - echo '{"middleware":{},"functions":{},"version":1}' > out/.next/server/middleware-manifest.json
         - echo '{"config":{"configFile":"next.config.js","trailingSlash":true,"output":"export"},"pages":{}}' > out/required-server-files.json
         # 静的ファイルの確認
-        - find out -type f | sort
+        - echo "Listing all generated files..."
+        - find out -type f | grep -v "node_modules" | sort
+        - echo "Build completed successfully!"
   artifacts:
     baseDirectory: out
     files:
@@ -36,7 +46,19 @@ frontend:
       - node_modules/**/*
       - .next/cache/**/*
   customHeaders:
-    - pattern: '**/*'
+    - pattern: '**/*.html'
       headers:
         - key: 'Cache-Control'
           value: 'public, max-age=0, must-revalidate'
+    - pattern: '**/*.js'
+      headers:
+        - key: 'Cache-Control'
+          value: 'public, max-age=31536000, immutable'
+    - pattern: '**/*.css'
+      headers:
+        - key: 'Cache-Control'
+          value: 'public, max-age=31536000, immutable'
+    - pattern: '**/*.{jpg,jpeg,png,gif,ico,svg}'
+      headers:
+        - key: 'Cache-Control'
+          value: 'public, max-age=31536000, immutable'

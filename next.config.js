@@ -15,8 +15,14 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // 静的エクスポート用の設定を追加
+  experimental: {
+    // 静的ページの生成を最適化
+    optimizeCss: true,
+    // サーバーコンポーネントを静的に生成
+    serverComponents: true,
+  },
   // 静的エクスポートでは動的なリダイレクトが使えないため削除
-  // redirectsを完全に削除
 }
 
 module.exports = nextConfig
