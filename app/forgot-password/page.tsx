@@ -9,8 +9,8 @@ export const metadata: Metadata = {
   description: "パスワードリセットリンクを送信します",
 }
 
-// 静的生成からこのページを除外
-export const dynamic = "force-dynamic"
+// 動的設定を削除
+// export const dynamic = "force-dynamic"
 
 export default function ForgotPasswordPage() {
   return (
