@@ -1,12 +1,16 @@
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
+import { Suspense } from "react"
 import { ForgotPasswordForm } from "@/components/forgot-password-form"
 
 export const metadata: Metadata = {
   title: "パスワードをお忘れですか？",
-  description: "パスワードリセットのためのメールを送信します",
+  description: "パスワードリセットリンクを送信します",
 }
+
+// 静的生成からこのページを除外
+export const dynamic = "force-dynamic"
 
 export default function ForgotPasswordPage() {
   return (
@@ -17,12 +21,14 @@ export default function ForgotPasswordPage() {
       </Link>
       <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
         <div className="flex flex-col space-y-2 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">パスワードをリセット</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">パスワードをお忘れですか？</h1>
           <p className="text-sm text-muted-foreground">
-            登録したメールアドレスを入力してください。パスワードリセット用のリンクを送信します。
+            メールアドレスを入力して、パスワードリセットリンクを送信します。
           </p>
         </div>
-        <ForgotPasswordForm />
+        <Suspense fallback={<div className="text-center p-4">フォームを読み込み中...</div>}>
+          <ForgotPasswordForm />
+        </Suspense>
         <p className="px-8 text-center text-sm text-muted-foreground">
           <Link href="/login" className="hover:text-brand underline underline-offset-4">
             ログインに戻る

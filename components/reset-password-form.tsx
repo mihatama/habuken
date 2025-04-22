@@ -32,6 +32,7 @@ export function ResetPasswordForm() {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [token, setToken] = useState<string | null>(null)
   const supabase = getClientSupabaseInstance()
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -44,9 +45,10 @@ export function ResetPasswordForm() {
 
   useEffect(() => {
     // URLからトークンを取得
-    const token = searchParams.get("token")
+    const tokenParam = searchParams?.get("token")
+    setToken(tokenParam)
 
-    if (!token) {
+    if (!tokenParam) {
       setError("リセットトークンが見つかりません。パスワードリセットのリンクが無効か期限切れです。")
     }
   }, [searchParams])
@@ -56,8 +58,6 @@ export function ResetPasswordForm() {
     setError(null)
 
     try {
-      const token = searchParams.get("token")
-
       if (!token) {
         setError("リセットトークンが見つかりません。パスワードリセットのリンクが無効か期限切れです。")
         setIsLoading(false)

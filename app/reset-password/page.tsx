@@ -1,12 +1,16 @@
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
+import { Suspense } from "react"
 import { ResetPasswordForm } from "@/components/reset-password-form"
 
 export const metadata: Metadata = {
   title: "パスワードリセット",
   description: "新しいパスワードを設定してください",
 }
+
+// 静的生成からこのページを除外
+export const dynamic = "force-dynamic"
 
 export default function ResetPasswordPage() {
   return (
@@ -20,7 +24,9 @@ export default function ResetPasswordPage() {
           <h1 className="text-2xl font-semibold tracking-tight">新しいパスワードを設定</h1>
           <p className="text-sm text-muted-foreground">新しいパスワードを入力してください。</p>
         </div>
-        <ResetPasswordForm />
+        <Suspense fallback={<div className="text-center p-4">フォームを読み込み中...</div>}>
+          <ResetPasswordForm />
+        </Suspense>
         <p className="px-8 text-center text-sm text-muted-foreground">
           <Link href="/login" className="hover:text-brand underline underline-offset-4">
             ログインに戻る
