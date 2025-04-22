@@ -193,6 +193,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
       })
       console.log("Sign in result:", result)
+
+      // セッションを即時更新
+      if (result.data.session) {
+        setSession(result.data.session)
+        setUser(result.data.user)
+      }
+
       return result
     } catch (err) {
       console.error("Sign in error:", err)
@@ -208,6 +215,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       await supabase.auth.signOut()
+      // セッションをクリア
+      setSession(null)
+      setUser(null)
+
+      // ページをリロード
+      window.location.href = "/login"
     } catch (err) {
       console.error("Sign out error:", err)
     }

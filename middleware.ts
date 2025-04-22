@@ -34,21 +34,25 @@ export async function middleware(req: NextRequest) {
 
   const path = req.nextUrl.pathname
 
+  // デバッグ用ログ
+  console.log(`Middleware: Path=${path}, Session=${session ? "exists" : "null"}`)
+
   // 保護されたパスへのアクセスで認証されていない場合はログインページにリダイレクト
   const isProtectedPath = protectedPaths.some(
     (protectedPath) => path === protectedPath || path.startsWith(`${protectedPath}/`),
   )
 
   if (isProtectedPath && !session) {
+    console.log(`Redirecting to login: Protected path=${path}, no session`)
     const redirectUrl = new URL("/login", req.url)
-    redirectUrl.searchParams.set("redirect", path)
     return NextResponse.redirect(redirectUrl)
   }
 
   // 認証済みユーザーがログインページなどにアクセスした場合はダッシュボードにリダイレクト
-  const isAuthPath = publicPaths.some((publicPath) => path === publicPath || path.startsWith(`${publicPath}/`))
+  const isAuthPath = publicPaths.includes(path)
 
-  if (isAuthPath && session) {
+  if (isAuthPath && session && path !== "/") {
+    console.log(`Redirecting to dashboard: Auth path=${path}, has session`)
     return NextResponse.redirect(new URL("/dashboard", req.url))
   }
 

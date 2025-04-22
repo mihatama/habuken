@@ -42,7 +42,7 @@ export function LoginForm() {
 
     try {
       // Supabase認証を使用
-      const { error } = await signIn(values.email, values.password)
+      const { error, data } = await signIn(values.email, values.password)
 
       if (error) {
         console.error("Login error:", error)
@@ -53,12 +53,14 @@ export function LoginForm() {
         })
       } else {
         // ログイン成功
+        console.log("Login successful:", data)
         toast({
           title: "ログイン成功",
           description: "ログインに成功しました。",
         })
 
-        router.push("/dashboard")
+        // 強制的にページをリロードしてセッションを反映
+        window.location.href = "/dashboard"
       }
     } catch (error) {
       console.error("Login error:", error)

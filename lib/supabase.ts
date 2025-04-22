@@ -1,50 +1,44 @@
 import { createClient } from "@supabase/supabase-js"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 import type { Database } from "@/types/supabase"
 
-// Server component Supabase client
-export function createServerSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-  if (!supabaseUrl || !supabaseKey) {
-    console.error("サーバー側のSupabase環境変数が設定されていません")
-    throw new Error("サーバー側のSupabase環境変数が設定されていません")
-  }
-
+export const createServerSupabaseClient = () => {
   return createClient<Database>(supabaseUrl, supabaseKey, {
-    auth: {
-      persistSession: false,
+    cookies: {
+      get(name: string) {
+        const cookieStore = cookies()
+        const cookie = cookieStore.get(name)
+        return cookie?.value
+      },
+      set(name: string, value: string, options: any) {
+        cookies().set({ name, value, ...options })
+      },
+      remove(name: string, options: any) {
+        cookies().delete({ name, ...options })
+      },
     },
   })
 }
 
-// Client component Supabase client using auth-helpers-nextjs
-export function createClientSupabaseClient() {
-  return createClientComponentClient<Database>()
-}
+let clientSupabaseInstance: any = null
 
-// Singleton pattern for client-side Supabase instance (legacy approach)
-let clientInstance: ReturnType<typeof createClient> | null = null
-
-// Legacy client component Supabase client
 export function getClientSupabaseInstance() {
-  if (clientInstance) return clientInstance
+  if (typeof window === "undefined") {
+    throw new Error("This method can only be used on the client-side.")
+  }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  if (clientSupabaseInstance) return clientSupabaseInstance
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseKey) {
-    console.error("クライアント側のSupabase環境変数が設定されていません")
-    console.warn("デモモードのみ利用可能です")
-    return null
+    throw new Error("Supabase environment variables are not set.")
   }
 
-  try {
-    clientInstance = createClient<Database>(supabaseUrl, supabaseKey)
-    return clientInstance
-  } catch (error) {
-    console.error("Supabaseクライアントの作成に失敗しました:", error)
-    return null
-  }
+  clientSupabaseInstance = createClient<Database>(supabaseUrl, supabaseKey)
+  return clientSupabaseInstance
 }
