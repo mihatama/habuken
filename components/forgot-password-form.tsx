@@ -39,6 +39,13 @@ export function ForgotPasswordForm() {
     setSuccess(null)
 
     try {
+      // supabaseがnullの場合はエラーメッセージを表示
+      if (!supabase) {
+        setError("認証サービスに接続できません。環境変数が正しく設定されているか確認してください。")
+        setIsLoading(false)
+        return
+      }
+
       // Supabaseを使用してパスワードリセットメールを送信
       const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
         redirectTo: `${window.location.origin}/reset-password`,
