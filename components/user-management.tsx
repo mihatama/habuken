@@ -41,7 +41,10 @@ import { Loader2, PlusCircle, Trash2, UserCog } from "lucide-react"
 const userFormSchema = z.object({
   email: z.string().email({ message: "有効なメールアドレスを入力してください" }),
   password: z.string().min(6, { message: "パスワードは6文字以上である必要があります" }),
-  userId: z.string().min(3, { message: "ユーザーIDは3文字以上である必要があります" }),
+  userId: z
+    .string()
+    .min(3, { message: "ユーザーIDは3文字以上である必要があります" })
+    .regex(/^[a-zA-Z0-9_-]+$/, { message: "ユーザーIDは英数字、アンダースコア、ハイフンのみ使用できます" }),
   fullName: z.string().min(2, { message: "名前は2文字以上である必要があります" }),
   role: z.string({ required_error: "ロールを選択してください" }),
   department: z.string().optional(),
@@ -59,6 +62,7 @@ type User = {
   department: string | null
   created_at: string
   roles: string[]
+  user_id?: string
 }
 
 export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
@@ -352,6 +356,7 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
           <TableHeader>
             <TableRow>
               <TableHead>氏名</TableHead>
+              <TableHead>ユーザーID</TableHead>
               <TableHead>メールアドレス</TableHead>
               <TableHead>ロール</TableHead>
               <TableHead>部署</TableHead>
@@ -363,7 +368,7 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
           <TableBody>
             {users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
                   ユーザーが見つかりません
                 </TableCell>
               </TableRow>
@@ -371,6 +376,7 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
               users.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.full_name}</TableCell>
+                  <TableCell>{user.user_id || "-"}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">

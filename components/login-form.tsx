@@ -220,13 +220,7 @@ export function LoginForm() {
       </Form>
 
       <div className="text-center text-sm">
-        <p>
-          アカウントをお持ちでない場合は、
-          <Link href="/signup" className="text-primary hover:underline">
-            新規登録
-          </Link>
-          してください。
-        </p>
+        <p>アカウントをお持ちでない場合は、管理者にお問い合わせください。</p>
       </div>
 
       <div className="text-center text-sm">
