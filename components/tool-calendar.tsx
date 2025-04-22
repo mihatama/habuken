@@ -1371,17 +1371,7 @@ export function ToolCalendar({
   return (
     <Card>
       <CardContent className="p-6">
-        <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
-          <div className="flex items-center">
-            <h2 className="text-xl font-semibold">
-              {getCardTitle()} -{" "}
-              {viewMode === "month"
-                ? currentDate.toLocaleDateString("ja-JP", { year: "numeric", month: "long" })
-                : viewMode === "week"
-                  ? `${getDatesInWeek()[0].toLocaleDateString("ja-JP", { month: "long", day: "numeric" })} 〜 ${getDatesInWeek()[6].toLocaleDateString("ja-JP", { month: "long", day: "numeric" })}`
-                  : currentDate.toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" })}
-            </h2>
-          </div>
+        <div className="flex flex-wrap items-center justify-end mb-6 gap-4">
           <div className="flex flex-wrap items-center gap-2">
             <Select value={filterTool} onValueChange={setFilterTool}>
               <SelectTrigger className="w-[180px]">
