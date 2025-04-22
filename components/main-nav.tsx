@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Calendar, Settings, Users, Wrench, Truck, ClipboardList, FileCheck } from "lucide-react"
 
-export function MainNav({ className, ...props }: React.HTMLAttributes<HTMLElement>) {
+export function MainNav({ className, isAdmin, ...props }: React.HTMLAttributes<HTMLElement> & { isAdmin?: boolean }) {
   const pathname = usePathname()
 
   return (
@@ -81,6 +81,17 @@ export function MainNav({ className, ...props }: React.HTMLAttributes<HTMLElemen
         <Settings className="w-4 h-4 mr-2" />
         <span>設定</span>
       </Link>
+      {isAdmin && (
+        <Link
+          href="/admin/users"
+          className={cn(
+            "flex items-center text-sm font-medium transition-colors hover:text-primary",
+            pathname === "/admin/users" ? "text-primary" : "text-muted-foreground",
+          )}
+        >
+          ユーザー管理
+        </Link>
+      )}
     </nav>
   )
 }

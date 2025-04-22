@@ -12,7 +12,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/contexts/auth-context"
 import Link from "next/link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, CheckCircle2 } from "lucide-react"
+import { AlertCircle, CheckCircle2, Info } from "lucide-react"
 
 const formSchema = z
   .object({
@@ -27,6 +27,9 @@ const formSchema = z
     }),
     confirmPassword: z.string().min(8, {
       message: "パスワードは8文字以上である必要があります。",
+    }),
+    inviteCode: z.string().min(6, {
+      message: "招待コードは6文字以上である必要があります。",
     }),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -49,6 +52,7 @@ export function SignupForm() {
       email: "",
       password: "",
       confirmPassword: "",
+      inviteCode: "",
     },
   })
 
@@ -58,6 +62,19 @@ export function SignupForm() {
     setSignupSuccess(false)
 
     try {
+      // 招待コードの検証（実際のアプリでは、サーバーサイドで検証する必要があります）
+      if (values.inviteCode !== "INVITE123") {
+        // 実際のアプリでは、データベースから有効な招待コードを検証
+        setSignupError("無効な招待コードです。管理者に連絡してください。")
+        toast({
+          variant: "destructive",
+          title: "登録失敗",
+          description: "無効な招待コードです。管理者に連絡してください。",
+        })
+        setIsLoading(false)
+        return
+      }
+
       // Supabase認証を使用
       const { error, data } = await signUp(values.email, values.password, {
         full_name: values.fullName,
@@ -111,6 +128,14 @@ export function SignupForm() {
 
   return (
     <div className="grid gap-6">
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertTitle>自己登録は制限されています</AlertTitle>
+        <AlertDescription>
+          新規ユーザー登録には管理者からの招待コードが必要です。招待コードがない場合は管理者に連絡してください。
+        </AlertDescription>
+      </Alert>
+
       {signupError && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -178,6 +203,19 @@ export function SignupForm() {
                 <FormLabel>パスワード（確認）</FormLabel>
                 <FormControl>
                   <Input type="password" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="inviteCode"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>招待コード</FormLabel>
+                <FormControl>
+                  <Input placeholder="管理者から提供された招待コード" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
