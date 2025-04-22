@@ -10,7 +10,7 @@ export function MainNav({ className, ...props }: React.HTMLAttributes<HTMLElemen
   const pathname = usePathname()
 
   return (
-    <nav className={cn("flex items-center space-x-4 lg:space-x-6 overflow-x-auto", className)} {...props}>
+    <nav className={cn("hidden md:flex items-center space-x-4 lg:space-x-6 overflow-x-auto", className)} {...props}>
       <Link
         href="/dashboard"
         className={cn(

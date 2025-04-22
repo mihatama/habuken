@@ -10,7 +10,7 @@ export function MobileNav({ className, ...props }: React.HTMLAttributes<HTMLElem
   const pathname = usePathname()
 
   return (
-    <nav className={cn("flex items-center justify-between overflow-x-auto", className)} {...props}>
+    <nav className={cn("flex md:hidden items-center justify-between overflow-x-auto", className)} {...props}>
       <Link
         href="/dashboard"
         className={cn(
