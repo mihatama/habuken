@@ -1,13 +1,10 @@
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
+import { useState } from "react"
+import { CalendarViewSelector, type ViewType, type TimeframeType } from "./calendar-view-selector"
+import { ProjectCalendar } from "./project-calendar"
+import { StaffCalendar } from "./staff-calendar"
+import { ToolCalendar } from "./tool-calendar"
 
 // モックデータ
 const events = [
@@ -62,172 +59,39 @@ interface CalendarEvent {
 // 日本語の曜日配列をメモ化
 const DAYS_OF_WEEK = ["日", "月", "火", "水", "木", "金", "土"]
 
-export function CalendarView() {
-  const [currentMonth, setCurrentMonth] = useState(new Date())
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
+// インターフェースを追加
+interface CalendarViewProps {
+  activeView?: ViewType
+  timeframe?: TimeframeType
+}
 
-  // 月の日数を取得する関数
-  const getDaysInMonth = useCallback((year: number, month: number) => {
-    return new Date(year, month + 1, 0).getDate()
-  }, [])
-
-  // 月の最初の日の曜日を取得する関数
-  const getFirstDayOfMonth = useCallback((year: number, month: number) => {
-    return new Date(year, month, 1).getDay()
-  }, [])
-
-  // 前月へ移動
-  const prevMonth = useCallback(() => {
-    setCurrentMonth((prevDate) => new Date(prevDate.getFullYear(), prevDate.getMonth() - 1, 1))
-  }, [])
-
-  // 次月へ移動
-  const nextMonth = useCallback(() => {
-    setCurrentMonth((prevDate) => new Date(prevDate.getFullYear(), prevDate.getMonth() + 1, 1))
-  }, [])
-
-  // 今日へ移動
-  const goToToday = useCallback(() => {
-    const today = new Date()
-    setCurrentMonth(new Date(today.getFullYear(), today.getMonth(), 1))
-    setSelectedDate(today)
-  }, [])
-
-  // カレンダーのレンダリングをメモ化
-  const calendarDays = useMemo(() => {
-    const year = currentMonth.getFullYear()
-    const month = currentMonth.getMonth()
-    const daysInMonth = getDaysInMonth(year, month)
-    const firstDayOfMonth = getFirstDayOfMonth(year, month)
-    const today = new Date()
-
-    const days = []
-
-    // 月の最初の日の前の空白セルを追加
-    for (let i = 0; i < firstDayOfMonth; i++) {
-      days.push(<div key={`empty-${i}`} className="h-24 border border-muted bg-muted/20"></div>)
-    }
-
-    // 月の各日のセルを追加
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month, day)
-      const isToday = today.toDateString() === date.toDateString()
-      const isSelected = selectedDate?.toDateString() === date.toDateString()
-
-      // この日のイベントを検索
-      const dayEvents = events.filter((event) => event.date.toDateString() === date.toDateString())
-
-      days.push(
-        <div
-          key={day}
-          className={cn(
-            "h-24 border p-1 transition-colors hover:bg-muted/50 cursor-pointer",
-            isToday && "bg-muted/30",
-            isSelected && "bg-muted",
-          )}
-          onClick={() => setSelectedDate(date)}
-        >
-          <div className="flex justify-between">
-            <span className={cn("text-sm font-medium", isToday && "text-primary")}>{day}</span>
-          </div>
-          <ScrollArea className="h-16 w-full">
-            {dayEvents.map((event) => (
-              <Dialog key={event.id}>
-                <DialogTrigger asChild>
-                  <div
-                    className={cn("mt-1 rounded p-1 text-xs border", event.color)}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setSelectedEvent(event)
-                    }}
-                  >
-                    <div className="font-medium truncate">{event.title}</div>
-                    <div className="text-xs">{`${event.startTime} - ${event.endTime}`}</div>
-                  </div>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                  <DialogHeader>
-                    <DialogTitle>{event.title}</DialogTitle>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div>
-                      <h4 className="mb-2 font-medium">日時</h4>
-                      <p>{`${event.date.toLocaleDateString()} ${event.startTime} - ${event.endTime}`}</p>
-                    </div>
-                    <div>
-                      <h4 className="mb-2 font-medium">スタッフ</h4>
-                      <div className="flex flex-wrap gap-1">
-                        {event.staff.map((staff, index) => (
-                          <Badge key={index} variant="outline">
-                            {staff}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <h4 className="mb-2 font-medium">場所</h4>
-                      <p>{event.location}</p>
-                    </div>
-                    <div>
-                      <h4 className="mb-2 font-medium">ツール</h4>
-                      <div className="flex flex-wrap gap-1">
-                        {event.tools.map((tool, index) => (
-                          <Badge key={index} variant="outline">
-                            {tool}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            ))}
-          </ScrollArea>
-        </div>,
-      )
-    }
-
-    return days
-  }, [currentMonth, selectedDate, getDaysInMonth, getFirstDayOfMonth])
-
-  // 現在の月の表示をメモ化
-  const currentMonthDisplay = useMemo(() => {
-    return currentMonth.toLocaleDateString("ja-JP", { year: "numeric", month: "long" })
-  }, [currentMonth])
+export function CalendarView({
+  activeView: initialView = "project",
+  timeframe: initialTimeframe = "month",
+}: CalendarViewProps) {
+  const [activeView, setActiveView] = useState<ViewType>(initialView)
+  const [timeframe, setTimeframe] = useState<TimeframeType>(initialTimeframe)
 
   return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center">
-            <h2 className="text-xl font-semibold">{currentMonthDisplay}</h2>
+    <div className="space-y-4">
+      <CalendarViewSelector
+        activeView={activeView}
+        setActiveView={setActiveView}
+        timeframe={timeframe}
+        setTimeframe={setTimeframe}
+      />
+
+      <div className="mt-4">
+        {activeView === "project" && <ProjectCalendar timeframe={timeframe} />}
+        {activeView === "staff" && <StaffCalendar timeframe={timeframe} />}
+        {activeView === "resource" && <ToolCalendar timeframe={timeframe} />}
+        {activeView === "timeline" && (
+          <div className="p-8 text-center border rounded-lg">
+            <h3 className="text-lg font-medium">タイムラインビュー</h3>
+            <p className="text-muted-foreground">開発中の機能です。近日公開予定。</p>
           </div>
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" size="sm" onClick={goToToday}>
-              今日
-            </Button>
-            <Button variant="outline" size="icon" onClick={prevMonth}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="icon" onClick={nextMonth}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              新規作成
-            </Button>
-          </div>
-        </div>
-        <div className="grid grid-cols-7 gap-1 mb-1">
-          {DAYS_OF_WEEK.map((day) => (
-            <div key={day} className="text-center font-medium py-2">
-              {day}
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7 gap-1">{calendarDays}</div>
-      </CardContent>
-    </Card>
+        )}
+      </div>
+    </div>
   )
 }
