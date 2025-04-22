@@ -21,11 +21,15 @@ export type PasswordStrength = {
   errors: string[]
 }
 
+// AuthContextType型を修正して、signInとsignUpを追加
 type AuthContextType = {
   user: User | null
   supabase: SupabaseClient<Database>
   loading: boolean
   signOut: () => Promise<void>
+  signIn: (email: string, password: string) => Promise<any>
+  signUp: (email: string, password: string, metadata?: { full_name?: string }) => Promise<any>
+  resetPassword: (email: string) => Promise<any>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -180,11 +184,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // AuthProviderのvalueオブジェクトを修正
   const value = {
     user,
     supabase,
     loading,
     signOut,
+    signIn,
+    signUp,
+    resetPassword,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

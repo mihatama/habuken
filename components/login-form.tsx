@@ -11,6 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/contexts/auth-context"
+import Link from "next/link"
 
 const formSchema = z.object({
   email: z.string().email({
@@ -100,6 +101,11 @@ export function LoginForm() {
                 <FormControl>
                   <Input type="password" {...field} />
                 </FormControl>
+                <div className="flex justify-end">
+                  <Link href="/forgot-password" className="text-sm text-muted-foreground hover:text-primary">
+                    パスワードをお忘れですか？
+                  </Link>
+                </div>
                 <FormMessage />
               </FormItem>
             )}
@@ -119,7 +125,20 @@ export function LoginForm() {
             )}
           />
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "ログイン中..." : "ログイン"}
+            {isLoading ? (
+              <div className="flex items-center justify-center">
+                <div className="relative h-5 w-5 mr-2">
+                  <div className="w-5 h-5 border-2 border-primary/30 rounded-full animate-spin"></div>
+                  <div
+                    className="absolute top-0 left-0 w-5 h-5 border-2 border-t-2 border-primary rounded-full animate-spin"
+                    style={{ animationDirection: "reverse", animationDuration: "0.8s" }}
+                  ></div>
+                </div>
+                ログイン中...
+              </div>
+            ) : (
+              "ログイン"
+            )}
           </Button>
         </form>
       </Form>
