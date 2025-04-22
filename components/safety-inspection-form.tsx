@@ -1,18 +1,17 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Trash2, Save, Download, Camera, Sun, Cloud, CloudRain } from "lucide-react"
 import { sampleProjects } from "@/data/sample-data"
 import { format } from "date-fns"
-import { ja } from "date-fns/locale"
 import { useToast } from "@/components/ui/use-toast"
-import { z } from "zod"
+import { TextField, SelectField } from "@/components/ui/form-field"
+import { DataTable } from "@/components/ui/data-table"
+import { WeatherIcon } from "@/components/ui/weather-display"
+import { ActionButtons } from "@/components/ui/action-buttons"
+import { PreviewContainer, PreviewSection, PreviewHeader, PreviewTable } from "@/components/ui/preview-container"
+import { getDayOfWeek, getReiwaYear } from "@/utils/date-utils"
+import { validateWithSchema, inspectionFormSchema, type ValidationErrors } from "@/utils/form-validation"
 
 // InspectionItem型を追加
 type InspectionItem = {
@@ -23,210 +22,13 @@ type InspectionItem = {
   notes: string
 }
 
-// バリデーションスキーマを追加
-const inspectionFormSchema = z.object({
-  projectId: z.string().min(1, "工事名を選択してください"),
-  date: z.string().min(1, "日付を入力してください"),
-  inspector: z.string().min(1, "点検者名を入力してください"),
-  weather: z.string(),
-  generalNotes: z.string().optional(),
-})
-
-// コンポーネントを分割するため、InspectionItemRowコンポーネントを追加
-function InspectionItemRow({
-  item,
-  index,
-  updateItem,
-  removeItem,
-  isRemoveDisabled,
-}: {
-  item: InspectionItem
-  index: number
-  updateItem: (id: number, field: string, value: string) => void
-  removeItem: (id: number) => void
-  isRemoveDisabled: boolean
-}) {
-  return (
-    <TableRow>
-      <TableCell>{index + 1}</TableCell>
-      <TableCell>
-        <Input
-          value={item.category}
-          onChange={(e) => updateItem(item.id, "category", e.target.value)}
-          className="h-8"
-          placeholder="カテゴリ"
-          aria-label={`カテゴリ ${index + 1}`}
-        />
-      </TableCell>
-      <TableCell>
-        <Input
-          value={item.item}
-          onChange={(e) => updateItem(item.id, "item", e.target.value)}
-          className="h-8"
-          placeholder="点検項目"
-          aria-label={`点検項目 ${index + 1}`}
-        />
-      </TableCell>
-      <TableCell>
-        <Select
-          value={item.status}
-          onValueChange={(value) => updateItem(item.id, "status", value)}
-          aria-label={`状態 ${index + 1}`}
-        >
-          <SelectTrigger className="h-8">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ok">良好</SelectItem>
-            <SelectItem value="ng">不良</SelectItem>
-            <SelectItem value="na">該当なし</SelectItem>
-          </SelectContent>
-        </Select>
-      </TableCell>
-      <TableCell>
-        <Input
-          value={item.notes}
-          onChange={(e) => updateItem(item.id, "notes", e.target.value)}
-          className="h-8"
-          placeholder="備考"
-          aria-label={`備考 ${index + 1}`}
-        />
-      </TableCell>
-      <TableCell>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => removeItem(item.id)}
-          disabled={isRemoveDisabled}
-          aria-label={`項目 ${index + 1} を削除`}
-        >
-          <Trash2 className="h-4 w-4 text-red-500" />
-        </Button>
-      </TableCell>
-    </TableRow>
-  )
-}
-
-// InspectionPreviewコンポーネントを追加
-function InspectionPreview({
-  formData,
-  inspectionItems,
-  projectName,
-}: {
-  formData: any
-  inspectionItems: InspectionItem[]
-  projectName: string | undefined
-}) {
-  // 曜日を取得する関数
-  const getDayOfWeek = (dateString: string) => {
-    const date = new Date(dateString)
-    return format(date, "EEEE", { locale: ja })
-  }
-
-  // 令和年を取得する関数
-  const getReiwaYear = (dateString: string) => {
-    const date = new Date(dateString)
-    const year = date.getFullYear()
-    // 令和は2019年5月1日から
-    return year - 2018
-  }
-
-  // 天気アイコンを取得
-  const getWeatherIcon = () => {
-    switch (formData.weather) {
-      case "sunny":
-        return <Sun className="h-5 w-5 text-yellow-500" aria-label="晴れ" />
-      case "cloudy":
-        return <Cloud className="h-5 w-5 text-gray-500" aria-label="曇り" />
-      case "rainy":
-        return <CloudRain className="h-5 w-5 text-blue-500" aria-label="雨" />
-      default:
-        return <Sun className="h-5 w-5 text-yellow-500" aria-label="晴れ" />
-    }
-  }
-
-  return (
-    <div className="border rounded-md p-4 bg-white">
-      <div className="text-center text-2xl font-bold mb-4">安全巡視記録</div>
-
-      <div className="border border-gray-300">
-        <div className="grid grid-cols-4 border-b border-gray-300">
-          <div className="col-span-3 border-r border-gray-300 p-2">
-            <div className="font-bold">工事名</div>
-            <div>{projectName || "未選択"}</div>
-          </div>
-          <div className="p-2">
-            <div className="font-bold">記録番号</div>
-            <div>自動採番</div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-6 border-b border-gray-300">
-          <div className="col-span-4 border-r border-gray-300 p-2">
-            <div className="flex items-center">
-              <span>令和</span>
-              <span className="mx-2">{getReiwaYear(formData.date)}</span>
-              <span>年</span>
-              <span className="mx-2">{new Date(formData.date).getMonth() + 1}</span>
-              <span>月</span>
-              <span className="mx-2">{new Date(formData.date).getDate()}</span>
-              <span>日</span>
-              <span className="mx-2">（{getDayOfWeek(formData.date)}）</span>
-            </div>
-          </div>
-          <div className="col-span-1 border-r border-gray-300 p-2 flex items-center justify-center">
-            <div className="text-center">
-              <div className="font-bold">天候</div>
-              <div className="flex justify-center">{getWeatherIcon()}</div>
-            </div>
-          </div>
-          <div className="col-span-1 p-2">
-            <div className="font-bold">承認</div>
-            <div></div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-6 border-b border-gray-300">
-          <div className="col-span-6 p-2">
-            <div className="font-bold">点検者</div>
-            <div>{formData.inspector || "未入力"}</div>
-          </div>
-        </div>
-
-        <div className="border-b border-gray-300">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr>
-                <th className="border-r border-b border-gray-300 p-2 w-10">No.</th>
-                <th className="border-r border-b border-gray-300 p-2">カテゴリ</th>
-                <th className="border-r border-b border-gray-300 p-2">点検項目</th>
-                <th className="border-r border-b border-gray-300 p-2">状態</th>
-                <th className="border-b border-gray-300 p-2">備考</th>
-              </tr>
-            </thead>
-            <tbody>
-              {inspectionItems.map((item, index) => (
-                <tr key={item.id}>
-                  <td className="border-r border-b border-gray-300 p-2 text-center">{index + 1}</td>
-                  <td className="border-r border-b border-gray-300 p-2">{item.category}</td>
-                  <td className="border-r border-b border-gray-300 p-2">{item.item}</td>
-                  <td className="border-r border-b border-gray-300 p-2 text-center">
-                    {item.status === "ok" ? "良好" : item.status === "ng" ? "不良" : "該当なし"}
-                  </td>
-                  <td className="border-b border-gray-300 p-2">{item.notes}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="p-4">
-          <div className="font-bold mb-2">総合所見</div>
-          <div className="border border-gray-300 p-2 min-h-[100px]">{formData.generalNotes || "未入力"}</div>
-        </div>
-      </div>
-    </div>
-  )
+// 状態の型定義
+type FormData = {
+  projectId: string
+  date: string
+  weather: string
+  inspector: string
+  generalNotes: string
 }
 
 export function SafetyInspectionForm() {
@@ -236,7 +38,7 @@ export function SafetyInspectionForm() {
     { id: 2, category: "安全対策", item: "安全帯の着用", status: "ok", notes: "" },
     { id: 3, category: "機械設備", item: "重機の点検状況", status: "ok", notes: "" },
   ])
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     projectId: "",
     date: format(new Date(), "yyyy-MM-dd"),
     weather: "sunny",
@@ -245,7 +47,7 @@ export function SafetyInspectionForm() {
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({})
   const { toast } = useToast()
 
   // 点検項目を追加
@@ -264,29 +66,20 @@ export function SafetyInspectionForm() {
     setInspectionItems(inspectionItems.map((item) => (item.id === id ? { ...item, [field]: value } : item)))
   }
 
-  // フォームバリデーション
-  const validateForm = () => {
-    try {
-      inspectionFormSchema.parse(formData)
-      setValidationErrors({})
-      return true
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        const errors: Record<string, string> = {}
-        error.errors.forEach((err) => {
-          if (err.path[0]) {
-            errors[err.path[0].toString()] = err.message
-          }
-        })
-        setValidationErrors(errors)
-      }
-      return false
+  // フォームの値を更新
+  const updateFormData = (field: keyof FormData, value: string) => {
+    setFormData({ ...formData, [field]: value })
+    if (validationErrors[field]) {
+      setValidationErrors({ ...validationErrors, [field]: "" })
     }
   }
 
   // 安全巡視記録を保存
   const saveInspection = async () => {
-    if (!validateForm()) {
+    const { isValid, errors } = validateWithSchema(inspectionFormSchema, formData)
+
+    if (!isValid) {
+      setValidationErrors(errors)
       toast({
         title: "入力エラー",
         description: "必須項目を入力してください",
@@ -352,169 +145,204 @@ export function SafetyInspectionForm() {
     ? sampleProjects.find((p) => p.id.toString() === formData.projectId)
     : undefined
 
+  // 天気オプションの設定
+  const weatherOptions = [
+    { value: "sunny", label: "晴れ" },
+    { value: "cloudy", label: "曇り" },
+    { value: "rainy", label: "雨" },
+  ]
+
+  // 点検項目のテーブル列定義
+  const inspectionColumns = [
+    { header: "No.", accessor: (_, index: number) => index + 1, className: "w-10" },
+    {
+      header: "カテゴリ",
+      accessor: (item: InspectionItem) => (
+        <input
+          value={item.category}
+          onChange={(e) => updateInspectionItem(item.id, "category", e.target.value)}
+          className="w-full h-8 px-3 py-2 border border-gray-300 rounded-md"
+          placeholder="カテゴリ"
+        />
+      ),
+    },
+    {
+      header: "点検項目",
+      accessor: (item: InspectionItem) => (
+        <input
+          value={item.item}
+          onChange={(e) => updateInspectionItem(item.id, "item", e.target.value)}
+          className="w-full h-8 px-3 py-2 border border-gray-300 rounded-md"
+          placeholder="点検項目"
+        />
+      ),
+    },
+    {
+      header: "状態",
+      accessor: (item: InspectionItem) => (
+        <select
+          value={item.status}
+          onChange={(e) => updateInspectionItem(item.id, "status", e.target.value)}
+          className="w-full h-8 px-3 py-2 border border-gray-300 rounded-md"
+        >
+          <option value="ok">良好</option>
+          <option value="ng">不良</option>
+          <option value="na">該当なし</option>
+        </select>
+      ),
+      className: "w-24",
+    },
+    {
+      header: "備考",
+      accessor: (item: InspectionItem) => (
+        <input
+          value={item.notes}
+          onChange={(e) => updateInspectionItem(item.id, "notes", e.target.value)}
+          className="w-full h-8 px-3 py-2 border border-gray-300 rounded-md"
+          placeholder="備考"
+        />
+      ),
+    },
+  ]
+
   return (
     <div className="space-y-6">
       <div className="text-2xl font-bold text-center mb-6">安全巡視記録</div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div>
-          <Label htmlFor="projectId">
-            工事名 <span className="text-red-500">*</span>
-          </Label>
-          <Select
-            value={formData.projectId}
-            onValueChange={(value) => {
-              setFormData({ ...formData, projectId: value })
-              setValidationErrors({ ...validationErrors, projectId: "" })
-            }}
-          >
-            <SelectTrigger id="projectId" className={validationErrors.projectId ? "border-red-500" : ""}>
-              <SelectValue placeholder="工事を選択" />
-            </SelectTrigger>
-            <SelectContent>
-              {sampleProjects.map((project) => (
-                <SelectItem key={project.id} value={project.id.toString()}>
-                  {project.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {validationErrors.projectId && <p className="text-red-500 text-sm mt-1">{validationErrors.projectId}</p>}
-        </div>
+        <SelectField
+          id="projectId"
+          label="工事名"
+          value={formData.projectId}
+          onChange={(value) => updateFormData("projectId", value)}
+          options={sampleProjects.map((project) => ({ value: project.id.toString(), label: project.name }))}
+          placeholder="工事を選択"
+          required
+          error={validationErrors.projectId}
+        />
 
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="date">
-              日付 <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="date"
-              type="date"
-              value={formData.date}
-              onChange={(e) => {
-                setFormData({ ...formData, date: e.target.value })
-                setValidationErrors({ ...validationErrors, date: "" })
-              }}
-              className={validationErrors.date ? "border-red-500" : ""}
-            />
-            {validationErrors.date && <p className="text-red-500 text-sm mt-1">{validationErrors.date}</p>}
-          </div>
-          <div>
-            <Label htmlFor="weather">天候</Label>
-            <Select value={formData.weather} onValueChange={(value) => setFormData({ ...formData, weather: value })}>
-              <SelectTrigger id="weather" className="flex items-center">
-                {formData.weather === "sunny" && <Sun className="h-5 w-5 text-yellow-500" aria-label="晴れ" />}
-                {formData.weather === "cloudy" && <Cloud className="h-5 w-5 text-gray-500" aria-label="曇り" />}
-                {formData.weather === "rainy" && <CloudRain className="h-5 w-5 text-blue-500" aria-label="雨" />}
-                <SelectValue className="ml-2" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="sunny">晴れ</SelectItem>
-                <SelectItem value="cloudy">曇り</SelectItem>
-                <SelectItem value="rainy">雨</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <TextField
+            id="date"
+            label="日付"
+            value={formData.date}
+            onChange={(value) => updateFormData("date", value)}
+            type="date"
+            required
+            error={validationErrors.date}
+          />
+          <SelectField
+            id="weather"
+            label="天候"
+            value={formData.weather}
+            onChange={(value) => updateFormData("weather", value)}
+            options={weatherOptions}
+            icon={<WeatherIcon weather={formData.weather as any} />}
+          />
         </div>
       </div>
+
+      <TextField
+        id="inspector"
+        label="点検者"
+        value={formData.inspector}
+        onChange={(value) => updateFormData("inspector", value)}
+        placeholder="点検者名"
+        required
+        error={validationErrors.inspector}
+      />
+
+      <DataTable
+        data={inspectionItems}
+        columns={inspectionColumns}
+        onAdd={addInspectionItem}
+        onDelete={removeInspectionItem}
+        getRowId={(item) => item.id}
+        addButtonLabel="項目を追加"
+        isDeleteDisabled={(item) => inspectionItems.length <= 1}
+      />
 
       <div>
-        <Label htmlFor="inspector">
-          点検者 <span className="text-red-500">*</span>
-        </Label>
-        <Input
-          id="inspector"
-          value={formData.inspector}
-          onChange={(e) => {
-            setFormData({ ...formData, inspector: e.target.value })
-            setValidationErrors({ ...validationErrors, inspector: "" })
-          }}
-          placeholder="点検者名"
-          className={`mb-4 ${validationErrors.inspector ? "border-red-500" : ""}`}
-        />
-        {validationErrors.inspector && <p className="text-red-500 text-sm mt-1">{validationErrors.inspector}</p>}
-      </div>
-
-      <div className="border rounded-md p-4">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-medium">点検項目</h3>
-          <Button onClick={addInspectionItem} size="sm">
-            <Plus className="h-4 w-4 mr-1" />
-            項目を追加
-          </Button>
-        </div>
-
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">No.</TableHead>
-                <TableHead>カテゴリ</TableHead>
-                <TableHead>点検項目</TableHead>
-                <TableHead className="w-24">状態</TableHead>
-                <TableHead>備考</TableHead>
-                <TableHead className="w-20">操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {inspectionItems.map((item, index) => (
-                <InspectionItemRow
-                  key={item.id}
-                  item={item}
-                  index={index}
-                  updateItem={updateInspectionItem}
-                  removeItem={removeInspectionItem}
-                  isRemoveDisabled={inspectionItems.length <= 1}
-                />
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
-
-      <div>
-        <Label htmlFor="generalNotes">総合所見</Label>
+        <label htmlFor="generalNotes" className="block text-sm font-medium text-gray-700 mb-1">
+          総合所見
+        </label>
         <Textarea
           id="generalNotes"
           value={formData.generalNotes}
-          onChange={(e) => setFormData({ ...formData, generalNotes: e.target.value })}
+          onChange={(e) => updateFormData("generalNotes", e.target.value)}
           placeholder="総合所見を入力"
           className="min-h-[100px]"
         />
       </div>
 
-      <div className="flex justify-between mt-6">
-        <div className="flex space-x-2">
-          <Button variant="outline" onClick={takePhoto}>
-            <Camera className="h-4 w-4 mr-2" />
-            写真撮影
-          </Button>
-        </div>
-        <div className="flex space-x-2">
-          <Button variant="outline" onClick={exportToExcel} disabled={isSubmitting}>
-            <Download className="h-4 w-4 mr-2" />
-            Excel出力
-          </Button>
-          <Button onClick={saveInspection} disabled={isSubmitting}>
-            {isSubmitting ? (
-              <>
-                <span className="animate-spin mr-2">⏳</span>
-                保存中...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4 mr-2" />
-                保存
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
+      <ActionButtons onSave={saveInspection} onExport={exportToExcel} onPhoto={takePhoto} isSubmitting={isSubmitting} />
 
-      <div className="mt-8 border-t pt-6">
-        <h3 className="text-lg font-medium mb-4">プレビュー</h3>
-        <InspectionPreview formData={formData} inspectionItems={inspectionItems} projectName={selectedProject?.name} />
-      </div>
+      <PreviewContainer title="安全巡視記録">
+        <PreviewSection>
+          <div className="grid grid-cols-4 border-b border-gray-300">
+            <PreviewHeader
+              title="工事名"
+              value={selectedProject?.name || "未選択"}
+              colSpan={3}
+              className="border-r border-gray-300"
+            />
+            <PreviewHeader title="記録番号" value="自動採番" />
+          </div>
+
+          <div className="grid grid-cols-6 border-b border-gray-300">
+            <div className="col-span-4 border-r border-gray-300 p-2">
+              <div className="flex items-center">
+                <span>令和</span>
+                <span className="mx-2">{getReiwaYear(formData.date)}</span>
+                <span>年</span>
+                <span className="mx-2">{new Date(formData.date).getMonth() + 1}</span>
+                <span>月</span>
+                <span className="mx-2">{new Date(formData.date).getDate()}</span>
+                <span>日</span>
+                <span className="mx-2">（{getDayOfWeek(formData.date)}）</span>
+              </div>
+            </div>
+            <div className="col-span-1 border-r border-gray-300 p-2 flex items-center justify-center">
+              <div className="text-center">
+                <div className="font-bold">天候</div>
+                <div className="flex justify-center">
+                  <WeatherIcon weather={formData.weather as any} size="md" />
+                </div>
+              </div>
+            </div>
+            <div className="col-span-1 p-2">
+              <div className="font-bold">承認</div>
+              <div></div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-6 border-b border-gray-300">
+            <div className="col-span-6 p-2">
+              <div className="font-bold">点検者</div>
+              <div>{formData.inspector || "未入力"}</div>
+            </div>
+          </div>
+
+          <PreviewTable headers={["No.", "カテゴリ", "点検項目", "状態", "備考"]}>
+            {inspectionItems.map((item, index) => (
+              <tr key={item.id}>
+                <td className="border-r border-b border-gray-300 p-2 text-center">{index + 1}</td>
+                <td className="border-r border-b border-gray-300 p-2">{item.category}</td>
+                <td className="border-r border-b border-gray-300 p-2">{item.item}</td>
+                <td className="border-r border-b border-gray-300 p-2 text-center">
+                  {item.status === "ok" ? "良好" : item.status === "ng" ? "不良" : "該当なし"}
+                </td>
+                <td className="border-b border-gray-300 p-2">{item.notes}</td>
+              </tr>
+            ))}
+          </PreviewTable>
+
+          <div className="p-4">
+            <div className="font-bold mb-2">総合所見</div>
+            <div className="border border-gray-300 p-2 min-h-[100px]">{formData.generalNotes || "未入力"}</div>
+          </div>
+        </PreviewSection>
+      </PreviewContainer>
     </div>
   )
 }
