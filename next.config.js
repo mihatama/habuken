@@ -1,25 +1,35 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 静的エクスポートの設定
-  output: "export",
-  // 画像の最適化を無効化（静的エクスポートに必要）
+  // Vercelでは静的エクスポート(output: "export")は不要
+  // Vercelのサーバーサイドレンダリングを活用
+
+  // 画像の最適化を有効化（Vercelの画像最適化サービスを利用）
   images: {
-    unoptimized: true,
+    domains: ["v0.blob.com"], // 必要に応じてドメインを追加
   },
-  // トレイリングスラッシュを追加（Amplifyでの互換性向上）
-  trailingSlash: true,
-  // ビルド時のエラーチェックを無効化
+
+  // ビルド時のエラーチェックを有効化（本番環境の品質向上）
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false, // 本番環境では厳格にチェック
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false, // 本番環境では厳格にチェック
   },
-  // 問題のある実験的機能を削除
+
+  // Vercelの高度な機能を活用するための実験的機能
   experimental: {
-    // optimizeCssを削除（crittersモジュールに依存するため）
-    // serverComponentsを削除（静的エクスポートと互換性の問題があるため）
+    // サーバーコンポーネントを最適化（Vercelで高速化）
+    serverComponents: true,
+    // 画像最適化の強化
+    optimizeImages: true,
+    // ページ読み込みの最適化
+    optimizeCss: true,
+    // ミドルウェアの最適化
+    middleware: true,
   },
+
+  // Vercelの分析機能を有効化
+  analyticsId: process.env.NEXT_PUBLIC_ANALYTICS_ID,
 }
 
 module.exports = nextConfig
