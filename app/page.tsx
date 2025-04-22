@@ -1,17 +1,20 @@
-import { Suspense } from "react"
-import Loading from "./loading"
 import { redirect } from "next/navigation"
+import { createServerSupabaseClient } from "@/lib/supabase"
 
-export default function Home() {
-  // ルートパスにアクセスした場合は、ログインページにリダイレクト
-  redirect("/login")
+export default async function Home() {
+  // Server-side redirect using Next.js App Router
+  const supabase = createServerSupabaseClient()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
 
-  return (
-    <Suspense fallback={<Loading />}>
-      <div className="flex min-h-screen flex-col items-center justify-center">
-        <h1 className="text-4xl font-bold">羽舞建設</h1>
-        <p className="mt-4 text-xl">工事管理システム</p>
-      </div>
-    </Suspense>
-  )
+  // Redirect based on authentication status
+  if (session) {
+    redirect("/dashboard")
+  } else {
+    redirect("/login")
+  }
+
+  // This won't be reached due to the redirects above
+  return null
 }
