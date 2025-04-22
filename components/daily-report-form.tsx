@@ -26,17 +26,86 @@ import { sampleProjects, sampleStaff } from "@/data/sample-data"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
 import { getWeatherData } from "@/lib/weather-api"
+import { useToast } from "@/components/ui/use-toast"
+
+// Web Speech API の型定義
+interface SpeechRecognitionEvent extends Event {
+  resultIndex: number
+  results: {
+    [index: number]: {
+      [index: number]: {
+        transcript: string
+      }
+      isFinal: boolean
+    }
+  }
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+  start: () => void
+  stop: () => void
+  onresult: (event: SpeechRecognitionEvent) => void
+  onerror: (event: Event) => void
+  onend: () => void
+}
+
+// Worker型の定義
+type Worker = {
+  id: number
+  name: string
+  workHours: string
+  overtimeHours: string
+  notes: string
+  workContent: string
+}
+
+// Material型の定義
+type Material = {
+  id: number
+  name: string
+  spec: string
+  unit: string
+  quantity: string
+  machineType: string
+  model: string
+  units: string
+  status: string
+}
+
+// OtherMachine型の定義
+type OtherMachine = {
+  id: number
+  name: string
+  operator: string
+  units: string
+  status: string
+}
+
+// FormData型の定義
+type FormDataType = {
+  projectId: string
+  date: string
+  weather: string
+  temperature: number
+  weatherDescription: string
+  weatherIcon: string
+}
 
 export function DailyReportForm() {
   const [isRecording, setIsRecording] = useState(false)
-  const [workers, setWorkers] = useState([
+  const [workers, setWorkers] = useState<Worker[]>([
     { id: 1, name: "", workHours: "", overtimeHours: "", notes: "", workContent: "" },
   ])
-  const [materials, setMaterials] = useState([
+  const [materials, setMaterials] = useState<Material[]>([
     { id: 1, name: "", spec: "", unit: "", quantity: "", machineType: "", model: "", units: "", status: "" },
   ])
-  const [otherMachines, setOtherMachines] = useState([{ id: 1, name: "", operator: "", units: "", status: "" }])
-  const [formData, setFormData] = useState({
+  const [otherMachines, setOtherMachines] = useState<OtherMachine[]>([
+    { id: 1, name: "", operator: "", units: "", status: "" },
+  ])
+  const [formData, setFormData] = useState<FormDataType>({
     projectId: "",
     date: format(new Date(), "yyyy-MM-dd"),
     weather: "sunny",
@@ -44,9 +113,11 @@ export function DailyReportForm() {
     weatherDescription: "",
     weatherIcon: "",
   })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const { toast } = useToast()
 
   // Web Speech API用の参照
-  const recognitionRef = useRef<any>(null)
+  const recognitionRef = useRef<SpeechRecognition | null>(null)
 
   // 曜日を取得する関数
   const getDayOfWeek = (dateString: string) => {
@@ -101,56 +172,82 @@ export function DailyReportForm() {
   // 音声認識の開始
   const startSpeechRecognition = (workerId: number) => {
     if (!("webkitSpeechRecognition" in window)) {
-      alert("お使いのブラウザは音声認識をサポートしていません。")
+      toast({
+        title: "非対応",
+        description: "お使いのブラウザは音声認識をサポートしていません。",
+        variant: "destructive",
+      })
       return
     }
 
-    const SpeechRecognition = window.webkitSpeechRecognition
-    recognitionRef.current = new SpeechRecognition()
-    recognitionRef.current.lang = "ja-JP"
-    recognitionRef.current.continuous = true
-    recognitionRef.current.interimResults = true
+    try {
+      // 型アサーションを使用して、TypeScriptに型を伝える
+      const WebkitSpeechRecognition = window.webkitSpeechRecognition as unknown as {
+        new (): SpeechRecognition
+      }
 
-    recognitionRef.current.onresult = (event: any) => {
-      let interimTranscript = ""
-      let finalTranscript = ""
+      recognitionRef.current = new WebkitSpeechRecognition()
+      recognitionRef.current.lang = "ja-JP"
+      recognitionRef.current.continuous = true
+      recognitionRef.current.interimResults = true
 
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript
-        if (event.results[i].isFinal) {
-          finalTranscript += transcript
-        } else {
-          interimTranscript += transcript
+      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
+        let interimTranscript = ""
+        let finalTranscript = ""
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript
+          } else {
+            interimTranscript += transcript
+          }
+        }
+
+        if (finalTranscript) {
+          const updatedWorkers = workers.map((worker) => {
+            if (worker.id === workerId) {
+              return {
+                ...worker,
+                workContent: worker.workContent + finalTranscript,
+              }
+            }
+            return worker
+          })
+          setWorkers(updatedWorkers)
         }
       }
 
-      if (finalTranscript) {
-        const updatedWorkers = workers.map((worker) => {
-          if (worker.id === workerId) {
-            return {
-              ...worker,
-              workContent: worker.workContent + finalTranscript,
-            }
-          }
-          return worker
+      recognitionRef.current.onerror = (event: Event) => {
+        console.error("音声認識エラー:", event)
+        setIsRecording(false)
+        toast({
+          title: "音声認識エラー",
+          description: "音声認識中にエラーが発生しました。",
+          variant: "destructive",
         })
-        setWorkers(updatedWorkers)
       }
-    }
 
-    recognitionRef.current.onerror = (event: any) => {
-      console.error("音声認識エラー:", event.error)
-      setIsRecording(false)
-    }
-
-    recognitionRef.current.onend = () => {
-      if (isRecording) {
-        recognitionRef.current.start()
+      recognitionRef.current.onend = () => {
+        if (isRecording) {
+          recognitionRef.current?.start()
+        }
       }
-    }
 
-    recognitionRef.current.start()
-    setIsRecording(true)
+      recognitionRef.current.start()
+      setIsRecording(true)
+      toast({
+        title: "音声認識開始",
+        description: "音声認識を開始しました。話してください。",
+      })
+    } catch (error) {
+      console.error("音声認識の初期化エラー:", error)
+      toast({
+        title: "音声認識エラー",
+        description: "音声認識の初期化に失敗しました。",
+        variant: "destructive",
+      })
+    }
   }
 
   // 音声認識の停止
@@ -158,6 +255,10 @@ export function DailyReportForm() {
     if (recognitionRef.current) {
       recognitionRef.current.stop()
       setIsRecording(false)
+      toast({
+        title: "音声認識停止",
+        description: "音声認識を停止しました。",
+      })
     }
   }
 
@@ -195,52 +296,84 @@ export function DailyReportForm() {
   }
 
   // 日報を保存
-  const saveReport = () => {
-    const reportData = {
-      ...formData,
-      workers,
-      materials,
-      otherMachines,
-      createdAt: new Date(),
+  const saveReport = async () => {
+    setIsSubmitting(true)
+    try {
+      const reportData = {
+        ...formData,
+        workers,
+        materials,
+        otherMachines,
+        createdAt: new Date(),
+      }
+      console.log("保存された日報:", reportData)
+      // ここで実際のAPIに保存処理を実装
+
+      // 成功トースト
+      toast({
+        title: "保存完了",
+        description: "日報が保存されました",
+      })
+    } catch (error) {
+      console.error("保存エラー:", error)
+      toast({
+        title: "保存エラー",
+        description: "日報の保存に失敗しました",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
-    console.log("保存された日報:", reportData)
-    // ここで実際のAPIに保存処理を実装
-    alert("日報が保存されました")
   }
 
   // Excelとして出力
   const exportToExcel = () => {
-    console.log("Excel出力:", {
-      ...formData,
-      workers,
-      materials,
-      otherMachines,
-    })
-    // ここで実際のExcel出力処理を実装
-    alert("Excelファイルがダウンロードされます")
+    try {
+      console.log("Excel出力:", {
+        ...formData,
+        workers,
+        materials,
+        otherMachines,
+      })
+      // ここで実際のExcel出力処理を実装
+      toast({
+        title: "Excel出力",
+        description: "Excelファイルがダウンロードされます",
+      })
+    } catch (error) {
+      console.error("Excel出力エラー:", error)
+      toast({
+        title: "出力エラー",
+        description: "Excelファイルの出力に失敗しました",
+        variant: "destructive",
+      })
+    }
   }
 
   // 写真を撮影
   const takePhoto = () => {
     // カメラ機能の実装
-    alert("カメラ機能は実装中です")
+    toast({
+      title: "カメラ機能",
+      description: "カメラ機能は実装中です",
+    })
   }
 
   // 天気アイコンを取得
   const getWeatherIcon = () => {
     switch (formData.weather) {
       case "sunny":
-        return <Sun className="h-5 w-5 text-yellow-500" />
+        return <Sun className="h-5 w-5 text-yellow-500" aria-label="晴れ" />
       case "cloudy":
-        return <Cloud className="h-5 w-5 text-gray-500" />
+        return <Cloud className="h-5 w-5 text-gray-500" aria-label="曇り" />
       case "rainy":
-        return <CloudRain className="h-5 w-5 text-blue-500" />
+        return <CloudRain className="h-5 w-5 text-blue-500" aria-label="雨" />
       case "snowy":
-        return <CloudSnow className="h-5 w-5 text-blue-200" />
+        return <CloudSnow className="h-5 w-5 text-blue-200" aria-label="雪" />
       case "foggy":
-        return <Cloudy className="h-5 w-5 text-gray-400" />
+        return <Cloudy className="h-5 w-5 text-gray-400" aria-label="霧" />
       default:
-        return <Sun className="h-5 w-5 text-yellow-500" />
+        return <Sun className="h-5 w-5 text-yellow-500" aria-label="晴れ" />
     }
   }
 
@@ -258,10 +391,24 @@ export function DailyReportForm() {
         }))
       } catch (error) {
         console.error("天気情報の取得に失敗しました:", error)
+        toast({
+          title: "天気情報エラー",
+          description: "天気情報の取得に失敗しました。",
+          variant: "destructive",
+        })
       }
     }
 
     fetchWeatherData()
+  }, [toast])
+
+  // コンポーネントがアンマウントされるときに音声認識を停止
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop()
+      }
+    }
   }, [])
 
   return (
@@ -374,6 +521,7 @@ export function DailyReportForm() {
                           onChange={(e) => updateWorker(worker.id, "workHours", e.target.value)}
                           className="h-8"
                           placeholder="時間"
+                          aria-label={`作業員${index + 1}の労働時間`}
                         />
                       </TableCell>
                       <TableCell>
@@ -383,6 +531,7 @@ export function DailyReportForm() {
                           onChange={(e) => updateWorker(worker.id, "overtimeHours", e.target.value)}
                           className="h-8"
                           placeholder="時間"
+                          aria-label={`作業員${index + 1}の残業時間`}
                         />
                       </TableCell>
                       <TableCell>
@@ -391,6 +540,7 @@ export function DailyReportForm() {
                           onChange={(e) => updateWorker(worker.id, "notes", e.target.value)}
                           className="h-8"
                           placeholder="記事"
+                          aria-label={`作業員${index + 1}の記事`}
                         />
                       </TableCell>
                       <TableCell className="relative">
@@ -400,6 +550,7 @@ export function DailyReportForm() {
                             onChange={(e) => updateWorker(worker.id, "workContent", e.target.value)}
                             className="min-h-[60px] text-sm"
                             placeholder="作業内容"
+                            aria-label={`作業員${index + 1}の作業内容`}
                           />
                           <div className="flex flex-col ml-1">
                             {isRecording && worker.id === workers.find((w) => w.id === worker.id)?.id ? (
@@ -409,6 +560,7 @@ export function DailyReportForm() {
                                 size="icon"
                                 onClick={stopSpeechRecognition}
                                 className="h-8 w-8 text-red-500"
+                                aria-label="音声入力停止"
                               >
                                 <MicOff className="h-4 w-4" />
                               </Button>
@@ -419,6 +571,7 @@ export function DailyReportForm() {
                                 size="icon"
                                 onClick={() => startSpeechRecognition(worker.id)}
                                 className="h-8 w-8"
+                                aria-label="音声入力開始"
                               >
                                 <Mic className="h-4 w-4" />
                               </Button>
@@ -432,6 +585,7 @@ export function DailyReportForm() {
                           size="icon"
                           onClick={() => removeWorker(worker.id)}
                           disabled={workers.length <= 1}
+                          aria-label={`作業員${index + 1}を削除`}
                         >
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
@@ -470,7 +624,7 @@ export function DailyReportForm() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {materials.map((material) => (
+                  {materials.map((material, index) => (
                     <TableRow key={material.id}>
                       <TableCell>
                         <Input
@@ -478,6 +632,7 @@ export function DailyReportForm() {
                           onChange={(e) => updateMaterial(material.id, "name", e.target.value)}
                           className="h-8"
                           placeholder="資材名"
+                          aria-label={`資材${index + 1}の名前`}
                         />
                       </TableCell>
                       <TableCell>
@@ -486,6 +641,7 @@ export function DailyReportForm() {
                           onChange={(e) => updateMaterial(material.id, "spec", e.target.value)}
                           className="h-8"
                           placeholder="規格"
+                          aria-label={`資材${index + 1}の規格`}
                         />
                       </TableCell>
                       <TableCell>
@@ -494,6 +650,7 @@ export function DailyReportForm() {
                           onChange={(e) => updateMaterial(material.id, "unit", e.target.value)}
                           className="h-8"
                           placeholder="単位"
+                          aria-label={`資材${index + 1}の単位`}
                         />
                       </TableCell>
                       <TableCell>
@@ -503,6 +660,7 @@ export function DailyReportForm() {
                           onChange={(e) => updateMaterial(material.id, "quantity", e.target.value)}
                           className="h-8"
                           placeholder="数量"
+                          aria-label={`資材${index + 1}の数量`}
                         />
                       </TableCell>
                       <TableCell>
@@ -511,6 +669,7 @@ export function DailyReportForm() {
                           onChange={(e) => updateMaterial(material.id, "machineType", e.target.value)}
                           className="h-8"
                           placeholder="機械名"
+                          aria-label={`資材${index + 1}の機械名`}
                         />
                       </TableCell>
                       <TableCell>
@@ -519,6 +678,7 @@ export function DailyReportForm() {
                           onChange={(e) => updateMaterial(material.id, "model", e.target.value)}
                           className="h-8"
                           placeholder="型式"
+                          aria-label={`資材${index + 1}の型式`}
                         />
                       </TableCell>
                       <TableCell>
@@ -528,6 +688,7 @@ export function DailyReportForm() {
                           onChange={(e) => updateMaterial(material.id, "units", e.target.value)}
                           className="h-8"
                           placeholder="台数"
+                          aria-label={`資材${index + 1}の台数`}
                         />
                       </TableCell>
                       <TableCell>
@@ -536,6 +697,7 @@ export function DailyReportForm() {
                           onChange={(e) => updateMaterial(material.id, "status", e.target.value)}
                           className="h-8"
                           placeholder="稼働"
+                          aria-label={`資材${index + 1}の稼働状況`}
                         />
                       </TableCell>
                       <TableCell>
@@ -544,6 +706,7 @@ export function DailyReportForm() {
                           size="icon"
                           onClick={() => removeMaterial(material.id)}
                           disabled={materials.length <= 1}
+                          aria-label={`資材${index + 1}を削除`}
                         >
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
@@ -578,7 +741,7 @@ export function DailyReportForm() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {otherMachines.map((machine) => (
+                  {otherMachines.map((machine, index) => (
                     <TableRow key={machine.id}>
                       <TableCell>
                         <Input
@@ -586,6 +749,7 @@ export function DailyReportForm() {
                           onChange={(e) => updateOtherMachine(machine.id, "name", e.target.value)}
                           className="h-8"
                           placeholder="機械名"
+                          aria-label={`他社機械${index + 1}の名前`}
                         />
                       </TableCell>
                       <TableCell>
@@ -594,6 +758,7 @@ export function DailyReportForm() {
                           onChange={(e) => updateOtherMachine(machine.id, "operator", e.target.value)}
                           className="h-8"
                           placeholder="業者名"
+                          aria-label={`他社機械${index + 1}の業者名`}
                         />
                       </TableCell>
                       <TableCell>
@@ -603,6 +768,7 @@ export function DailyReportForm() {
                           onChange={(e) => updateOtherMachine(machine.id, "units", e.target.value)}
                           className="h-8"
                           placeholder="台数"
+                          aria-label={`他社機械${index + 1}の台数`}
                         />
                       </TableCell>
                       <TableCell>
@@ -611,6 +777,7 @@ export function DailyReportForm() {
                           onChange={(e) => updateOtherMachine(machine.id, "status", e.target.value)}
                           className="h-8"
                           placeholder="稼働"
+                          aria-label={`他社機械${index + 1}の稼働状況`}
                         />
                       </TableCell>
                       <TableCell>
@@ -619,6 +786,7 @@ export function DailyReportForm() {
                           size="icon"
                           onClick={() => removeOtherMachine(machine.id)}
                           disabled={otherMachines.length <= 1}
+                          aria-label={`他社機械${index + 1}を削除`}
                         >
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
@@ -640,13 +808,22 @@ export function DailyReportForm() {
           </Button>
         </div>
         <div className="flex space-x-2">
-          <Button variant="outline" onClick={exportToExcel}>
+          <Button variant="outline" onClick={exportToExcel} disabled={isSubmitting}>
             <Download className="h-4 w-4 mr-2" />
             Excel出力
           </Button>
-          <Button onClick={saveReport}>
-            <Save className="h-4 w-4 mr-2" />
-            保存
+          <Button onClick={saveReport} disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <span className="animate-spin mr-2">⏳</span>
+                保存中...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                保存
+              </>
+            )}
           </Button>
         </div>
       </div>
