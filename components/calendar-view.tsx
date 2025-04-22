@@ -1,57 +1,43 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ProjectCalendar } from "@/components/project-calendar"
 import { StaffCalendar } from "@/components/staff-calendar"
 import { ToolCalendar } from "@/components/tool-calendar"
-import { CalendarViewSelector, type ViewType, type TimeframeType } from "@/components/calendar-view-selector"
 
-// CalendarViewProps インターフェースを更新して、activeView と timeframe プロパティも受け入れるようにします
-interface CalendarViewProps {
-  initialView?: ViewType
-  initialTimeframe?: TimeframeType
-  activeView?: ViewType
-  timeframe?: TimeframeType
+type CalendarViewProps = {
+  activeView?: string
+  timeframe?: string
 }
 
-// コンポーネントの引数を更新して、新しいプロパティを使用します
-export function CalendarView({
-  initialView = "project",
-  initialTimeframe = "month",
-  activeView: externalActiveView,
-  timeframe: externalTimeframe,
-}: CalendarViewProps) {
-  const [activeView, setActiveView] = useState<ViewType>(externalActiveView || initialView)
-  const [timeframe, setTimeframe] = useState<TimeframeType>(externalTimeframe || initialTimeframe)
-
-  // 外部から提供された値が変更された場合に状態を更新
-  useEffect(() => {
-    if (externalActiveView) {
-      setActiveView(externalActiveView)
-    }
-  }, [externalActiveView])
-
-  useEffect(() => {
-    if (externalTimeframe) {
-      setTimeframe(externalTimeframe)
-    }
-  }, [externalTimeframe])
+export function CalendarView({ activeView = "project", timeframe = "month" }: CalendarViewProps) {
+  const [view, setView] = useState(activeView)
 
   return (
-    <div className="space-y-6">
-      <CalendarViewSelector
-        activeView={activeView}
-        setActiveView={setActiveView}
-        timeframe={timeframe}
-        setTimeframe={setTimeframe}
-      />
-
-      <div className="mt-6">
-        {activeView === "project" && <ProjectCalendar />}
-        {activeView === "staff" && <StaffCalendar />}
-        {activeView === "resource" && <ToolCalendar />}
-        {activeView === "timeline" && <div>Timeline View (Coming Soon)</div>}
-      </div>
-    </div>
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle>カレンダー</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Tabs defaultValue={view} onValueChange={setView}>
+          <TabsList className="mb-4">
+            <TabsTrigger value="project">案件別</TabsTrigger>
+            <TabsTrigger value="staff">スタッフ別</TabsTrigger>
+            <TabsTrigger value="tool">車両・備品別</TabsTrigger>
+          </TabsList>
+          <TabsContent value="project">
+            <ProjectCalendar timeframe={timeframe} />
+          </TabsContent>
+          <TabsContent value="staff">
+            <StaffCalendar timeframe={timeframe} />
+          </TabsContent>
+          <TabsContent value="tool">
+            <ToolCalendar timeframe={timeframe} />
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
   )
 }

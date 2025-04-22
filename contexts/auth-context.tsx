@@ -1,8 +1,11 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
-import type { Session, User, AuthError } from "@supabase/supabase-js"
-import { getClientSupabaseInstance } from "@/lib/supabase"
+import { createContext, useContext, useEffect, useState } from "react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { SupabaseClient, User } from "@supabase/supabase-js"
+import type { Database } from "@/types/supabase"
+import type { ReactNode } from "react"
+import type { AuthError } from "@supabase/supabase-js"
 
 // パスワード強度チェック用の正規表現
 const PASSWORD_REGEX = {
@@ -20,92 +23,38 @@ export type PasswordStrength = {
 
 type AuthContextType = {
   user: User | null
-  session: Session | null
-  isLoading: boolean
-  signUp: (
-    email: string,
-    password: string,
-    metadata?: { full_name?: string },
-  ) => Promise<{
-    error: AuthError | null
-    data: { user: User | null; session: Session | null } | null
-  }>
-  signIn: (
-    email: string,
-    password: string,
-  ) => Promise<{
-    error: AuthError | null
-    data: { user: User | null; session: Session | null } | null
-  }>
+  supabase: SupabaseClient<Database>
+  loading: boolean
   signOut: () => Promise<void>
-  resetPassword: (email: string) => Promise<{
-    error: AuthError | null
-    data: {} | null
-  }>
-  checkPasswordStrength: (password: string) => PasswordStrength
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [supabase, setSupabase] = useState<any>(null)
-
-  // Supabaseクライアントの初期化
-  useEffect(() => {
-    try {
-      const client = getClientSupabaseInstance()
-      setSupabase(client)
-    } catch (error) {
-      console.error("Supabaseクライアントの初期化に失敗しました:", error)
-    }
-  }, [])
+  const [loading, setLoading] = useState(true)
+  const supabase = createClientComponentClient<Database>()
 
   useEffect(() => {
-    // セッションの初期化
-    const initializeSession = async () => {
-      if (!supabase) return
+    const getUser = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      setUser(session?.user ?? null)
+      setLoading(false)
 
-      try {
-        console.log("Initializing session...")
-        const { data, error } = await supabase.auth.getSession()
+      const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+        setUser(session?.user ?? null)
+      })
 
-        if (error) {
-          console.error("Session initialization error:", error)
-          setIsLoading(false)
-          return
-        }
-
-        console.log("Session data:", data)
-        setSession(data.session)
-        setUser(data.session?.user || null)
-        setIsLoading(false)
-
-        // セッション変更のリスナーを設定
-        const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-          console.log("Auth state changed:", event, session?.user?.email)
-          setSession(session)
-          setUser(session?.user || null)
-          setIsLoading(false)
-        })
-
-        return () => {
-          authListener.subscription.unsubscribe()
-        }
-      } catch (err) {
-        console.error("Error in session initialization:", err)
-        setIsLoading(false)
+      return () => {
+        authListener.subscription.unsubscribe()
       }
     }
 
-    if (supabase) {
-      initializeSession()
-    }
-  }, [supabase])
+    getUser()
+  }, [supabase.auth])
 
-  // パスワード強度チェック
   const checkPasswordStrength = (password: string): PasswordStrength => {
     const errors: string[] = []
 
@@ -195,10 +144,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("Sign in result:", result)
 
       // セッションを即時更新
-      if (result.data.session) {
-        setSession(result.data.session)
-        setUser(result.data.user)
-      }
+      // if (result.data.session) {
+      //   setSession(result.data.session)
+      //   setUser(result.data.user)
+      // }
 
       return result
     } catch (err) {
@@ -208,22 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signOut = async () => {
-    try {
-      if (!supabase) {
-        console.error("Supabaseクライアントが初期化されていません")
-        return
-      }
-
-      await supabase.auth.signOut()
-      // セッションをクリア
-      setSession(null)
-      setUser(null)
-
-      // ページをリロード
-      window.location.href = "/login"
-    } catch (err) {
-      console.error("Sign out error:", err)
-    }
+    await supabase.auth.signOut()
   }
 
   const resetPassword = async (email: string) => {
@@ -248,19 +182,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = {
     user,
-    session,
-    isLoading,
-    signUp,
-    signIn,
+    supabase,
+    loading,
     signOut,
-    resetPassword,
-    checkPasswordStrength,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider")

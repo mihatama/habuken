@@ -1,44 +1,37 @@
 import { createClient } from "@supabase/supabase-js"
-import { cookies } from "next/headers"
 import type { Database } from "@/types/supabase"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+// サーバーサイドでのみ使用するSupabaseクライアント
+export function createServerSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-export const createServerSupabaseClient = () => {
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("Missing Supabase environment variables")
+  }
+
   return createClient<Database>(supabaseUrl, supabaseKey, {
-    cookies: {
-      get(name: string) {
-        const cookieStore = cookies()
-        const cookie = cookieStore.get(name)
-        return cookie?.value
-      },
-      set(name: string, value: string, options: any) {
-        cookies().set({ name, value, ...options })
-      },
-      remove(name: string, options: any) {
-        cookies().delete({ name, ...options })
-      },
+    auth: {
+      persistSession: false,
     },
   })
 }
 
-let clientSupabaseInstance: any = null
+// クライアントサイドでのみ使用するSupabaseクライアント
+// シングルトンパターンを使用して、クライアントサイドで複数のインスタンスが作成されないようにする
+let clientSupabase: ReturnType<typeof createClient<Database>> | null = null
 
 export function getClientSupabaseInstance() {
-  if (typeof window === "undefined") {
-    throw new Error("This method can only be used on the client-side.")
-  }
-
-  if (clientSupabaseInstance) return clientSupabaseInstance
+  if (clientSupabase) return clientSupabase
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseKey) {
-    throw new Error("Supabase environment variables are not set.")
+    console.warn("Missing Supabase environment variables")
+    return null
   }
 
-  clientSupabaseInstance = createClient<Database>(supabaseUrl, supabaseKey)
-  return clientSupabaseInstance
+  clientSupabase = createClient<Database>(supabaseUrl, supabaseKey)
+  return clientSupabase
 }
