@@ -1,19 +1,11 @@
 import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
+
+export const dynamic = "force-static"
 
 export default function Home() {
-  // クライアントサイドでのリダイレクトを避けるため、
-  // クッキーベースでの簡易的な認証チェック
-  const cookieStore = cookies()
-  const isLoggedIn = cookieStore.has("logged_in") || process.env.NODE_ENV === "development"
-
-  // 開発環境またはログイン済みの場合はダッシュボードへ
-  if (isLoggedIn) {
-    redirect("/dashboard")
-  } else {
-    // それ以外はログインページへ
-    redirect("/login")
-  }
+  // 静的エクスポートでは cookies() は使用できないため、
+  // 単純なリダイレクトに変更
+  redirect("/login")
 
   // リダイレクトが機能しない場合のフォールバック
   // 実際にはこのコードは実行されない
