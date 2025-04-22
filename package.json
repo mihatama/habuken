@@ -61,7 +61,9 @@
     "@supabase/supabase-js": "latest",
     "fs": "latest",
     "path": "latest",
-    "@supabase/auth-helpers-nextjs": "latest"
+    "@supabase/auth-helpers-nextjs": "latest",
+    "react-big-calendar": "latest",
+    "moment": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

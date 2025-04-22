@@ -1,8 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
-import { ChevronLeft, ChevronRight, Plus, Users, Briefcase, Wrench, MapPin, Calendar } from "lucide-react"
+import { Calendar, momentLocalizer } from "react-big-calendar"
+import moment from "moment"
+import "moment/locale/ja"
+import "react-big-calendar/lib/css/react-big-calendar.css"
+import { ChevronLeft, ChevronRight, Plus, Users, Briefcase, Wrench, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -11,8 +15,71 @@ import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { sampleProjects, sampleStaff, sampleTools } from "@/data/sample-data"
+import { StaffAssignmentDialog } from "@/components/staff-assignment-dialog"
 
-export function ToolCalendar() {
+// 日本語ロケールを設定
+moment.locale("ja")
+const localizer = momentLocalizer(moment)
+
+// カレンダーイベントの型定義
+interface CalendarEvent {
+  id: number
+  title: string
+  start: Date
+  end: Date
+  resourceId?: number
+  allDay?: boolean
+  toolId?: number
+}
+
+// ツールカレンダーのprops型定義
+interface ToolCalendarProps {
+  events?: CalendarEvent[]
+  onEventAdd?: (event: CalendarEvent) => void
+  onEventUpdate?: (event: CalendarEvent) => void
+  onEventDelete?: (eventId: number) => void
+}
+
+// サンプルイベント
+const sampleEvents: CalendarEvent[] = [
+  {
+    id: 1,
+    title: "洗浄機A使用",
+    start: new Date(2023, 2, 1, 9, 0),
+    end: new Date(2023, 2, 3, 17, 0),
+    toolId: 1,
+  },
+  {
+    id: 2,
+    title: "洗浄機B使用",
+    start: new Date(2023, 2, 5, 9, 0),
+    end: new Date(2023, 2, 7, 17, 0),
+    toolId: 2,
+  },
+  {
+    id: 3,
+    title: "1号車使用",
+    start: new Date(2023, 2, 10, 9, 0),
+    end: new Date(2023, 2, 12, 17, 0),
+    toolId: 3,
+  },
+  {
+    id: 4,
+    title: "2号車使用",
+    start: new Date(2023, 2, 15, 9, 0),
+    end: new Date(2023, 2, 17, 17, 0),
+    toolId: 4,
+  },
+  {
+    id: 5,
+    title: "会議室A予約",
+    start: new Date(2023, 2, 20, 13, 0),
+    end: new Date(2023, 2, 20, 15, 0),
+    toolId: 5,
+  },
+]
+
+export function ToolCalendar({ events = sampleEvents, onEventAdd, onEventUpdate, onEventDelete }: ToolCalendarProps) {
   const searchParams = useSearchParams()
   const categoryParam = searchParams.get("category") || "all"
 
@@ -21,6 +88,9 @@ export function ToolCalendar() {
   const [selectedTool, setSelectedTool] = useState<any | null>(null)
   const [viewMode, setViewMode] = useState<"month" | "week" | "day">("week") // デフォルトを週表示に変更
   const [filterTool, setFilterTool] = useState<string>("all")
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
+  const [selectedSlot, setSelectedSlot] = useState<{ start: Date; end: Date } | null>(null)
 
   // カテゴリーに基づいてツールをフィルタリング
   const filteredByCategory = sampleTools.filter((tool) => {
@@ -154,6 +224,19 @@ export function ToolCalendar() {
     if (d.getTime() === endDate.getTime()) return "end"
     return "middle"
   }
+
+  // イベントをクリックしたときのハンドラ
+  const handleEventClick = useCallback((event: CalendarEvent) => {
+    setSelectedEvent(event)
+    setIsDialogOpen(true)
+  }, [])
+
+  // スロットを選択したときのハンドラ（新規イベント作成）
+  const handleSelectSlot = useCallback(({ start, end }: { start: Date; end: Date }) => {
+    setSelectedSlot({ start, end })
+    setSelectedEvent(null)
+    setIsDialogOpen(true)
+  }, [])
 
   // 月表示のカレンダーをレンダリング
   const renderMonthCalendar = () => {
@@ -1257,9 +1340,39 @@ export function ToolCalendar() {
           </div>
         </div>
 
-        {viewMode === "month" && renderMonthCalendar()}
+        {/*{viewMode === "month" && renderMonthCalendar()}
         {viewMode === "week" && renderWeekCalendar()}
-        {viewMode === "day" && renderDayCalendar()}
+        {viewMode === "day" && renderDayCalendar()}*/}
+        <div style={{ height: 700 }}>
+          <Calendar
+            localizer={localizer}
+            events={events}
+            startAccessor="start"
+            endAccessor="end"
+            style={{ height: "100%" }}
+            onSelectEvent={handleEventClick}
+            onSelectSlot={handleSelectSlot}
+            selectable
+            views={["month", "week", "day"]}
+            defaultView="month"
+            messages={{
+              today: "今日",
+              previous: "前へ",
+              next: "次へ",
+              month: "月",
+              week: "週",
+              day: "日",
+              agenda: "予定リスト",
+              date: "日付",
+              time: "時間",
+              event: "イベント",
+              allDay: "終日",
+              showMore: (total) => `他 ${total} 件`,
+            }}
+          />
+        </div>
+
+        <StaffAssignmentDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} eventData={selectedEvent} />
       </CardContent>
     </Card>
   )
