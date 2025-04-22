@@ -9,7 +9,40 @@ import { Switch } from "@/components/ui/switch"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-export function SettingsTabs() {
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { cn } from "@/lib/utils"
+
+// 明示的にPropsの型を定義
+interface SettingsTabsProps {
+  items: Array<{
+    title: string
+    href: string
+  }>
+}
+
+export function SettingsTabs({ items }: SettingsTabsProps) {
+  const pathname = usePathname()
+
+  return (
+    <nav className="flex border-b">
+      {items.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          className={cn(
+            "px-4 py-2 text-sm font-medium transition-colors hover:text-primary",
+            pathname === item.href ? "border-b-2 border-primary text-primary" : "text-muted-foreground",
+          )}
+        >
+          {item.title}
+        </Link>
+      ))}
+    </nav>
+  )
+}
+
+export function OldSettingsTabs() {
   const [calendarSettings, setCalendarSettings] = useState({
     showStaffNames: true,
     showProjectDetails: true,
