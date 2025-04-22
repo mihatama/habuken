@@ -32,6 +32,13 @@ import { useToast } from "@/components/ui/use-toast"
 interface SpeechRecognitionEvent extends Event {
   resultIndex: number
   results: {
+    length: number
+    item(index: number): {
+      item(index: number): {
+        transcript: string
+      }
+      isFinal: boolean
+    }
     [index: number]: {
       [index: number]: {
         transcript: string
@@ -195,26 +202,35 @@ export function DailyReportForm() {
         let interimTranscript = ""
         let finalTranscript = ""
 
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript
-          } else {
-            interimTranscript += transcript
-          }
-        }
-
-        if (finalTranscript) {
-          const updatedWorkers = workers.map((worker) => {
-            if (worker.id === workerId) {
-              return {
-                ...worker,
-                workContent: worker.workContent + finalTranscript,
-              }
+        try {
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i]?.[0]?.transcript || ""
+            if (event.results[i]?.isFinal) {
+              finalTranscript += transcript
+            } else {
+              interimTranscript += transcript
             }
-            return worker
+          }
+
+          if (finalTranscript) {
+            const updatedWorkers = workers.map((worker) => {
+              if (worker.id === workerId) {
+                return {
+                  ...worker,
+                  workContent: worker.workContent + finalTranscript,
+                }
+              }
+              return worker
+            })
+            setWorkers(updatedWorkers)
+          }
+        } catch (error) {
+          console.error("音声認識結果の処理中にエラーが発生しました:", error)
+          toast({
+            title: "音声認識エラー",
+            description: "音声認識結果の処理中にエラーが発生しました。",
+            variant: "destructive",
           })
-          setWorkers(updatedWorkers)
         }
       }
 
