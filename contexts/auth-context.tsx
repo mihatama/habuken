@@ -7,13 +7,9 @@ import type { Database } from "@/types/supabase"
 import type { ReactNode } from "react"
 import type { AuthError } from "@supabase/supabase-js"
 
-// パスワード強度チェック用の正規表現
+// パスワード強度チェック用の正規表現を修正
 const PASSWORD_REGEX = {
-  minLength: /.{8,}/,
-  hasUpperCase: /[A-Z]/,
-  hasLowerCase: /[a-z]/,
-  hasNumber: /[0-9]/,
-  hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/,
+  minLength: /.{6,}/,
 }
 
 export type PasswordStrength = {
@@ -27,7 +23,7 @@ type AuthContextType = {
   supabase: SupabaseClient<Database>
   loading: boolean
   signOut: () => Promise<void>
-  signIn: (email: string, password: string) => Promise<any>
+  signIn: (emailOrId: string, password: string) => Promise<any>
   signUp: (email: string, password: string, metadata?: { full_name?: string }) => Promise<any>
   resetPassword: (email: string) => Promise<any>
 }
@@ -71,27 +67,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     getUser()
   }, [supabase.auth])
 
+  // パスワード強度チェック関数を修正
   const checkPasswordStrength = (password: string): PasswordStrength => {
     const errors: string[] = []
 
     if (!PASSWORD_REGEX.minLength.test(password)) {
-      errors.push("パスワードは8文字以上である必要があります")
-    }
-
-    if (!PASSWORD_REGEX.hasUpperCase.test(password)) {
-      errors.push("大文字を含める必要があります")
-    }
-
-    if (!PASSWORD_REGEX.hasLowerCase.test(password)) {
-      errors.push("小文字を含める必要があります")
-    }
-
-    if (!PASSWORD_REGEX.hasNumber.test(password)) {
-      errors.push("数字を含める必要があります")
-    }
-
-    if (!PASSWORD_REGEX.hasSpecialChar.test(password)) {
-      errors.push("特殊文字を含める必要があります")
+      errors.push("パスワードは6文字以上である必要があります")
     }
 
     return {
@@ -139,9 +120,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const signIn = async (email: string, password: string) => {
+  // signIn関数を修正してIDによるログインをサポート
+  const signIn = async (emailOrId: string, password: string) => {
     try {
-      console.log("Signing in with:", email)
+      console.log("Signing in with:", emailOrId)
 
       // Supabaseクライアントが存在しない場合はエラーを返す
       if (!supabase) {
@@ -154,29 +136,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // 認証情報をログに出力（本番環境では削除すること）
-      console.log("Auth credentials:", { email, passwordLength: password.length })
+      // メールアドレスかIDかを判断
+      const isEmail = emailOrId.includes("@")
 
-      // Supabase URLとキーが設定されているか確認
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      let result
 
-      if (!supabaseUrl || !supabaseKey) {
-        console.error("Supabase環境変数が設定されていません")
-        return {
-          error: {
-            message: "Supabase環境変数が設定されていないため、認証できません。",
-          } as AuthError,
-          data: null,
-        }
+      if (isEmail) {
+        // メールアドレスでログイン
+        result = await supabase.auth.signInWithPassword({
+          email: emailOrId,
+          password,
+        })
       } else {
-        console.log("Supabase環境変数が設定されています")
-      }
+        // IDでログイン - まずプロフィールからメールアドレスを取得
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("email")
+          .eq("user_id", emailOrId)
+          .single()
 
-      const result = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+        if (profileError || !profileData) {
+          return {
+            error: {
+              message: "ユーザーIDが見つかりません",
+            } as AuthError,
+            data: null,
+          }
+        }
+
+        // 取得したメールアドレスでログイン
+        result = await supabase.auth.signInWithPassword({
+          email: profileData.email,
+          password,
+        })
+      }
 
       console.log("Sign in result:", result)
 

@@ -32,13 +32,30 @@ export async function createUser(formData: FormData) {
     // フォームデータの取得
     const email = formData.get("email") as string
     const password = formData.get("password") as string
+    const userId = formData.get("userId") as string
     const fullName = formData.get("fullName") as string
     const role = formData.get("role") as string
     const department = (formData.get("department") as string) || null
     const position = (formData.get("position") as string) || null
 
-    if (!email || !password || !fullName || !role) {
+    if (!email || !password || !userId || !fullName || !role) {
       return { success: false, error: "必須項目が入力されていません" }
+    }
+
+    // ユーザーID重複チェック
+    const { data: existingUser, error: checkError } = await supabase
+      .from("profiles")
+      .select("user_id")
+      .eq("user_id", userId)
+      .maybeSingle()
+
+    if (checkError) {
+      console.error("ユーザーID重複チェックエラー:", checkError)
+      return { success: false, error: checkError.message }
+    }
+
+    if (existingUser) {
+      return { success: false, error: "このユーザーIDは既に使用されています" }
     }
 
     // ユーザー作成
@@ -46,7 +63,10 @@ export async function createUser(formData: FormData) {
       email,
       password,
       email_confirm: true,
-      user_metadata: { full_name: fullName },
+      user_metadata: {
+        full_name: fullName,
+        user_id: userId,
+      },
     })
 
     if (userError) {
@@ -58,6 +78,7 @@ export async function createUser(formData: FormData) {
     const { error: profileError } = await supabase.from("profiles").insert({
       id: userData.user.id,
       email,
+      user_id: userId,
       full_name: fullName,
       department,
       position,

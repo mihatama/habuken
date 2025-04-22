@@ -36,16 +36,12 @@ import { format } from "date-fns"
 import { ja } from "date-fns/locale"
 import { Loader2, PlusCircle, Trash2, UserCog } from "lucide-react"
 
-// ユーザー作成フォームのバリデーションスキーマ
+// ユーザー作成フォームのバリデーションスキーマを修正
+// パスワード強度の検証を6文字以上に簡略化
 const userFormSchema = z.object({
   email: z.string().email({ message: "有効なメールアドレスを入力してください" }),
-  password: z
-    .string()
-    .min(8, { message: "パスワードは8文字以上である必要があります" })
-    .regex(/[A-Z]/, { message: "パスワードには大文字を含める必要があります" })
-    .regex(/[a-z]/, { message: "パスワードには小文字を含める必要があります" })
-    .regex(/[0-9]/, { message: "パスワードには数字を含める必要があります" })
-    .regex(/[^A-Za-z0-9]/, { message: "パスワードには特殊文字を含める必要があります" }),
+  password: z.string().min(6, { message: "パスワードは6文字以上である必要があります" }),
+  userId: z.string().min(3, { message: "ユーザーIDは3文字以上である必要があります" }),
   fullName: z.string().min(2, { message: "名前は2文字以上である必要があります" }),
   role: z.string({ required_error: "ロールを選択してください" }),
   department: z.string().optional(),
@@ -82,6 +78,7 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
     defaultValues: {
       email: "",
       password: "",
+      userId: "",
       fullName: "",
       role: "",
       department: "",
@@ -250,6 +247,20 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
                 />
                 <FormField
                   control={form.control}
+                  name="userId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>ユーザーID</FormLabel>
+                      <FormControl>
+                        <Input placeholder="user123" {...field} />
+                      </FormControl>
+                      <FormDescription>ログインに使用するIDです。英数字3文字以上で設定してください</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="password"
                   render={({ field }) => (
                     <FormItem>
@@ -257,9 +268,7 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
                       <FormControl>
                         <Input type="password" {...field} />
                       </FormControl>
-                      <FormDescription>
-                        8文字以上で、大文字・小文字・数字・特殊文字を含める必要があります
-                      </FormDescription>
+                      <FormDescription>6文字以上で設定してください</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

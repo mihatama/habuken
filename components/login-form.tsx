@@ -15,12 +15,13 @@ import Link from "next/link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, Info } from "lucide-react"
 
+// フォームスキーマを修正
 const formSchema = z.object({
-  email: z.string().email({
-    message: "有効なメールアドレスを入力してください。",
+  emailOrId: z.string().min(1, {
+    message: "メールアドレスまたはユーザーIDを入力してください。",
   }),
-  password: z.string().min(8, {
-    message: "パスワードは8文字以上である必要があります。",
+  password: z.string().min(6, {
+    message: "パスワードは6文字以上である必要があります。",
   }),
   rememberMe: z.boolean().default(false),
 })
@@ -55,15 +56,17 @@ export function LoginForm() {
     checkSupabase()
   }, [supabase])
 
+  // フォームのデフォルト値を修正
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "",
+      emailOrId: "",
       password: "",
       rememberMe: false,
     },
   })
 
+  // onSubmit関数を修正
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true)
     setLoginError(null)
@@ -75,10 +78,10 @@ export function LoginForm() {
         return
       }
 
-      console.log("Attempting login with:", values.email)
+      console.log("Attempting login with:", values.emailOrId)
 
       // Supabase認証を使用
-      const { error, data } = await signIn(values.email, values.password)
+      const { error, data } = await signIn(values.emailOrId, values.password)
 
       if (error) {
         console.error("Login error:", error)
@@ -87,11 +90,13 @@ export function LoginForm() {
         let errorMessage = "認証に失敗しました。"
 
         if (error.message.includes("Invalid login credentials")) {
-          errorMessage = "メールアドレスまたはパスワードが正しくありません。"
+          errorMessage = "ユーザーIDまたはパスワードが正しくありません。"
         } else if (error.message.includes("Email not confirmed")) {
           errorMessage = "メールアドレスが確認されていません。メールボックスを確認してください。"
         } else if (error.message.includes("Too many requests")) {
           errorMessage = "ログイン試行回数が多すぎます。しばらく待ってから再試行してください。"
+        } else if (error.message.includes("ユーザーIDが見つかりません")) {
+          errorMessage = "ユーザーIDが見つかりません。"
         } else {
           errorMessage = `エラー: ${error.message}`
         }
@@ -162,14 +167,15 @@ export function LoginForm() {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          {/* フォームフィールドを修正 */}
           <FormField
             control={form.control}
-            name="email"
+            name="emailOrId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>メールアドレス</FormLabel>
+                <FormLabel>メールアドレスまたはユーザーID</FormLabel>
                 <FormControl>
-                  <Input placeholder="m@example.com" {...field} />
+                  <Input placeholder="user@example.com または user123" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
