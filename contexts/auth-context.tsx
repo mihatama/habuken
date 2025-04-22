@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
-import type { Session, User } from "@supabase/supabase-js"
+import type { Session, User, AuthError } from "@supabase/supabase-js"
 import { getClientSupabaseInstance } from "@/lib/supabase"
 
 type AuthContextType = {
@@ -13,20 +13,20 @@ type AuthContextType = {
     password: string,
     metadata?: { full_name?: string },
   ) => Promise<{
-    error: any | null
-    data: any | null
+    error: AuthError | null
+    data: { user: User | null; session: Session | null } | null
   }>
   signIn: (
     email: string,
     password: string,
   ) => Promise<{
-    error: any | null
-    data: any | null
+    error: AuthError | null
+    data: { user: User | null; session: Session | null } | null
   }>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<{
-    error: any | null
-    data: any | null
+    error: AuthError | null
+    data: {} | null
   }>
 }
 
@@ -41,20 +41,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // セッションの初期化
     const initializeSession = async () => {
-      const { data } = await supabase.auth.getSession()
-      setSession(data.session)
-      setUser(data.session?.user || null)
-      setIsLoading(false)
+      try {
+        console.log("Initializing session...")
+        const { data, error } = await supabase.auth.getSession()
 
-      // セッション変更のリスナーを設定
-      const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-        setSession(session)
-        setUser(session?.user || null)
+        if (error) {
+          console.error("Session initialization error:", error)
+          setIsLoading(false)
+          return
+        }
+
+        console.log("Session data:", data)
+        setSession(data.session)
+        setUser(data.session?.user || null)
         setIsLoading(false)
-      })
 
-      return () => {
-        authListener.subscription.unsubscribe()
+        // セッション変更のリスナーを設定
+        const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+          console.log("Auth state changed:", event, session?.user?.email)
+          setSession(session)
+          setUser(session?.user || null)
+          setIsLoading(false)
+        })
+
+        return () => {
+          authListener.subscription.unsubscribe()
+        }
+      } catch (err) {
+        console.error("Error in session initialization:", err)
+        setIsLoading(false)
       }
     }
 
@@ -62,30 +77,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signUp = async (email: string, password: string, metadata?: { full_name?: string }) => {
-    return await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: metadata,
-      },
-    })
+    try {
+      console.log("Signing up with:", email)
+      const result = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: metadata,
+        },
+      })
+      console.log("Sign up result:", result)
+      return result
+    } catch (err) {
+      console.error("Sign up error:", err)
+      return { error: err as AuthError, data: null }
+    }
   }
 
   const signIn = async (email: string, password: string) => {
-    return await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    try {
+      console.log("Signing in with:", email)
+      const result = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      console.log("Sign in result:", result)
+      return result
+    } catch (err) {
+      console.error("Sign in error:", err)
+      return { error: err as AuthError, data: null }
+    }
   }
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    try {
+      await supabase.auth.signOut()
+    } catch (err) {
+      console.error("Sign out error:", err)
+    }
   }
 
   const resetPassword = async (email: string) => {
-    return await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    })
+    try {
+      return await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+    } catch (err) {
+      console.error("Reset password error:", err)
+      return { error: err as AuthError, data: null }
+    }
   }
 
   const value = {

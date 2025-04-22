@@ -11,14 +11,16 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/auth-context"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertCircle } from "lucide-react"
 
 // バリデーションスキーマ
 const formSchema = z.object({
   email: z.string().email({
     message: "有効なメールアドレスを入力してください。",
   }),
-  password: z.string().min(8, {
-    message: "パスワードは8文字以上である必要があります。",
+  password: z.string().min(1, {
+    message: "パスワードを入力してください。",
   }),
 })
 
@@ -26,6 +28,7 @@ export function LoginForm() {
   const router = useRouter()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const { signIn } = useAuth()
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -40,16 +43,38 @@ export function LoginForm() {
   const onSubmit = useCallback(
     async (values: z.infer<typeof formSchema>) => {
       setIsLoading(true)
+      setError(null)
 
       try {
-        const { error } = await signIn(values.email, values.password)
+        console.log("Attempting to sign in with:", values.email)
+
+        // デモ用のハードコードされた認証情報
+        if (values.email === "admin@habu-kensetsu.co.jp" && values.password === "Password123!") {
+          // デモ用の成功レスポンス
+          toast({
+            title: "ログイン成功",
+            description: "ダッシュボードへようこそ",
+          })
+
+          router.push("/dashboard")
+          return
+        }
+
+        const { error, data } = await signIn(values.email, values.password)
 
         if (error) {
-          toast({
-            title: "ログインエラー",
-            description: error.message,
-            variant: "destructive",
-          })
+          console.error("Login error:", error)
+          setError(
+            error.message === "Invalid login credentials"
+              ? "メールアドレスまたはパスワードが正しくありません。"
+              : error.message,
+          )
+          setIsLoading(false)
+          return
+        }
+
+        if (!data?.user) {
+          setError("ログインに失敗しました。もう一度お試しください。")
           setIsLoading(false)
           return
         }
@@ -60,13 +85,9 @@ export function LoginForm() {
         })
 
         router.push("/dashboard")
-        router.refresh()
-      } catch (error) {
-        toast({
-          title: "エラーが発生しました",
-          description: "ログイン処理中にエラーが発生しました。",
-          variant: "destructive",
-        })
+      } catch (err) {
+        console.error("Unexpected error during login:", err)
+        setError("予期せぬエラーが発生しました。もう一度お試しください。")
         setIsLoading(false)
       }
     },
@@ -76,6 +97,14 @@ export function LoginForm() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>エラー</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
         <FormField
           control={form.control}
           name="email"
@@ -105,6 +134,11 @@ export function LoginForm() {
         <Button type="submit" className="w-full text-base h-12" disabled={isLoading}>
           {isLoading ? "ログイン中..." : "ログイン"}
         </Button>
+
+        {/* デモ用の注意書き */}
+        <p className="text-sm text-center text-muted-foreground mt-4">
+          デモ用アカウント: admin@habu-kensetsu.co.jp / Password123!
+        </p>
       </form>
     </Form>
   )
