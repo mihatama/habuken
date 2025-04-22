@@ -6,7 +6,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CalendarDays, Repeat, Settings, Car, UserCheck, ShieldCheck } from "lucide-react"
 
-export default function DashboardPage() {
+// ダミーのgetWeatherData関数（実際にはAPIからデータを取得する）
+async function getWeatherData(city: string) {
+  // ここでAPIリクエストを行う代わりに、ダミーデータを返す
+  return {
+    city: city,
+    temperature: 25,
+    condition: "晴れ",
+  }
+}
+
+// Server Componentであることを明示
+export default async function DashboardPage() {
+  // getUserLocation()を使用している場合は、固定値を使用するか
+  // クライアントサイドで位置情報を取得するように修正
+  const location = { city: "Tokyo", country: "JP" }
+  const weatherData = await getWeatherData(location.city)
+
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
