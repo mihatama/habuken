@@ -97,6 +97,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string) => {
     try {
       console.log("Signing in with:", email)
+
+      // Supabaseクライアントが存在しない場合はエラーを返す
+      if (!supabase) {
+        console.error("Supabaseクライアントが初期化されていません")
+        return {
+          error: {
+            message: "Supabase環境変数が設定されていないため、認証できません。デモモードをご利用ください。",
+          } as AuthError,
+          data: null,
+        }
+      }
+
       const result = await supabase.auth.signInWithPassword({
         email,
         password,

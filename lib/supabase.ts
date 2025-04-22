@@ -6,6 +6,11 @@ export function createServerSupabaseClient() {
   const supabaseUrl = process.env.SUPABASE_URL!
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
+  if (!supabaseUrl || !supabaseKey) {
+    console.error("サーバー側のSupabase環境変数が設定されていません")
+    throw new Error("サーバー側のSupabase環境変数が設定されていません")
+  }
+
   return createClient<Database>(supabaseUrl, supabaseKey, {
     auth: {
       persistSession: false,
@@ -28,10 +33,17 @@ export function getClientSupabaseInstance() {
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
   if (!supabaseUrl || !supabaseKey) {
-    console.error("Supabase環境変数が設定されていません")
-    throw new Error("Supabase環境変数が設定されていません")
+    console.error("クライアント側のSupabase環境変数が設定されていません")
+    console.warn("デモモードのみ利用可能です")
+    // エラーをスローせず、nullを返す
+    return null
   }
 
-  clientInstance = createClient<Database>(supabaseUrl, supabaseKey)
-  return clientInstance
+  try {
+    clientInstance = createClient<Database>(supabaseUrl, supabaseKey)
+    return clientInstance
+  } catch (error) {
+    console.error("Supabaseクライアントの作成に失敗しました:", error)
+    return null
+  }
 }
