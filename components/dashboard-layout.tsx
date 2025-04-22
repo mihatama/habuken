@@ -4,9 +4,10 @@ import { Header } from "@/components/header"
 interface DashboardLayoutProps {
   children: React.ReactNode
   title?: string
+  isAdmin?: boolean // isAdminプロパティを追加（オプショナルに設定）
 }
 
-export function DashboardLayout({ children, title }: DashboardLayoutProps) {
+export function DashboardLayout({ children, title, isAdmin = false }: DashboardLayoutProps) {
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
