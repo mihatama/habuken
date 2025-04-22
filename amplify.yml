@@ -11,6 +11,10 @@ frontend:
         - echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY" >> .env.local
         - pnpm run build
         - cp public/index.html out/
+        # Amplifyのデプロイエラー対策
+        - touch out/required-server-files.json
+        - echo '{"config":{},"pages":{}}' > out/required-server-files.json
+        - cp public/404.html out/404.html || true
   artifacts:
     baseDirectory: out
     files:
