@@ -27,7 +27,10 @@ interface CalendarEvent {
   title: string
   start: Date
   end: Date
-  resourceId?: number
+  description?: string
+  projectId?: number
+  staffIds?: string[]
+  toolIds?: string[]
   allDay?: boolean
   toolId?: number
 }
@@ -38,6 +41,7 @@ interface ToolCalendarProps {
   onEventAdd?: (event: CalendarEvent) => void
   onEventUpdate?: (event: CalendarEvent) => void
   onEventDelete?: (eventId: number) => void
+  timeframe?: string
 }
 
 // サンプルイベント
@@ -48,6 +52,9 @@ const sampleEvents: CalendarEvent[] = [
     start: new Date(2023, 2, 1, 9, 0),
     end: new Date(2023, 2, 3, 17, 0),
     toolId: 1,
+    projectId: 1,
+    staffIds: ["1", "2"],
+    toolIds: ["1"],
   },
   {
     id: 2,
@@ -55,6 +62,9 @@ const sampleEvents: CalendarEvent[] = [
     start: new Date(2023, 2, 5, 9, 0),
     end: new Date(2023, 2, 7, 17, 0),
     toolId: 2,
+    projectId: 2,
+    staffIds: ["3"],
+    toolIds: ["2"],
   },
   {
     id: 3,
@@ -62,6 +72,9 @@ const sampleEvents: CalendarEvent[] = [
     start: new Date(2023, 2, 10, 9, 0),
     end: new Date(2023, 2, 12, 17, 0),
     toolId: 3,
+    projectId: 3,
+    staffIds: ["1", "4"],
+    toolIds: ["3"],
   },
   {
     id: 4,
@@ -69,6 +82,9 @@ const sampleEvents: CalendarEvent[] = [
     start: new Date(2023, 2, 15, 9, 0),
     end: new Date(2023, 2, 17, 17, 0),
     toolId: 4,
+    projectId: 1,
+    staffIds: ["2", "3"],
+    toolIds: ["4"],
   },
   {
     id: 5,
@@ -76,10 +92,19 @@ const sampleEvents: CalendarEvent[] = [
     start: new Date(2023, 2, 20, 13, 0),
     end: new Date(2023, 2, 20, 15, 0),
     toolId: 5,
+    projectId: 2,
+    staffIds: ["1", "2", "3"],
+    toolIds: ["5"],
   },
 ]
 
-export function ToolCalendar({ events = sampleEvents, onEventAdd, onEventUpdate, onEventDelete }: ToolCalendarProps) {
+export function ToolCalendar({
+  events: initialEvents = sampleEvents,
+  onEventAdd,
+  onEventUpdate,
+  onEventDelete,
+  timeframe = "month",
+}: ToolCalendarProps) {
   const searchParams = useSearchParams()
   const categoryParam = searchParams.get("category") || "all"
 
@@ -88,6 +113,7 @@ export function ToolCalendar({ events = sampleEvents, onEventAdd, onEventUpdate,
   const [selectedTool, setSelectedTool] = useState<any | null>(null)
   const [viewMode, setViewMode] = useState<"month" | "week" | "day">("week") // デフォルトを週表示に変更
   const [filterTool, setFilterTool] = useState<string>("all")
+  const [events, setEvents] = useState<CalendarEvent[]>(initialEvents)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<{ start: Date; end: Date } | null>(null)
@@ -234,9 +260,67 @@ export function ToolCalendar({ events = sampleEvents, onEventAdd, onEventUpdate,
   // スロットを選択したときのハンドラ（新規イベント作成）
   const handleSelectSlot = useCallback(({ start, end }: { start: Date; end: Date }) => {
     setSelectedSlot({ start, end })
-    setSelectedEvent(null)
+    setSelectedEvent({ id: 0, title: "", start, end })
     setIsDialogOpen(true)
   }, [])
+
+  // 新規作成ボタンをクリックしたときのハンドラ
+  const handleNewEventClick = useCallback(() => {
+    const now = new Date()
+    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000)
+    setSelectedEvent({ id: 0, title: "", start: now, end: oneHourLater })
+    setIsDialogOpen(true)
+  }, [])
+
+  // イベント追加のハンドラ
+  const handleEventAdd = useCallback(
+    (event: CalendarEvent) => {
+      setEvents((prev) => [...prev, event])
+      if (onEventAdd) onEventAdd(event)
+    },
+    [onEventAdd],
+  )
+
+  // イベント更新のハンドラ
+  const handleEventUpdate = useCallback(
+    (updatedEvent: CalendarEvent) => {
+      setEvents((prev) => prev.map((event) => (event.id === updatedEvent.id ? updatedEvent : event)))
+      if (onEventUpdate) onEventUpdate(updatedEvent)
+    },
+    [onEventUpdate],
+  )
+
+  // イベント削除のハンドラ
+  const handleEventDelete = useCallback(
+    (eventId: number) => {
+      setEvents((prev) => prev.filter((event) => event.id !== eventId))
+      if (onEventDelete) onEventDelete(eventId)
+    },
+    [onEventDelete],
+  )
+
+  // イベントのスタイルをカスタマイズ
+  const eventStyleGetter = (event: CalendarEvent) => {
+    // ツールIDに基づいて色を変更
+    let backgroundColor = "#3174ad"
+
+    if (event.toolId) {
+      const toolIndex = event.toolId % 5
+      const colors = ["#3174ad", "#ff8c00", "#008000", "#9932cc", "#ff4500"]
+      backgroundColor = colors[toolIndex]
+    }
+
+    return {
+      style: {
+        backgroundColor,
+        borderRadius: "4px",
+        opacity: 0.8,
+        color: "white",
+        border: "0px",
+        display: "block",
+      },
+    }
+  }
 
   // 月表示のカレンダーをレンダリング
   const renderMonthCalendar = () => {
@@ -1333,7 +1417,7 @@ export function ToolCalendar({ events = sampleEvents, onEventAdd, onEventUpdate,
             <Button variant="outline" size="icon" onClick={nextPeriod}>
               <ChevronRight className="h-4 w-4" />
             </Button>
-            <Button size="sm">
+            <Button size="sm" onClick={handleNewEventClick}>
               <Plus className="h-4 w-4 mr-2" />
               新規作成
             </Button>
@@ -1354,7 +1438,8 @@ export function ToolCalendar({ events = sampleEvents, onEventAdd, onEventUpdate,
             onSelectSlot={handleSelectSlot}
             selectable
             views={["month", "week", "day"]}
-            defaultView="month"
+            defaultView={timeframe as any}
+            eventPropGetter={eventStyleGetter}
             messages={{
               today: "今日",
               previous: "前へ",
@@ -1372,7 +1457,14 @@ export function ToolCalendar({ events = sampleEvents, onEventAdd, onEventUpdate,
           />
         </div>
 
-        <StaffAssignmentDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} eventData={selectedEvent} />
+        <StaffAssignmentDialog
+          open={isDialogOpen}
+          onOpenChange={setIsDialogOpen}
+          eventData={selectedEvent}
+          onEventAdd={handleEventAdd}
+          onEventUpdate={handleEventUpdate}
+          onEventDelete={handleEventDelete}
+        />
       </CardContent>
     </Card>
   )

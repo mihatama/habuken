@@ -6,6 +6,8 @@ import moment from "moment"
 import "moment/locale/ja"
 import "react-big-calendar/lib/css/react-big-calendar.css"
 import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Plus } from "lucide-react"
 import { StaffAssignmentDialog } from "@/components/staff-assignment-dialog"
 
 // 日本語ロケールを設定
@@ -18,7 +20,10 @@ interface CalendarEvent {
   title: string
   start: Date
   end: Date
-  resourceId?: number
+  description?: string
+  projectId?: number
+  staffIds?: string[]
+  toolIds?: string[]
   allDay?: boolean
   staffId?: number
 }
@@ -29,6 +34,7 @@ interface StaffCalendarProps {
   onEventAdd?: (event: CalendarEvent) => void
   onEventUpdate?: (event: CalendarEvent) => void
   onEventDelete?: (eventId: number) => void
+  timeframe?: string
 }
 
 // サンプルイベント
@@ -39,6 +45,9 @@ const sampleEvents: CalendarEvent[] = [
     start: new Date(2023, 2, 1, 9, 0),
     end: new Date(2023, 2, 1, 17, 0),
     staffId: 1,
+    projectId: 1,
+    staffIds: ["1"],
+    toolIds: ["1"],
   },
   {
     id: 2,
@@ -46,6 +55,9 @@ const sampleEvents: CalendarEvent[] = [
     start: new Date(2023, 2, 3, 9, 0),
     end: new Date(2023, 2, 3, 17, 0),
     staffId: 1,
+    projectId: 2,
+    staffIds: ["1"],
+    toolIds: ["2"],
   },
   {
     id: 3,
@@ -53,6 +65,9 @@ const sampleEvents: CalendarEvent[] = [
     start: new Date(2023, 2, 5, 9, 0),
     end: new Date(2023, 2, 5, 17, 0),
     staffId: 2,
+    projectId: 3,
+    staffIds: ["2"],
+    toolIds: ["3"],
   },
   {
     id: 4,
@@ -60,6 +75,9 @@ const sampleEvents: CalendarEvent[] = [
     start: new Date(2023, 2, 8, 9, 0),
     end: new Date(2023, 2, 8, 17, 0),
     staffId: 3,
+    projectId: 1,
+    staffIds: ["3"],
+    toolIds: ["4"],
   },
   {
     id: 5,
@@ -67,10 +85,20 @@ const sampleEvents: CalendarEvent[] = [
     start: new Date(2023, 2, 10, 9, 0),
     end: new Date(2023, 2, 10, 17, 0),
     staffId: 2,
+    projectId: 2,
+    staffIds: ["2"],
+    toolIds: ["5"],
   },
 ]
 
-export function StaffCalendar({ events = sampleEvents, onEventAdd, onEventUpdate, onEventDelete }: StaffCalendarProps) {
+export function StaffCalendar({
+  events: initialEvents = sampleEvents,
+  onEventAdd,
+  onEventUpdate,
+  onEventDelete,
+  timeframe = "month",
+}: StaffCalendarProps) {
+  const [events, setEvents] = useState<CalendarEvent[]>(initialEvents)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<{ start: Date; end: Date } | null>(null)
@@ -84,13 +112,78 @@ export function StaffCalendar({ events = sampleEvents, onEventAdd, onEventUpdate
   // スロットを選択したときのハンドラ（新規イベント作成）
   const handleSelectSlot = useCallback(({ start, end }: { start: Date; end: Date }) => {
     setSelectedSlot({ start, end })
-    setSelectedEvent(null)
+    setSelectedEvent({ id: 0, title: "", start, end })
     setIsDialogOpen(true)
   }, [])
+
+  // 新規作成ボタンをクリックしたときのハンドラ
+  const handleNewEventClick = useCallback(() => {
+    const now = new Date()
+    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000)
+    setSelectedEvent({ id: 0, title: "", start: now, end: oneHourLater })
+    setIsDialogOpen(true)
+  }, [])
+
+  // イベント追加のハンドラ
+  const handleEventAdd = useCallback(
+    (event: CalendarEvent) => {
+      setEvents((prev) => [...prev, event])
+      if (onEventAdd) onEventAdd(event)
+    },
+    [onEventAdd],
+  )
+
+  // イベント更新のハンドラ
+  const handleEventUpdate = useCallback(
+    (updatedEvent: CalendarEvent) => {
+      setEvents((prev) => prev.map((event) => (event.id === updatedEvent.id ? updatedEvent : event)))
+      if (onEventUpdate) onEventUpdate(updatedEvent)
+    },
+    [onEventUpdate],
+  )
+
+  // イベント削除のハンドラ
+  const handleEventDelete = useCallback(
+    (eventId: number) => {
+      setEvents((prev) => prev.filter((event) => event.id !== eventId))
+      if (onEventDelete) onEventDelete(eventId)
+    },
+    [onEventDelete],
+  )
+
+  // イベントのスタイルをカスタマイズ
+  const eventStyleGetter = (event: CalendarEvent) => {
+    // スタッフIDに基づいて色を変更
+    let backgroundColor = "#3174ad"
+
+    if (event.staffId) {
+      const staffIndex = event.staffId % 5
+      const colors = ["#3174ad", "#ff8c00", "#008000", "#9932cc", "#ff4500"]
+      backgroundColor = colors[staffIndex]
+    }
+
+    return {
+      style: {
+        backgroundColor,
+        borderRadius: "4px",
+        opacity: 0.8,
+        color: "white",
+        border: "0px",
+        display: "block",
+      },
+    }
+  }
 
   return (
     <Card>
       <CardContent className="p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-medium">スタッフスケジュール</h3>
+          <Button onClick={handleNewEventClick} size="sm">
+            <Plus className="h-4 w-4 mr-2" />
+            新規作成
+          </Button>
+        </div>
         <div style={{ height: 700 }}>
           <Calendar
             localizer={localizer}
@@ -102,7 +195,8 @@ export function StaffCalendar({ events = sampleEvents, onEventAdd, onEventUpdate
             onSelectSlot={handleSelectSlot}
             selectable
             views={["month", "week", "day"]}
-            defaultView="month"
+            defaultView={timeframe as any}
+            eventPropGetter={eventStyleGetter}
             messages={{
               today: "今日",
               previous: "前へ",
@@ -120,7 +214,14 @@ export function StaffCalendar({ events = sampleEvents, onEventAdd, onEventUpdate
           />
         </div>
 
-        <StaffAssignmentDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} eventData={selectedEvent} />
+        <StaffAssignmentDialog
+          open={isDialogOpen}
+          onOpenChange={setIsDialogOpen}
+          eventData={selectedEvent}
+          onEventAdd={handleEventAdd}
+          onEventUpdate={handleEventUpdate}
+          onEventDelete={handleEventDelete}
+        />
       </CardContent>
     </Card>
   )
