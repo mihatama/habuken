@@ -41,18 +41,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const getUser = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      setUser(session?.user ?? null)
-      setLoading(false)
+      try {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession()
 
-      const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+        if (error) {
+          console.error("Error getting session:", error)
+        }
+
         setUser(session?.user ?? null)
-      })
+        setLoading(false)
 
-      return () => {
-        authListener.subscription.unsubscribe()
+        const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+          console.log("Auth state changed:", event, session?.user?.email)
+          setUser(session?.user ?? null)
+        })
+
+        return () => {
+          authListener.subscription.unsubscribe()
+        }
+      } catch (err) {
+        console.error("Error in getUser:", err)
+        setLoading(false)
       }
     }
 
@@ -116,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         options: {
           data: metadata,
+          emailRedirectTo: `${window.location.origin}/login`,
         },
       })
       console.log("Sign up result:", result)
@@ -139,6 +152,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } as AuthError,
           data: null,
         }
+      }
+
+      // 認証情報をログに出力（本番環境では削除すること）
+      console.log("Auth credentials:", { email, passwordLength: password.length })
+
+      // Supabase URLとキーが設定されているか確認
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+      if (!supabaseUrl || !supabaseKey) {
+        console.error("Supabase環境変数が設定されていません")
+        return {
+          error: {
+            message: "Supabase環境変数が設定されていないため、認証できません。",
+          } as AuthError,
+          data: null,
+        }
+      } else {
+        console.log("Supabase環境変数が設定されています")
       }
 
       const result = await supabase.auth.signInWithPassword({

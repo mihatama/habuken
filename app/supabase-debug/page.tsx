@@ -8,7 +8,7 @@ import { getClientSupabaseInstance } from "@/lib/supabase"
 import { Info, AlertCircle, CheckCircle } from "lucide-react"
 import Link from "next/link"
 
-export default function DebugPage() {
+export default function SupabaseDebugPage() {
   const [envVars, setEnvVars] = useState<Record<string, string | undefined>>({})
   const [supabaseStatus, setSupabaseStatus] = useState<"checking" | "success" | "error">("checking")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -77,13 +77,13 @@ export default function DebugPage() {
 
   return (
     <div className="container mx-auto py-10">
-      <h1 className="text-3xl font-bold mb-6">システム診断ページ</h1>
+      <h1 className="text-3xl font-bold mb-6">Supabase接続診断</h1>
 
       <div className="grid gap-6">
         <Card>
           <CardHeader>
             <CardTitle>環境変数ステータス</CardTitle>
-            <CardDescription>アプリケーションの環境変数の状態を確認します</CardDescription>
+            <CardDescription>Supabase接続に必要な環境変数の状態を確認します</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -151,29 +151,6 @@ export default function DebugPage() {
               <Button variant="outline" onClick={() => window.location.reload()}>
                 再確認
               </Button>
-              <Button asChild>
-                <Link href="/login">ログインページへ</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>デモモードについて</CardTitle>
-            <CardDescription>Supabase接続がなくてもデモモードで利用できます</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertTitle>デモモード</AlertTitle>
-              <AlertDescription>
-                Supabase接続がなくても、デモアカウント（admin@habu-kensetsu.co.jp / Password123!）でログインできます。
-                デモモードではSupabaseの認証は使用せず、ハードコードされた認証情報でログインします。
-              </AlertDescription>
-            </Alert>
-
-            <div className="mt-4 flex justify-end">
               <Button asChild>
                 <Link href="/login">ログインページへ</Link>
               </Button>
