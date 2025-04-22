@@ -20,6 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useToast } from "@/hooks/use-toast"
 import { createMultipleAssignmentEvent, updateCalendarEvent, deleteCalendarEvent } from "@/actions/calendar-events"
+import { getClientSupabaseInstance } from "@/lib/supabase/supabaseClient"
 
 interface StaffAssignmentDialogProps {
   open: boolean
@@ -60,6 +61,8 @@ export function StaffAssignmentDialog({
   const [searchStaff, setSearchStaff] = useState("")
   const [searchResources, setSearchResources] = useState("")
   const [dataLoading, setDataLoading] = useState(false)
+  const [staffData, setStaffData] = useState<any[]>([])
+  const [resourceData, setResourceData] = useState<any[]>([])
 
   // Reset form when dialog opens/closes or eventData changes
   useEffect(() => {
@@ -102,12 +105,17 @@ export function StaffAssignmentDialog({
       setTitle("")
 
       const start = eventData?.start ? new Date(eventData.start) : new Date()
-      const end = eventData?.end ? new Date(eventData.end) : new Date(start.getTime() + 9 * 60 * 60 * 1000)
+      const end = eventData?.end ? new Date(eventData.end) : new Date()
 
-      // Set default times to 8:00-17:00
+      // Set default times to 8:00-17:00 if no specific time was selected
       if (!eventData?.start) {
         start.setHours(8, 0, 0, 0)
         end.setHours(17, 0, 0, 0)
+      } else {
+        // If a specific time was selected, keep that time but ensure end time is at least 1 hour later
+        if (end.getTime() - start.getTime() < 3600000) {
+          end.setTime(start.getTime() + 3600000)
+        }
       }
 
       setStartDate(formatDateForInput(start))
@@ -122,6 +130,51 @@ export function StaffAssignmentDialog({
     }
   }, [open, eventData])
 
+  // Load staff and resources data if not provided
+  useEffect(() => {
+    const loadData = async () => {
+      if (open && (!staff || staff.length === 0 || !resources || resources.length === 0)) {
+        setDataLoading(true)
+        try {
+          // Load staff data if not provided
+          if (!staff || staff.length === 0) {
+            const supabase = getClientSupabaseInstance()
+            const { data: staffData } = await supabase.from("staff").select("*").order("full_name", { ascending: true })
+            if (staffData && staffData.length > 0) {
+              // Update local state only if props weren't provided
+              if (!staff || staff.length === 0) {
+                // @ts-ignore - we're handling this internally
+                setStaffData(staffData)
+              }
+            }
+          }
+
+          // Load resources data if not provided
+          if (!resources || resources.length === 0) {
+            const supabase = getClientSupabaseInstance()
+            const { data: resourceData } = await supabase
+              .from("resources")
+              .select("*")
+              .order("name", { ascending: true })
+            if (resourceData && resourceData.length > 0) {
+              // Update local state only if props weren't provided
+              if (!resources || resources.length === 0) {
+                // @ts-ignore - we're handling this internally
+                setResourceData(resourceData)
+              }
+            }
+          }
+        } catch (error) {
+          console.error("データ読み込みエラー:", error)
+        } finally {
+          setDataLoading(false)
+        }
+      }
+    }
+
+    loadData()
+  }, [open, staff, resources])
+
   // Format date for input field (YYYY-MM-DD)
   const formatDateForInput = (date: Date) => {
     return date.toISOString().split("T")[0]
@@ -133,14 +186,16 @@ export function StaffAssignmentDialog({
   }
 
   // Filter staff based on search
-  const filteredStaff = staff.filter(
+  const allStaff = staff && staff.length > 0 ? staff : staffData
+  const filteredStaff = allStaff.filter(
     (s) =>
       s.name?.toLowerCase().includes(searchStaff.toLowerCase()) ||
       s.full_name?.toLowerCase().includes(searchStaff.toLowerCase()),
   )
 
   // Filter resources based on search
-  const filteredResources = resources.filter((r) => r.name?.toLowerCase().includes(searchResources.toLowerCase()))
+  const allResources = resources && resources.length > 0 ? resources : resourceData
+  const filteredResources = allResources.filter((r) => r.name?.toLowerCase().includes(searchResources.toLowerCase()))
 
   // Handle form submission
   const handleSubmit = async () => {
