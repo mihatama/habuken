@@ -4,7 +4,7 @@ import type * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Calendar, Users, Wrench, Truck, FileCheck } from "lucide-react"
+import { Calendar, Users, Wrench, ClipboardList, Settings } from "lucide-react"
 
 export function MobileNav({ className, ...props }: React.HTMLAttributes<HTMLElement>) {
   const pathname = usePathname()
@@ -42,24 +42,24 @@ export function MobileNav({ className, ...props }: React.HTMLAttributes<HTMLElem
         <span>工具</span>
       </Link>
       <Link
-        href="/master/heavy"
+        href="/leave"
         className={cn(
           "flex flex-col items-center justify-center px-2 py-1 text-xs font-medium transition-colors hover:text-primary",
-          pathname === "/master/heavy" ? "text-primary" : "text-muted-foreground",
+          pathname === "/leave" ? "text-primary" : "text-muted-foreground",
         )}
       >
-        <Truck className="w-5 h-5 mb-1" />
-        <span>重機</span>
+        <ClipboardList className="w-5 h-5 mb-1" />
+        <span>休暇申請</span>
       </Link>
       <Link
-        href="/reports"
+        href="/settings"
         className={cn(
           "flex flex-col items-center justify-center px-2 py-1 text-xs font-medium transition-colors hover:text-primary",
-          pathname.startsWith("/reports") ? "text-primary" : "text-muted-foreground",
+          pathname === "/settings" ? "text-primary" : "text-muted-foreground",
         )}
       >
-        <FileCheck className="w-5 h-5 mb-1" />
-        <span>現場報告</span>
+        <Settings className="w-5 h-5 mb-1" />
+        <span>設定</span>
       </Link>
     </nav>
   )
