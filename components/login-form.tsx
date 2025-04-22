@@ -11,7 +11,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/contexts/auth-context"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const formSchema = z.object({
   email: z.string().email({
@@ -28,7 +27,6 @@ export function LoginForm() {
   const router = useRouter()
   const { signIn } = useAuth()
   const [isLoading, setIsLoading] = React.useState<boolean>(false)
-  const [loginMode, setLoginMode] = React.useState<"demo" | "supabase">("demo")
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -43,49 +41,26 @@ export function LoginForm() {
     setIsLoading(true)
 
     try {
-      if (loginMode === "demo") {
-        // デモモード: ハードコードされた認証情報をチェック
-        if (values.email === "admin@habu-kensetsu.co.jp" && values.password === "Password123!") {
-          // デモモードでの成功
-          // クッキーを設定してログイン状態を保持
-          document.cookie = "logged_in=true; path=/; max-age=86400" // 24時間有効
+      // Supabase認証を使用
+      const { error } = await signIn(values.email, values.password)
 
-          toast({
-            title: "ログイン成功",
-            description: "デモモードでログインしました。",
-          })
-
-          router.push("/dashboard")
-        } else {
-          // デモモードでの失敗
-          toast({
-            variant: "destructive",
-            title: "ログイン失敗",
-            description: "デモアカウントの認証情報が正しくありません。",
-          })
-        }
+      if (error) {
+        console.error("Login error:", error)
+        toast({
+          variant: "destructive",
+          title: "ログイン失敗",
+          description: error.message || "認証に失敗しました。認証情報を確認してください。",
+        })
       } else {
-        // Supabaseモード: 実際の認証を使用
-        const { error } = await signIn(values.email, values.password)
+        // ログイン成功
+        document.cookie = "logged_in=true; path=/; max-age=86400" // 24時間有効
 
-        if (error) {
-          console.error("Login error:", error)
-          toast({
-            variant: "destructive",
-            title: "ログイン失敗",
-            description: error.message || "認証に失敗しました。認証情報を確認してください。",
-          })
-        } else {
-          // Supabaseでの成功
-          document.cookie = "logged_in=true; path=/; max-age=86400" // 24時間有効
+        toast({
+          title: "ログイン成功",
+          description: "ログインに成功しました。",
+        })
 
-          toast({
-            title: "ログイン成功",
-            description: "ログインに成功しました。",
-          })
-
-          router.push("/dashboard")
-        }
+        router.push("/dashboard")
       }
     } catch (error) {
       console.error("Login error:", error)
@@ -101,25 +76,6 @@ export function LoginForm() {
 
   return (
     <div className="grid gap-6">
-      <Tabs defaultValue="demo" onValueChange={(value) => setLoginMode(value as "demo" | "supabase")}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="demo">デモモード</TabsTrigger>
-          <TabsTrigger value="supabase">Supabase認証</TabsTrigger>
-        </TabsList>
-        <TabsContent value="demo">
-          <div className="text-sm text-muted-foreground mb-4">
-            <p>デモアカウント:</p>
-            <p>メール: admin@habu-kensetsu.co.jp</p>
-            <p>パスワード: Password123!</p>
-          </div>
-        </TabsContent>
-        <TabsContent value="supabase">
-          <div className="text-sm text-muted-foreground mb-4">
-            <p>Supabaseに登録されたアカウントでログインします。</p>
-          </div>
-        </TabsContent>
-      </Tabs>
-
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField
