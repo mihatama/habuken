@@ -1,29 +1,40 @@
+"use client"
+
 export default function Loading() {
   return (
-    <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
-      <div className="relative h-24 w-24">
-        {/* 外側の円 */}
-        <div className="absolute inset-0 animate-spin rounded-full border-b-2 border-t-2 border-primary"></div>
+    <div className="flex flex-col items-center justify-center min-h-screen">
+      <div className="relative">
+        {/* 外側の回転する円 */}
+        <div className="w-16 h-16 border-4 border-primary/30 rounded-full animate-spin-slow"></div>
 
-        {/* 内側の円 */}
-        <div
-          className="absolute inset-2 animate-spin rounded-full border-b-2 border-t-2 border-primary"
-          style={{ animationDirection: "reverse", animationDuration: "1.5s" }}
-        ></div>
+        {/* 内側の逆回転する円 */}
+        <div className="absolute top-1 left-1 w-14 h-14 border-4 border-primary/50 rounded-full animate-spin-reverse"></div>
 
-        {/* 中央のロゴ */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="h-12 w-12 rounded-full bg-primary/20 p-2">
-            <div className="h-full w-full animate-pulse rounded-full bg-primary"></div>
-          </div>
-        </div>
+        {/* 中央の脈動する円 */}
+        <div className="absolute top-4 left-4 w-8 h-8 bg-primary/70 rounded-full animate-pulse"></div>
       </div>
 
-      {/* ローディングテキスト */}
-      <div className="mt-8 text-center">
-        <h2 className="text-xl font-semibold text-primary">読み込み中...</h2>
-        <p className="mt-2 text-sm text-muted-foreground">少々お待ちください</p>
-      </div>
+      <p className="mt-4 text-lg font-medium text-primary">読み込み中...</p>
+      <p className="text-sm text-muted-foreground">少々お待ちください</p>
+
+      <style jsx>{`
+        @keyframes spin-slow {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+        @keyframes spin-reverse {
+          to {
+            transform: rotate(-360deg);
+          }
+        }
+        .animate-spin-slow {
+          animation: spin-slow 3s linear infinite;
+        }
+        .animate-spin-reverse {
+          animation: spin-reverse 2s linear infinite;
+        }
+      `}</style>
     </div>
   )
 }
