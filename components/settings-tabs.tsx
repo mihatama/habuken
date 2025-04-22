@@ -15,13 +15,14 @@ import { cn } from "@/lib/utils"
 
 // 明示的にPropsの型を定義
 interface SettingsTabsProps {
-  items: Array<{
+  items?: Array<{
     title: string
     href: string
   }>
 }
 
-export function SettingsTabs({ items }: SettingsTabsProps) {
+// Then update the component to provide a default value for items
+export function SettingsTabs({ items = [] }: SettingsTabsProps) {
   const pathname = usePathname()
   const [calendarSettings, setCalendarSettings] = useState({
     showStaffNames: true,
