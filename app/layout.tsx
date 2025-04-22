@@ -8,12 +8,19 @@ import { AuthProvider } from "@/contexts/auth-context"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "プロジェクト管理クラウド",
-  description: "Excelのような自由度を持ちつつ、簡単に共有できるスケジュール管理ツール",
+  title: "Project Management SaaS",
+  description: "Comprehensive project management solution for construction industry",
   icons: {
-    icon: "/habuken-logo.png",
-    shortcut: "/habuken-logo.png",
-    apple: "/habuken-logo.png",
+    icon: [
+      {
+        url: "/favicon.ico",
+        sizes: "any",
+      },
+      {
+        url: "/habuken-logo.png",
+        type: "image/png",
+      },
+    ],
   },
     generator: 'v0.dev'
 }
@@ -24,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="ja">
+    <html lang="ja" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <AuthProvider>{children}</AuthProvider>
