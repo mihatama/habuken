@@ -1,23 +1,18 @@
 import type { Metadata } from "next"
-import Image from "next/image"
 import Link from "next/link"
 import { Suspense } from "react"
 import { ResetPasswordForm } from "@/components/reset-password-form"
 
 export const metadata: Metadata = {
-  title: "パスワードリセット",
+  title: "パスワードリセット | 現助",
   description: "新しいパスワードを設定してください",
 }
-
-// 動的設定を削除
-// export const dynamic = "force-dynamic"
 
 export default function ResetPasswordPage() {
   return (
     <div className="container flex h-screen w-screen flex-col items-center justify-center">
       <Link href="/" className="absolute left-4 top-4 md:left-8 md:top-8 flex items-center gap-2">
-        <Image src="/habuken-logo.png" alt="Logo" width={40} height={40} className="rounded-full" />
-        <span className="font-bold">プロジェクト管理クラウド</span>
+        <span className="font-kaisho text-xl font-bold">現助</span>
       </Link>
       <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
         <div className="flex flex-col space-y-2 text-center">

@@ -3,7 +3,7 @@ import Link from "next/link"
 import { SignupForm } from "@/components/signup-form"
 
 export const metadata: Metadata = {
-  title: "アカウント登録 | プロジェクト管理クラウド",
+  title: "アカウント登録 | 現助",
   description: "新規アカウント登録",
 }
 
@@ -25,7 +25,7 @@ export default function SignupPage() {
           >
             <path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3" />
           </svg>
-          プロジェクト管理クラウド
+          <span className="font-kaisho text-xl">現助</span>
         </div>
         <div className="relative z-20 mt-auto">
           <blockquote className="space-y-2">
