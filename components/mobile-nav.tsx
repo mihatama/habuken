@@ -22,6 +22,16 @@ export function MobileNav({ className, ...props }: React.HTMLAttributes<HTMLElem
         <span>ダッシュボード</span>
       </Link>
       <Link
+        href="/master/project"
+        className={cn(
+          "flex flex-col items-center justify-center px-2 py-1 text-xs font-medium transition-colors hover:text-primary",
+          pathname === "/master/project" ? "text-primary" : "text-muted-foreground",
+        )}
+      >
+        <Briefcase className="w-5 h-5 mb-1" />
+        <span>案件登録</span>
+      </Link>
+      <Link
         href="/staff"
         className={cn(
           "flex flex-col items-center justify-center px-2 py-1 text-xs font-medium transition-colors hover:text-primary",
@@ -40,16 +50,6 @@ export function MobileNav({ className, ...props }: React.HTMLAttributes<HTMLElem
       >
         <Wrench className="w-5 h-5 mb-1" />
         <span>工具</span>
-      </Link>
-      <Link
-        href="/master/project"
-        className={cn(
-          "flex flex-col items-center justify-center px-2 py-1 text-xs font-medium transition-colors hover:text-primary",
-          pathname === "/master/project" ? "text-primary" : "text-muted-foreground",
-        )}
-      >
-        <Briefcase className="w-5 h-5 mb-1" />
-        <span>案件登録</span>
       </Link>
       <Link
         href="/leave"
