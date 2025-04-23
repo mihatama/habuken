@@ -1,13 +1,12 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { Calendar, momentLocalizer } from "react-big-calendar"
 import moment from "moment"
 import "moment/locale/ja"
 import "react-big-calendar/lib/css/react-big-calendar.css"
 import { Users, Briefcase, Wrench, MapPin } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
@@ -40,6 +39,7 @@ interface ToolCalendarProps {
   onEventUpdate?: (event: CalendarEvent) => void
   onEventDelete?: (eventId: number) => void
   timeframe?: string
+  category?: "machinery" | "vehicle" | "equipment" | string
 }
 
 // サンプルイベント
@@ -102,6 +102,7 @@ export function ToolCalendar({
   onEventUpdate,
   onEventDelete,
   timeframe = "month",
+  category,
 }: ToolCalendarProps) {
   const searchParams = useSearchParams()
   const categoryParam = searchParams.get("category") || "all"
@@ -115,19 +116,35 @@ export function ToolCalendar({
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<{ start: Date; end: Date } | null>(null)
+  const [filteredTools, setFilteredTools] = useState(sampleTools)
 
   // カテゴリーに基づいてツールをフィルタリング
-  const filteredByCategory = sampleTools.filter((tool) => {
-    if (categoryParam === "all") return true
-    if (categoryParam === "tool") return tool.category === "工具"
-    if (categoryParam === "machinery") return tool.category === "重機"
-    if (categoryParam === "vehicle") return tool.category === "車両"
-    return true
-  })
+  useEffect(() => {
+    if (category) {
+      let categoryFilter = "all"
 
-  // ツールをフィルタリング
-  const filteredTools =
-    filterTool === "all" ? filteredByCategory : filteredByCategory.filter((tool) => tool.id.toString() === filterTool)
+      if (category === "machinery") {
+        categoryFilter = "重機"
+      } else if (category === "vehicle") {
+        categoryFilter = "車両"
+      } else if (category === "equipment") {
+        categoryFilter = "工具"
+      }
+
+      const filteredByCategory = sampleTools.filter((tool) => {
+        if (categoryFilter === "all") return true
+        return tool.category === categoryFilter
+      })
+
+      // ツールをフィルタリング
+      const filtered =
+        filterTool === "all"
+          ? filteredByCategory
+          : filteredByCategory.filter((tool) => tool.id.toString() === filterTool)
+
+      setFilteredTools(filtered)
+    }
+  }, [category, filterTool])
 
   // ツールに紐づくプロジェクトを取得
   const getToolProjects = (toolId: number) => {
@@ -1367,47 +1384,45 @@ export function ToolCalendar({
   }
 
   return (
-    <Card>
-      <CardContent className="p-6">
-        <div style={{ height: 700 }}>
-          <Calendar
-            localizer={localizer}
-            events={events}
-            startAccessor="start"
-            endAccessor="end"
-            style={{ height: "100%" }}
-            onSelectEvent={handleEventClick}
-            onSelectSlot={handleSelectSlot}
-            selectable
-            views={["month", "week", "day"]}
-            defaultView={timeframe as any}
-            eventPropGetter={eventStyleGetter}
-            messages={{
-              today: "今日",
-              previous: "前へ",
-              next: "次へ",
-              month: "月",
-              week: "週",
-              day: "日",
-              agenda: "予定リスト",
-              date: "日付",
-              time: "時間",
-              event: "イベント",
-              allDay: "終日",
-              showMore: (total) => `他 ${total} 件`,
-            }}
-          />
-        </div>
-
-        <StaffAssignmentDialog
-          open={isDialogOpen}
-          onOpenChange={setIsDialogOpen}
-          eventData={selectedEvent}
-          onEventAdd={handleEventAdd}
-          onEventUpdate={handleEventUpdate}
-          onEventDelete={handleEventDelete}
+    <div>
+      <div style={{ height: 700 }}>
+        <Calendar
+          localizer={localizer}
+          events={events}
+          startAccessor="start"
+          endAccessor="end"
+          style={{ height: "100%" }}
+          onSelectEvent={handleEventClick}
+          onSelectSlot={handleSelectSlot}
+          selectable
+          views={["month", "week", "day"]}
+          defaultView={timeframe as any}
+          eventPropGetter={eventStyleGetter}
+          messages={{
+            today: "今日",
+            previous: "前へ",
+            next: "次へ",
+            month: "月",
+            week: "週",
+            day: "日",
+            agenda: "予定リスト",
+            date: "日付",
+            time: "時間",
+            event: "イベント",
+            allDay: "終日",
+            showMore: (total) => `他 ${total} 件`,
+          }}
         />
-      </CardContent>
-    </Card>
+      </div>
+
+      <StaffAssignmentDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        eventData={selectedEvent}
+        onEventAdd={handleEventAdd}
+        onEventUpdate={handleEventUpdate}
+        onEventDelete={handleEventDelete}
+      />
+    </div>
   )
 }

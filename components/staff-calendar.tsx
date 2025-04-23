@@ -5,8 +5,9 @@ import { Calendar, momentLocalizer } from "react-big-calendar"
 import moment from "moment"
 import "moment/locale/ja"
 import "react-big-calendar/lib/css/react-big-calendar.css"
-import { Card, CardContent } from "@/components/ui/card"
 import { StaffAssignmentDialog } from "@/components/staff-assignment-dialog"
+import { Button } from "@/components/ui/button"
+import { Plus } from "lucide-react"
 
 // 日本語ロケールを設定
 moment.locale("ja")
@@ -173,50 +174,51 @@ export function StaffCalendar({
   }
 
   return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-medium">スタッフスケジュール</h3>
-        </div>
-        <div style={{ height: 700 }}>
-          <Calendar
-            localizer={localizer}
-            events={events}
-            startAccessor="start"
-            endAccessor="end"
-            style={{ height: "100%" }}
-            onSelectEvent={handleEventClick}
-            onSelectSlot={handleSelectSlot}
-            selectable
-            views={["month", "week", "day"]}
-            defaultView={timeframe as any}
-            eventPropGetter={eventStyleGetter}
-            messages={{
-              today: "今日",
-              previous: "前へ",
-              next: "次へ",
-              month: "月",
-              week: "週",
-              day: "日",
-              agenda: "予定リスト",
-              date: "日付",
-              time: "時間",
-              event: "イベント",
-              allDay: "終日",
-              showMore: (total) => `他 ${total} 件`,
-            }}
-          />
-        </div>
-
-        <StaffAssignmentDialog
-          open={isDialogOpen}
-          onOpenChange={setIsDialogOpen}
-          eventData={selectedEvent}
-          onEventAdd={handleEventAdd}
-          onEventUpdate={handleEventUpdate}
-          onEventDelete={handleEventDelete}
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <Button onClick={handleNewEventClick} size="sm">
+          <Plus className="h-4 w-4 mr-2" />
+          新規作成
+        </Button>
+      </div>
+      <div style={{ height: 700 }}>
+        <Calendar
+          localizer={localizer}
+          events={events}
+          startAccessor="start"
+          endAccessor="end"
+          style={{ height: "100%" }}
+          onSelectEvent={handleEventClick}
+          onSelectSlot={handleSelectSlot}
+          selectable
+          views={["month", "week", "day"]}
+          defaultView={timeframe as any}
+          eventPropGetter={eventStyleGetter}
+          messages={{
+            today: "今日",
+            previous: "前へ",
+            next: "次へ",
+            month: "月",
+            week: "週",
+            day: "日",
+            agenda: "予定リスト",
+            date: "日付",
+            time: "時間",
+            event: "イベント",
+            allDay: "終日",
+            showMore: (total) => `他 ${total} 件`,
+          }}
         />
-      </CardContent>
-    </Card>
+      </div>
+
+      <StaffAssignmentDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        eventData={selectedEvent}
+        onEventAdd={handleEventAdd}
+        onEventUpdate={handleEventUpdate}
+        onEventDelete={handleEventDelete}
+      />
+    </div>
   )
 }

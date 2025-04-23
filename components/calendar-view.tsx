@@ -25,7 +25,9 @@ export function CalendarView({ activeView = "project", timeframe = "month" }: Ca
           <TabsList className="mb-4">
             <TabsTrigger value="project">案件別</TabsTrigger>
             <TabsTrigger value="staff">スタッフ別</TabsTrigger>
-            <TabsTrigger value="tool">車両・備品別</TabsTrigger>
+            <TabsTrigger value="machinery">重機</TabsTrigger>
+            <TabsTrigger value="vehicle">車両</TabsTrigger>
+            <TabsTrigger value="equipment">備品</TabsTrigger>
           </TabsList>
           <TabsContent value="project">
             <ProjectCalendar timeframe={timeframe} />
@@ -33,8 +35,14 @@ export function CalendarView({ activeView = "project", timeframe = "month" }: Ca
           <TabsContent value="staff">
             <StaffCalendar timeframe={timeframe} />
           </TabsContent>
-          <TabsContent value="tool">
-            <ToolCalendar timeframe={timeframe} />
+          <TabsContent value="machinery">
+            <ToolCalendar timeframe={timeframe} category="machinery" />
+          </TabsContent>
+          <TabsContent value="vehicle">
+            <ToolCalendar timeframe={timeframe} category="vehicle" />
+          </TabsContent>
+          <TabsContent value="equipment">
+            <ToolCalendar timeframe={timeframe} category="equipment" />
           </TabsContent>
         </Tabs>
       </CardContent>

@@ -5,7 +5,6 @@ import { Calendar, momentLocalizer } from "react-big-calendar"
 import moment from "moment"
 import "moment/locale/ja"
 import "react-big-calendar/lib/css/react-big-calendar.css"
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus, Loader2 } from "lucide-react"
 import { StaffAssignmentDialog } from "@/components/staff-assignment-dialog"
@@ -192,70 +191,67 @@ export function ProjectCalendar({
   }
 
   return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-medium">プロジェクトスケジュール</h3>
-          <Button onClick={handleNewEventClick} size="sm" disabled={loading || dataLoading}>
-            {loading || dataLoading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Plus className="h-4 w-4 mr-2" />
-            )}
-            新規作成
-          </Button>
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <Button onClick={handleNewEventClick} size="sm" disabled={loading || dataLoading}>
+          {loading || dataLoading ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Plus className="h-4 w-4 mr-2" />
+          )}
+          新規作成
+        </Button>
+      </div>
+      {loading ? (
+        <div className="flex justify-center items-center h-[700px]">
+          <div className="flex flex-col items-center">
+            <Loader2 className="h-12 w-12 animate-spin mb-4" />
+            <p className="text-muted-foreground">カレンダーデータを読み込み中...</p>
+          </div>
         </div>
-        {loading ? (
-          <div className="flex justify-center items-center h-[700px]">
-            <div className="flex flex-col items-center">
-              <Loader2 className="h-12 w-12 animate-spin mb-4" />
-              <p className="text-muted-foreground">カレンダーデータを読み込み中...</p>
-            </div>
-          </div>
-        ) : (
-          <div style={{ height: 700 }}>
-            <Calendar
-              localizer={localizer}
-              events={events}
-              startAccessor="start"
-              endAccessor="end"
-              style={{ height: "100%" }}
-              onSelectEvent={handleEventClick}
-              onSelectSlot={handleSelectSlot}
-              selectable
-              views={["month", "week", "day"]}
-              defaultView={timeframe as any}
-              eventPropGetter={eventStyleGetter}
-              messages={{
-                today: "今日",
-                previous: "前へ",
-                next: "次へ",
-                month: "月",
-                week: "週",
-                day: "日",
-                agenda: "予定リスト",
-                date: "日付",
-                time: "時間",
-                event: "イベント",
-                allDay: "終日",
-                showMore: (total) => `他 ${total} 件`,
-              }}
-            />
-          </div>
-        )}
+      ) : (
+        <div style={{ height: 700 }}>
+          <Calendar
+            localizer={localizer}
+            events={events}
+            startAccessor="start"
+            endAccessor="end"
+            style={{ height: "100%" }}
+            onSelectEvent={handleEventClick}
+            onSelectSlot={handleSelectSlot}
+            selectable
+            views={["month", "week", "day"]}
+            defaultView={timeframe as any}
+            eventPropGetter={eventStyleGetter}
+            messages={{
+              today: "今日",
+              previous: "前へ",
+              next: "次へ",
+              month: "月",
+              week: "週",
+              day: "日",
+              agenda: "予定リスト",
+              date: "日付",
+              time: "時間",
+              event: "イベント",
+              allDay: "終日",
+              showMore: (total) => `他 ${total} 件`,
+            }}
+          />
+        </div>
+      )}
 
-        <StaffAssignmentDialog
-          open={isDialogOpen}
-          onOpenChange={setIsDialogOpen}
-          eventData={selectedEvent}
-          onEventAdd={handleEventAdd}
-          onEventUpdate={handleEventUpdate}
-          onEventDelete={handleEventDelete}
-          projects={projects}
-          staff={staff}
-          resources={resources}
-        />
-      </CardContent>
-    </Card>
+      <StaffAssignmentDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        eventData={selectedEvent}
+        onEventAdd={handleEventAdd}
+        onEventUpdate={handleEventUpdate}
+        onEventDelete={handleEventDelete}
+        projects={projects}
+        staff={staff}
+        resources={resources}
+      />
+    </div>
   )
 }
