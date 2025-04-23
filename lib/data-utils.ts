@@ -157,6 +157,159 @@ export const getResourceById = async (id: string) => {
   }, `リソース(ID: ${id})の取得に失敗しました`)
 }
 
+// 重機関連の関数
+export const getHeavyMachinery = async () => {
+  return handleSupabaseOperation(async () => {
+    const supabase = createServerSupabaseClient()
+    const { data, error } = await supabase.from("heavy_machinery").select("*").order("name", { ascending: true })
+
+    if (error) throw error
+    return data
+  }, "重機一覧の取得に失敗しました")
+}
+
+export const getHeavyMachineryById = async (id: string) => {
+  return handleSupabaseOperation(async () => {
+    const supabase = createServerSupabaseClient()
+    const { data, error } = await supabase.from("heavy_machinery").select("*").eq("id", id).single()
+
+    if (error) throw error
+    return data
+  }, `重機(ID: ${id})の取得に失敗しました`)
+}
+
+export const createHeavyMachinery = async (machineryData: any) => {
+  return withRetry(async () => {
+    const supabase = getClientSupabaseInstance()
+    const { data, error } = await supabase.from("heavy_machinery").insert(machineryData).select()
+
+    if (error) throw error
+    return data
+  })
+}
+
+export const updateHeavyMachinery = async (id: string, machineryData: any) => {
+  return handleSupabaseOperation(async () => {
+    const supabase = getClientSupabaseInstance()
+    const { data, error } = await supabase.from("heavy_machinery").update(machineryData).eq("id", id).select()
+
+    if (error) throw error
+    return data
+  }, `重機(ID: ${id})の更新に失敗しました`)
+}
+
+export const deleteHeavyMachinery = async (id: string) => {
+  return handleSupabaseOperation(async () => {
+    const supabase = getClientSupabaseInstance()
+    const { error } = await supabase.from("heavy_machinery").delete().eq("id", id)
+
+    if (error) throw error
+    return true
+  }, `重機(ID: ${id})の削除に失敗しました`)
+}
+
+// 車両関連の関数
+export const getVehicles = async () => {
+  return handleSupabaseOperation(async () => {
+    const supabase = createServerSupabaseClient()
+    const { data, error } = await supabase.from("vehicles").select("*").order("name", { ascending: true })
+
+    if (error) throw error
+    return data
+  }, "車両一覧の取得に失敗しました")
+}
+
+export const getVehicleById = async (id: string) => {
+  return handleSupabaseOperation(async () => {
+    const supabase = createServerSupabaseClient()
+    const { data, error } = await supabase.from("vehicles").select("*").eq("id", id).single()
+
+    if (error) throw error
+    return data
+  }, `車両(ID: ${id})の取得に失敗しました`)
+}
+
+export const createVehicle = async (vehicleData: any) => {
+  return withRetry(async () => {
+    const supabase = getClientSupabaseInstance()
+    const { data, error } = await supabase.from("vehicles").insert(vehicleData).select()
+
+    if (error) throw error
+    return data
+  })
+}
+
+export const updateVehicle = async (id: string, vehicleData: any) => {
+  return handleSupabaseOperation(async () => {
+    const supabase = getClientSupabaseInstance()
+    const { data, error } = await supabase.from("vehicles").update(vehicleData).eq("id", id).select()
+
+    if (error) throw error
+    return data
+  }, `車両(ID: ${id})の更新に失敗しました`)
+}
+
+export const deleteVehicle = async (id: string) => {
+  return handleSupabaseOperation(async () => {
+    const supabase = getClientSupabaseInstance()
+    const { error } = await supabase.from("vehicles").delete().eq("id", id)
+
+    if (error) throw error
+    return true
+  }, `車両(ID: ${id})の削除に失敗しました`)
+}
+
+// 備品関連の関数
+export const getTools = async () => {
+  return handleSupabaseOperation(async () => {
+    const supabase = createServerSupabaseClient()
+    const { data, error } = await supabase.from("tools").select("*").order("name", { ascending: true })
+
+    if (error) throw error
+    return data
+  }, "備品一覧の取得に失敗しました")
+}
+
+export const getToolById = async (id: string) => {
+  return handleSupabaseOperation(async () => {
+    const supabase = createServerSupabaseClient()
+    const { data, error } = await supabase.from("tools").select("*").eq("id", id).single()
+
+    if (error) throw error
+    return data
+  }, `備品(ID: ${id})の取得に失敗しました`)
+}
+
+export const createTool = async (toolData: any) => {
+  return withRetry(async () => {
+    const supabase = getClientSupabaseInstance()
+    const { data, error } = await supabase.from("tools").insert(toolData).select()
+
+    if (error) throw error
+    return data
+  })
+}
+
+export const updateTool = async (id: string, toolData: any) => {
+  return handleSupabaseOperation(async () => {
+    const supabase = getClientSupabaseInstance()
+    const { data, error } = await supabase.from("tools").update(toolData).eq("id", id).select()
+
+    if (error) throw error
+    return data
+  }, `備品(ID: ${id})の更新に失敗しました`)
+}
+
+export const deleteTool = async (id: string) => {
+  return handleSupabaseOperation(async () => {
+    const supabase = getClientSupabaseInstance()
+    const { error } = await supabase.from("tools").delete().eq("id", id)
+
+    if (error) throw error
+    return true
+  }, `備品(ID: ${id})の削除に失敗しました`)
+}
+
 // シフト関連の関数
 export const getShifts = async (startDate?: string, endDate?: string) => {
   return handleSupabaseOperation(async () => {
