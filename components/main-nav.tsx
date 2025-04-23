@@ -32,16 +32,6 @@ export function MainNav({ className, isAdmin, ...props }: React.HTMLAttributes<H
         <span>スタッフ</span>
       </Link>
       <Link
-        href="/tools"
-        className={cn(
-          "flex items-center text-sm font-medium transition-colors hover:text-primary",
-          pathname === "/tools" ? "text-primary" : "text-muted-foreground",
-        )}
-      >
-        <Wrench className="w-4 h-4 mr-2" />
-        <span>工具</span>
-      </Link>
-      <Link
         href="/master/heavy"
         className={cn(
           "flex items-center text-sm font-medium transition-colors hover:text-primary whitespace-nowrap",
@@ -52,14 +42,24 @@ export function MainNav({ className, isAdmin, ...props }: React.HTMLAttributes<H
         <span>重機</span>
       </Link>
       <Link
-        href="/master/heavy"
+        href="/master/vehicle"
         className={cn(
           "flex items-center text-sm font-medium transition-colors hover:text-primary whitespace-nowrap",
-          pathname === "/master/heavy" ? "text-primary" : "text-muted-foreground",
+          pathname === "/master/vehicle" ? "text-primary" : "text-muted-foreground",
         )}
       >
         <Car className="w-4 h-4 mr-2" />
         <span>車両</span>
+      </Link>
+      <Link
+        href="/tools"
+        className={cn(
+          "flex items-center text-sm font-medium transition-colors hover:text-primary",
+          pathname === "/tools" ? "text-primary" : "text-muted-foreground",
+        )}
+      >
+        <Wrench className="w-4 h-4 mr-2" />
+        <span>備品</span>
       </Link>
       <Link
         href="/leave"
