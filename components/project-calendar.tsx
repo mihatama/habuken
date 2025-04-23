@@ -5,7 +5,6 @@ import { Calendar, momentLocalizer } from "react-big-calendar"
 import moment from "moment"
 import "moment/locale/ja"
 import "react-big-calendar/lib/css/react-big-calendar.css"
-import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { StaffAssignmentDialog } from "@/components/staff-assignment-dialog"
@@ -182,11 +181,6 @@ export function ProjectCalendar({
         </div>
 
         <div className="text-lg font-medium">案件カレンダー</div>
-
-        <Button size="sm" onClick={handleNewEventClick}>
-          <Plus className="h-4 w-4 mr-1" />
-          新規予定
-        </Button>
       </div>
 
       <div style={{ height: 700 }}>
