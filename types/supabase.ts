@@ -324,3 +324,7 @@ export interface Database {
     }
   }
 }
+
+export type Project = Database["public"]["Tables"]["projects"]["Row"]
+export type Staff = Database["public"]["Tables"]["staff"]["Row"]
+export type Resource = Database["public"]["Tables"]["resources"]["Row"]

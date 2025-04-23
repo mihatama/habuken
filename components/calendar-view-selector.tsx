@@ -3,66 +3,126 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Calendar, Users, Truck, ChevronLeft, ChevronRight } from "lucide-react"
-import { useState } from "react"
-
-export type ViewType = "project" | "staff" | "tool"
-export type TimeframeType = "day" | "week" | "month"
+import { useState, useEffect } from "react"
+import { useRouter, usePathname, useSearchParams } from "next/navigation"
+import type { CalendarViewType, TimeframeType } from "@/types/calendar"
+import { format, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths } from "date-fns"
+import { ja } from "date-fns/locale"
 
 type CalendarViewSelectorProps = {
-  activeView: ViewType
-  setActiveView: (view: ViewType) => void
-  timeframe: TimeframeType
-  setTimeframe: (timeframe: TimeframeType) => void
+  activeView?: CalendarViewType
+  timeframe?: TimeframeType
 }
 
-export function CalendarViewSelector({
-  activeView,
-  setActiveView,
-  timeframe,
-  setTimeframe,
-}: CalendarViewSelectorProps) {
-  const [currentDate, setCurrentDate] = useState(new Date())
+export function CalendarViewSelector({ activeView = "project", timeframe = "month" }: CalendarViewSelectorProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  const [currentView, setCurrentView] = useState<CalendarViewType>(
+    (searchParams.get("view") as CalendarViewType) || activeView,
+  )
+  const [currentTimeframe, setCurrentTimeframe] = useState<TimeframeType>(
+    (searchParams.get("timeframe") as TimeframeType) || timeframe,
+  )
+  const [currentDate, setCurrentDate] = useState<Date>(
+    searchParams.get("date") ? new Date(searchParams.get("date") as string) : new Date(),
+  )
+
+  // URLパラメータが変更されたときにステートを更新
+  useEffect(() => {
+    const viewParam = searchParams.get("view") as CalendarViewType
+    const timeframeParam = searchParams.get("timeframe") as TimeframeType
+    const dateParam = searchParams.get("date")
+
+    if (viewParam && viewParam !== currentView) {
+      setCurrentView(viewParam)
+    }
+
+    if (timeframeParam && timeframeParam !== currentTimeframe) {
+      setCurrentTimeframe(timeframeParam)
+    }
+
+    if (dateParam && new Date(dateParam).toString() !== "Invalid Date") {
+      setCurrentDate(new Date(dateParam))
+    }
+  }, [searchParams, currentView, currentTimeframe])
+
+  // URLパラメータを更新する関数
+  const updateURLParams = (params: { view?: CalendarViewType; timeframe?: TimeframeType; date?: Date }) => {
+    const urlParams = new URLSearchParams(searchParams.toString())
+
+    if (params.view) {
+      urlParams.set("view", params.view)
+    }
+
+    if (params.timeframe) {
+      urlParams.set("timeframe", params.timeframe)
+    }
+
+    if (params.date) {
+      urlParams.set("date", params.date.toISOString())
+    }
+
+    router.push(`${pathname}?${urlParams.toString()}`)
+  }
+
+  // ビューを変更
+  const handleViewChange = (view: CalendarViewType) => {
+    setCurrentView(view)
+    updateURLParams({ view })
+  }
+
+  // タイムフレームを変更
+  const handleTimeframeChange = (newTimeframe: TimeframeType) => {
+    setCurrentTimeframe(newTimeframe)
+    updateURLParams({ timeframe: newTimeframe })
+  }
 
   // 前の期間に移動
   const goToPrevious = () => {
-    const newDate = new Date(currentDate)
-    if (timeframe === "day") {
-      newDate.setDate(newDate.getDate() - 1)
-    } else if (timeframe === "week") {
-      newDate.setDate(newDate.getDate() - 7)
+    let newDate = currentDate
+
+    if (currentTimeframe === "day") {
+      newDate = subDays(currentDate, 1)
+    } else if (currentTimeframe === "week") {
+      newDate = subWeeks(currentDate, 1)
     } else {
-      newDate.setMonth(newDate.getMonth() - 1)
+      newDate = subMonths(currentDate, 1)
     }
+
     setCurrentDate(newDate)
+    updateURLParams({ date: newDate })
   }
 
   // 次の期間に移動
   const goToNext = () => {
-    const newDate = new Date(currentDate)
-    if (timeframe === "day") {
-      newDate.setDate(newDate.getDate() + 1)
-    } else if (timeframe === "week") {
-      newDate.setDate(newDate.getDate() + 7)
+    let newDate = currentDate
+
+    if (currentTimeframe === "day") {
+      newDate = addDays(currentDate, 1)
+    } else if (currentTimeframe === "week") {
+      newDate = addWeeks(currentDate, 1)
     } else {
-      newDate.setMonth(newDate.getMonth() + 1)
+      newDate = addMonths(currentDate, 1)
     }
+
     setCurrentDate(newDate)
+    updateURLParams({ date: newDate })
   }
 
   // 今日に移動
   const goToToday = () => {
-    setCurrentDate(new Date())
+    const today = new Date()
+    setCurrentDate(today)
+    updateURLParams({ date: today })
   }
 
   // 表示する日付文字列を生成
   const getDateDisplay = () => {
-    const options: Intl.DateTimeFormatOptions = {}
-
-    if (timeframe === "day") {
-      options.year = "numeric"
-      options.month = "long"
-      options.day = "numeric"
-    } else if (timeframe === "week") {
+    if (currentTimeframe === "day") {
+      return format(currentDate, "yyyy年M月d日(E)", { locale: ja })
+    } else if (currentTimeframe === "week") {
       // 週の開始日と終了日を計算
       const startOfWeek = new Date(currentDate)
       const dayOfWeek = startOfWeek.getDay()
@@ -72,13 +132,10 @@ export function CalendarViewSelector({
       const endOfWeek = new Date(startOfWeek)
       endOfWeek.setDate(endOfWeek.getDate() + 6)
 
-      return `${startOfWeek.getFullYear()}年${startOfWeek.getMonth() + 1}月${startOfWeek.getDate()}日 - ${endOfWeek.getMonth() + 1}月${endOfWeek.getDate()}日`
+      return `${format(startOfWeek, "yyyy年M月d日", { locale: ja })} - ${format(endOfWeek, "M月d日", { locale: ja })}`
     } else {
-      options.year = "numeric"
-      options.month = "long"
+      return format(currentDate, "yyyy年M月", { locale: ja })
     }
-
-    return new Intl.DateTimeFormat("ja-JP", options).format(currentDate)
   }
 
   return (
@@ -87,46 +144,50 @@ export function CalendarViewSelector({
         <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
           <div className="flex items-center space-x-2">
             <Button
-              variant={activeView === "project" ? "default" : "outline"}
+              variant={currentView === "project" ? "default" : "outline"}
               size="sm"
-              onClick={() => setActiveView("project")}
+              onClick={() => handleViewChange("project")}
             >
               <Calendar className="mr-1 h-4 w-4" />
               案件別
             </Button>
             <Button
-              variant={activeView === "staff" ? "default" : "outline"}
+              variant={currentView === "staff" ? "default" : "outline"}
               size="sm"
-              onClick={() => setActiveView("staff")}
+              onClick={() => handleViewChange("staff")}
             >
               <Users className="mr-1 h-4 w-4" />
               スタッフ別
             </Button>
             <Button
-              variant={activeView === "tool" ? "default" : "outline"}
+              variant={currentView === "tool" ? "default" : "outline"}
               size="sm"
-              onClick={() => setActiveView("tool")}
+              onClick={() => handleViewChange("tool")}
             >
               <Truck className="mr-1 h-4 w-4" />
-              車両・備品別
+              機材別
             </Button>
           </div>
 
           <div className="flex items-center space-x-2">
-            <Button variant={timeframe === "day" ? "default" : "outline"} size="sm" onClick={() => setTimeframe("day")}>
+            <Button
+              variant={currentTimeframe === "day" ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleTimeframeChange("day")}
+            >
               日
             </Button>
             <Button
-              variant={timeframe === "week" ? "default" : "outline"}
+              variant={currentTimeframe === "week" ? "default" : "outline"}
               size="sm"
-              onClick={() => setTimeframe("week")}
+              onClick={() => handleTimeframeChange("week")}
             >
               週
             </Button>
             <Button
-              variant={timeframe === "month" ? "default" : "outline"}
+              variant={currentTimeframe === "month" ? "default" : "outline"}
               size="sm"
-              onClick={() => setTimeframe("month")}
+              onClick={() => handleTimeframeChange("month")}
             >
               月
             </Button>
