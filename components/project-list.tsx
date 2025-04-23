@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -8,16 +8,36 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Pencil, Trash2 } from "lucide-react"
+import { Plus, Pencil, Trash2, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { sampleProjects } from "@/data/sample-data"
+import { Checkbox } from "@/components/ui/checkbox"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { useToast } from "@/hooks/use-toast"
+import { getClientSupabaseInstance } from "@/lib/supabase/supabaseClient"
 
 export function ProjectList() {
-  const [projects, setProjects] = useState(sampleProjects)
+  const { toast } = useToast()
+  const [projects, setProjects] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [currentProject, setCurrentProject] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [dataLoading, setDataLoading] = useState(true)
+
+  // スタッフ、重機、車両、備品のデータを保持するための状態
+  const [staffList, setStaffList] = useState<any[]>([])
+  const [heavyMachineryList, setHeavyMachineryList] = useState<any[]>([])
+  const [vehiclesList, setVehiclesList] = useState<any[]>([])
+  const [toolsList, setToolsList] = useState<any[]>([])
+
+  // 検索用の状態
+  const [searchStaff, setSearchStaff] = useState("")
+  const [searchHeavyMachinery, setSearchHeavyMachinery] = useState("")
+  const [searchVehicles, setSearchVehicles] = useState("")
+  const [searchTools, setSearchTools] = useState("")
+
+  // 新規案件の状態
   const [newProject, setNewProject] = useState({
     name: "",
     description: "",
@@ -26,56 +46,428 @@ export function ProjectList() {
     status: "未着手",
     client: "",
     location: "",
-    assignedStaff: [] as number[],
-    assignedTools: [] as number[],
+    selectedStaff: [] as string[],
+    selectedHeavyMachinery: [] as string[],
+    selectedVehicles: [] as string[],
+    selectedTools: [] as string[],
   })
 
+  // プロジェクト一覧を取得
+  useEffect(() => {
+    fetchProjects()
+    fetchStaff()
+    fetchHeavyMachinery()
+    fetchVehicles()
+    fetchTools()
+  }, [])
+
+  // プロジェクト一覧を取得する関数
+  const fetchProjects = async () => {
+    try {
+      setDataLoading(true)
+      const supabase = getClientSupabaseInstance()
+      const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false })
+
+      if (error) throw error
+
+      if (data) {
+        setProjects(data)
+      }
+    } catch (error) {
+      console.error("プロジェクト取得エラー:", error)
+      toast({
+        title: "エラー",
+        description: "プロジェクト一覧の取得に失敗しました",
+        variant: "destructive",
+      })
+    } finally {
+      setDataLoading(false)
+    }
+  }
+
+  // スタッフ一覧を取得する関数
+  const fetchStaff = async () => {
+    try {
+      const supabase = getClientSupabaseInstance()
+      const { data, error } = await supabase.from("staff").select("*").order("full_name", { ascending: true })
+
+      if (error) throw error
+
+      if (data) {
+        setStaffList(data)
+      }
+    } catch (error) {
+      console.error("スタッフ取得エラー:", error)
+      toast({
+        title: "エラー",
+        description: "スタッフ一覧の取得に失敗しました",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // 重機一覧を取得する関数
+  const fetchHeavyMachinery = async () => {
+    try {
+      const supabase = getClientSupabaseInstance()
+      const { data, error } = await supabase.from("heavy_machinery").select("*").order("name", { ascending: true })
+
+      if (error) throw error
+
+      if (data) {
+        setHeavyMachineryList(data)
+      }
+    } catch (error) {
+      console.error("重機取得エラー:", error)
+      toast({
+        title: "エラー",
+        description: "重機一覧の取得に失敗しました",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // 車両一覧を取得する関数
+  const fetchVehicles = async () => {
+    try {
+      const supabase = getClientSupabaseInstance()
+      const { data, error } = await supabase.from("vehicles").select("*").order("name", { ascending: true })
+
+      if (error) throw error
+
+      if (data) {
+        setVehiclesList(data)
+      }
+    } catch (error) {
+      console.error("車両取得エラー:", error)
+      toast({
+        title: "エラー",
+        description: "車両一覧の取得に失敗しました",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // 備品一覧を取得する関数
+  const fetchTools = async () => {
+    try {
+      const supabase = getClientSupabaseInstance()
+      const { data, error } = await supabase.from("tools").select("*").order("name", { ascending: true })
+
+      if (error) throw error
+
+      if (data) {
+        setToolsList(data)
+      }
+    } catch (error) {
+      console.error("備品取得エラー:", error)
+      toast({
+        title: "エラー",
+        description: "備品一覧の取得に失敗しました",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // 検索条件に一致するプロジェクトをフィルタリング
   const filteredProjects = projects.filter(
     (project) =>
-      project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      project.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      project.client.toLowerCase().includes(searchTerm.toLowerCase()),
+      project.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      project.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      project.client?.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
-  const handleAddProject = () => {
-    const project = {
-      id: projects.length + 1,
-      name: newProject.name,
-      description: newProject.description,
-      startDate: new Date(newProject.startDate),
-      endDate: new Date(newProject.endDate),
-      status: newProject.status,
-      client: newProject.client,
-      location: newProject.location,
-      assignedStaff: newProject.assignedStaff,
-      assignedTools: newProject.assignedTools,
-    }
+  // 検索条件に一致するスタッフをフィルタリング
+  const filteredStaff = staffList.filter((staff) => staff.full_name?.toLowerCase().includes(searchStaff.toLowerCase()))
 
-    setProjects([...projects, project])
-    setNewProject({
-      name: "",
-      description: "",
-      startDate: "",
-      endDate: "",
-      status: "未着手",
-      client: "",
-      location: "",
-      assignedStaff: [],
-      assignedTools: [],
+  // 検索条件に一致する重機をフィルタリング
+  const filteredHeavyMachinery = heavyMachineryList.filter((machinery) =>
+    machinery.name?.toLowerCase().includes(searchHeavyMachinery.toLowerCase()),
+  )
+
+  // 検索条件に一致する車両をフィルタリング
+  const filteredVehicles = vehiclesList.filter((vehicle) =>
+    vehicle.name?.toLowerCase().includes(searchVehicles.toLowerCase()),
+  )
+
+  // 検索条件に一致する備品をフィルタリング
+  const filteredTools = toolsList.filter((tool) => tool.name?.toLowerCase().includes(searchTools.toLowerCase()))
+
+  // スタッフの選択状態を変更する関数
+  const handleStaffChange = (staffId: string, checked: boolean) => {
+    setNewProject((prev) => {
+      if (checked) {
+        return { ...prev, selectedStaff: [...prev.selectedStaff, staffId] }
+      } else {
+        return { ...prev, selectedStaff: prev.selectedStaff.filter((id) => id !== staffId) }
+      }
     })
-    setIsAddDialogOpen(false)
   }
 
-  const handleEditProject = () => {
-    const updatedProjects = projects.map((project) => (project.id === currentProject.id ? currentProject : project))
-    setProjects(updatedProjects)
-    setIsEditDialogOpen(false)
+  // 重機の選択状態を変更する関数
+  const handleHeavyMachineryChange = (machineryId: string, checked: boolean) => {
+    setNewProject((prev) => {
+      if (checked) {
+        return { ...prev, selectedHeavyMachinery: [...prev.selectedHeavyMachinery, machineryId] }
+      } else {
+        return { ...prev, selectedHeavyMachinery: prev.selectedHeavyMachinery.filter((id) => id !== machineryId) }
+      }
+    })
   }
 
-  const handleDeleteProject = (id: number) => {
-    setProjects(projects.filter((project) => project.id !== id))
+  // 車両の選択状態を変更する関数
+  const handleVehicleChange = (vehicleId: string, checked: boolean) => {
+    setNewProject((prev) => {
+      if (checked) {
+        return { ...prev, selectedVehicles: [...prev.selectedVehicles, vehicleId] }
+      } else {
+        return { ...prev, selectedVehicles: prev.selectedVehicles.filter((id) => id !== vehicleId) }
+      }
+    })
   }
 
+  // 備品の選択状態を変更する関数
+  const handleToolChange = (toolId: string, checked: boolean) => {
+    setNewProject((prev) => {
+      if (checked) {
+        return { ...prev, selectedTools: [...prev.selectedTools, toolId] }
+      } else {
+        return { ...prev, selectedTools: prev.selectedTools.filter((id) => id !== toolId) }
+      }
+    })
+  }
+
+  // 新規案件を追加する関数
+  const handleAddProject = async () => {
+    try {
+      setIsLoading(true)
+
+      // 入力チェック
+      if (!newProject.name) {
+        toast({
+          title: "入力エラー",
+          description: "案件名は必須です",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (!newProject.startDate) {
+        toast({
+          title: "入力エラー",
+          description: "開始日は必須です",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const supabase = getClientSupabaseInstance()
+
+      // プロジェクトを追加
+      const { data: projectData, error: projectError } = await supabase
+        .from("projects")
+        .insert({
+          name: newProject.name,
+          description: newProject.description,
+          start_date: newProject.startDate,
+          end_date: newProject.endDate || null,
+          status: newProject.status,
+          client: newProject.client,
+          created_by: "system", // 実際のユーザーIDに置き換える
+        })
+        .select()
+
+      if (projectError) throw projectError
+
+      if (projectData && projectData.length > 0) {
+        const projectId = projectData[0].id
+
+        // プロジェクト割り当てを作成
+        const assignments = []
+
+        // スタッフの割り当て
+        for (const staffId of newProject.selectedStaff) {
+          assignments.push({
+            project_id: projectId,
+            staff_id: staffId,
+          })
+        }
+
+        // 重機の割り当て
+        for (const machineryId of newProject.selectedHeavyMachinery) {
+          assignments.push({
+            project_id: projectId,
+            heavy_machinery_id: machineryId,
+          })
+        }
+
+        // 車両の割り当て
+        for (const vehicleId of newProject.selectedVehicles) {
+          assignments.push({
+            project_id: projectId,
+            vehicle_id: vehicleId,
+          })
+        }
+
+        // 備品の割り当て
+        for (const toolId of newProject.selectedTools) {
+          assignments.push({
+            project_id: projectId,
+            tool_id: toolId,
+          })
+        }
+
+        // 割り当てがある場合は保存
+        if (assignments.length > 0) {
+          const { error: assignmentError } = await supabase.from("project_assignments").insert(assignments)
+
+          if (assignmentError) throw assignmentError
+        }
+
+        // 成功メッセージを表示
+        toast({
+          title: "案件を追加しました",
+          description: "案件と割り当てが正常に登録されました",
+        })
+
+        // プロジェクト一覧を再取得
+        fetchProjects()
+
+        // フォームをリセット
+        setNewProject({
+          name: "",
+          description: "",
+          startDate: "",
+          endDate: "",
+          status: "未着手",
+          client: "",
+          location: "",
+          selectedStaff: [],
+          selectedHeavyMachinery: [],
+          selectedVehicles: [],
+          selectedTools: [],
+        })
+
+        // ダイアログを閉じる
+        setIsAddDialogOpen(false)
+      }
+    } catch (error) {
+      console.error("案件追加エラー:", error)
+      toast({
+        title: "エラー",
+        description: "案件の追加に失敗しました",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // 案件を編集する関数
+  const handleEditProject = async () => {
+    try {
+      setIsLoading(true)
+
+      if (!currentProject || !currentProject.id) {
+        throw new Error("プロジェクトIDが不明です")
+      }
+
+      // 入力チェック
+      if (!currentProject.name) {
+        toast({
+          title: "入力エラー",
+          description: "案件名は必須です",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (!currentProject.start_date) {
+        toast({
+          title: "入力エラー",
+          description: "開始日は必須です",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const supabase = getClientSupabaseInstance()
+
+      // プロジェクトを更新
+      const { error: projectError } = await supabase
+        .from("projects")
+        .update({
+          name: currentProject.name,
+          description: currentProject.description,
+          start_date: currentProject.start_date,
+          end_date: currentProject.end_date || null,
+          status: currentProject.status,
+          client: currentProject.client,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", currentProject.id)
+
+      if (projectError) throw projectError
+
+      // 成功メッセージを表示
+      toast({
+        title: "案件を更新しました",
+        description: "案件情報が正常に更新されました",
+      })
+
+      // プロジェクト一覧を再取得
+      fetchProjects()
+
+      // ダイアログを閉じる
+      setIsEditDialogOpen(false)
+    } catch (error) {
+      console.error("案件更新エラー:", error)
+      toast({
+        title: "エラー",
+        description: "案件の更新に失敗しました",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // 案件を削除する関数
+  const handleDeleteProject = async (id: string) => {
+    try {
+      if (!confirm("この案件を削除してもよろしいですか？")) {
+        return
+      }
+
+      setIsLoading(true)
+      const supabase = getClientSupabaseInstance()
+
+      // プロジェクトを削除
+      const { error } = await supabase.from("projects").delete().eq("id", id)
+
+      if (error) throw error
+
+      // 成功メッセージを表示
+      toast({
+        title: "案件を削除しました",
+        description: "案件が正常に削除されました",
+      })
+
+      // プロジェクト一覧を再取得
+      fetchProjects()
+    } catch (error) {
+      console.error("案件削除エラー:", error)
+      toast({
+        title: "エラー",
+        description: "案件の削除に失敗しました",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // ステータスに応じたバッジを返す関数
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "未着手":
@@ -89,6 +481,13 @@ export function ProjectList() {
       default:
         return <Badge>{status}</Badge>
     }
+  }
+
+  // 日付をフォーマットする関数
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "-"
+    const date = new Date(dateString)
+    return date.toLocaleDateString("ja-JP")
   }
 
   return (
@@ -109,26 +508,30 @@ export function ProjectList() {
                 新規案件
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-4xl">
               <DialogHeader>
                 <DialogTitle>新規案件の追加</DialogTitle>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">案件名</Label>
-                  <Input
-                    id="name"
-                    value={newProject.name}
-                    onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="client">クライアント</Label>
-                  <Input
-                    id="client"
-                    value={newProject.client}
-                    onChange={(e) => setNewProject({ ...newProject, client: e.target.value })}
-                  />
+              <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">
+                      案件名 <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="name"
+                      value={newProject.name}
+                      onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="client">クライアント</Label>
+                    <Input
+                      id="client"
+                      value={newProject.client}
+                      onChange={(e) => setNewProject({ ...newProject, client: e.target.value })}
+                    />
+                  </div>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="description">説明</Label>
@@ -140,7 +543,9 @@ export function ProjectList() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="startDate">開始日</Label>
+                    <Label htmlFor="startDate">
+                      開始日 <span className="text-red-500">*</span>
+                    </Label>
                     <Input
                       id="startDate"
                       type="date"
@@ -172,9 +577,155 @@ export function ProjectList() {
                     <option>完了</option>
                   </select>
                 </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="location">現場住所</Label>
+                  <Input
+                    id="location"
+                    value={newProject.location}
+                    onChange={(e) => setNewProject({ ...newProject, location: e.target.value })}
+                  />
+                </div>
+
+                {/* スタッフ選択セクション */}
+                <div className="grid gap-2 border p-4 rounded-md">
+                  <Label>担当スタッフ</Label>
+                  <Input
+                    placeholder="スタッフを検索"
+                    value={searchStaff}
+                    onChange={(e) => setSearchStaff(e.target.value)}
+                    className="mb-2"
+                  />
+                  <ScrollArea className="h-[150px]">
+                    {filteredStaff.length > 0 ? (
+                      <div className="space-y-2">
+                        {filteredStaff.map((staff) => (
+                          <div key={staff.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`staff-${staff.id}`}
+                              checked={newProject.selectedStaff.includes(staff.id)}
+                              onCheckedChange={(checked) => handleStaffChange(staff.id, checked as boolean)}
+                            />
+                            <Label htmlFor={`staff-${staff.id}`} className="flex-1">
+                              {staff.full_name} {staff.position && `(${staff.position})`}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground">
+                        検索条件に一致するスタッフが見つかりません
+                      </div>
+                    )}
+                  </ScrollArea>
+                </div>
+
+                {/* 重機選択セクション */}
+                <div className="grid gap-2 border p-4 rounded-md">
+                  <Label>使用重機</Label>
+                  <Input
+                    placeholder="重機を検索"
+                    value={searchHeavyMachinery}
+                    onChange={(e) => setSearchHeavyMachinery(e.target.value)}
+                    className="mb-2"
+                  />
+                  <ScrollArea className="h-[150px]">
+                    {filteredHeavyMachinery.length > 0 ? (
+                      <div className="space-y-2">
+                        {filteredHeavyMachinery.map((machinery) => (
+                          <div key={machinery.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`machinery-${machinery.id}`}
+                              checked={newProject.selectedHeavyMachinery.includes(machinery.id)}
+                              onCheckedChange={(checked) =>
+                                handleHeavyMachineryChange(machinery.id, checked as boolean)
+                              }
+                            />
+                            <Label htmlFor={`machinery-${machinery.id}`} className="flex-1">
+                              {machinery.name} {machinery.type && `(${machinery.type})`}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground">
+                        検索条件に一致する重機が見つかりません
+                      </div>
+                    )}
+                  </ScrollArea>
+                </div>
+
+                {/* 車両選択セクション */}
+                <div className="grid gap-2 border p-4 rounded-md">
+                  <Label>使用車両</Label>
+                  <Input
+                    placeholder="車両を検索"
+                    value={searchVehicles}
+                    onChange={(e) => setSearchVehicles(e.target.value)}
+                    className="mb-2"
+                  />
+                  <ScrollArea className="h-[150px]">
+                    {filteredVehicles.length > 0 ? (
+                      <div className="space-y-2">
+                        {filteredVehicles.map((vehicle) => (
+                          <div key={vehicle.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`vehicle-${vehicle.id}`}
+                              checked={newProject.selectedVehicles.includes(vehicle.id)}
+                              onCheckedChange={(checked) => handleVehicleChange(vehicle.id, checked as boolean)}
+                            />
+                            <Label htmlFor={`vehicle-${vehicle.id}`} className="flex-1">
+                              {vehicle.name} {vehicle.type && `(${vehicle.type})`}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground">
+                        検索条件に一致する車両が見つかりません
+                      </div>
+                    )}
+                  </ScrollArea>
+                </div>
+
+                {/* 備品選択セクション */}
+                <div className="grid gap-2 border p-4 rounded-md">
+                  <Label>使用備品</Label>
+                  <Input
+                    placeholder="備品を検索"
+                    value={searchTools}
+                    onChange={(e) => setSearchTools(e.target.value)}
+                    className="mb-2"
+                  />
+                  <ScrollArea className="h-[150px]">
+                    {filteredTools.length > 0 ? (
+                      <div className="space-y-2">
+                        {filteredTools.map((tool) => (
+                          <div key={tool.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`tool-${tool.id}`}
+                              checked={newProject.selectedTools.includes(tool.id)}
+                              onCheckedChange={(checked) => handleToolChange(tool.id, checked as boolean)}
+                            />
+                            <Label htmlFor={`tool-${tool.id}`} className="flex-1">
+                              {tool.name} {tool.condition && `(${tool.condition})`}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground">
+                        検索条件に一致する備品が見つかりません
+                      </div>
+                    )}
+                  </ScrollArea>
+                </div>
               </div>
               <DialogFooter>
-                <Button type="submit" onClick={handleAddProject}>
+                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={isLoading}>
+                  キャンセル
+                </Button>
+                <Button type="submit" onClick={handleAddProject} disabled={isLoading}>
+                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   追加
                 </Button>
               </DialogFooter>
@@ -183,146 +734,163 @@ export function ProjectList() {
         </div>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>案件名</TableHead>
-              <TableHead>クライアント</TableHead>
-              <TableHead>期間</TableHead>
-              <TableHead>ステータス</TableHead>
-              <TableHead className="text-right">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredProjects.map((project) => (
-              <TableRow key={project.id}>
-                <TableCell className="font-medium">{project.name}</TableCell>
-                <TableCell>{project.client}</TableCell>
-                <TableCell>
-                  {project.startDate.toLocaleDateString()} 〜 {project.endDate.toLocaleDateString()}
-                </TableCell>
-                <TableCell>{getStatusBadge(project.status)}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end space-x-2">
-                    <Dialog
-                      open={isEditDialogOpen && currentProject?.id === project.id}
-                      onOpenChange={(open) => {
-                        setIsEditDialogOpen(open)
-                        if (open) setCurrentProject(project)
-                      }}
-                    >
-                      <DialogTrigger asChild>
+        {dataLoading ? (
+          <div className="flex justify-center items-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>案件名</TableHead>
+                <TableHead>クライアント</TableHead>
+                <TableHead>期間</TableHead>
+                <TableHead>ステータス</TableHead>
+                <TableHead className="text-right">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredProjects.length > 0 ? (
+                filteredProjects.map((project) => (
+                  <TableRow key={project.id}>
+                    <TableCell className="font-medium">{project.name}</TableCell>
+                    <TableCell>{project.client || "-"}</TableCell>
+                    <TableCell>
+                      {formatDate(project.start_date)} {project.end_date ? `〜 ${formatDate(project.end_date)}` : ""}
+                    </TableCell>
+                    <TableCell>{getStatusBadge(project.status)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end space-x-2">
+                        <Dialog
+                          open={isEditDialogOpen && currentProject?.id === project.id}
+                          onOpenChange={(open) => {
+                            setIsEditDialogOpen(open)
+                            if (open) setCurrentProject(project)
+                          }}
+                        >
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => {
+                                setCurrentProject(project)
+                                setIsEditDialogOpen(true)
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>案件の編集</DialogTitle>
+                            </DialogHeader>
+                            {currentProject && (
+                              <div className="grid gap-4 py-4">
+                                <div className="grid gap-2">
+                                  <Label htmlFor="edit-name">案件名</Label>
+                                  <Input
+                                    id="edit-name"
+                                    value={currentProject.name}
+                                    onChange={(e) => setCurrentProject({ ...currentProject, name: e.target.value })}
+                                  />
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label htmlFor="edit-client">クライアント</Label>
+                                  <Input
+                                    id="edit-client"
+                                    value={currentProject.client || ""}
+                                    onChange={(e) => setCurrentProject({ ...currentProject, client: e.target.value })}
+                                  />
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label htmlFor="edit-description">説明</Label>
+                                  <Textarea
+                                    id="edit-description"
+                                    value={currentProject.description || ""}
+                                    onChange={(e) =>
+                                      setCurrentProject({ ...currentProject, description: e.target.value })
+                                    }
+                                  />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="grid gap-2">
+                                    <Label htmlFor="edit-startDate">開始日</Label>
+                                    <Input
+                                      id="edit-startDate"
+                                      type="date"
+                                      value={currentProject.start_date ? currentProject.start_date.split("T")[0] : ""}
+                                      onChange={(e) =>
+                                        setCurrentProject({
+                                          ...currentProject,
+                                          start_date: e.target.value,
+                                        })
+                                      }
+                                    />
+                                  </div>
+                                  <div className="grid gap-2">
+                                    <Label htmlFor="edit-endDate">終了日</Label>
+                                    <Input
+                                      id="edit-endDate"
+                                      type="date"
+                                      value={currentProject.end_date ? currentProject.end_date.split("T")[0] : ""}
+                                      onChange={(e) =>
+                                        setCurrentProject({
+                                          ...currentProject,
+                                          end_date: e.target.value,
+                                        })
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label htmlFor="edit-status">ステータス</Label>
+                                  <select
+                                    id="edit-status"
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    value={currentProject.status}
+                                    onChange={(e) => setCurrentProject({ ...currentProject, status: e.target.value })}
+                                  >
+                                    <option>未着手</option>
+                                    <option>計画中</option>
+                                    <option>進行中</option>
+                                    <option>完了</option>
+                                  </select>
+                                </div>
+                              </div>
+                            )}
+                            <DialogFooter>
+                              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isLoading}>
+                                キャンセル
+                              </Button>
+                              <Button type="submit" onClick={handleEditProject} disabled={isLoading}>
+                                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                保存
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
                         <Button
                           variant="outline"
                           size="icon"
-                          onClick={() => {
-                            setCurrentProject(project)
-                            setIsEditDialogOpen(true)
-                          }}
+                          onClick={() => handleDeleteProject(project.id)}
+                          disabled={isLoading}
                         >
-                          <Pencil className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>案件の編集</DialogTitle>
-                        </DialogHeader>
-                        {currentProject && (
-                          <div className="grid gap-4 py-4">
-                            <div className="grid gap-2">
-                              <Label htmlFor="edit-name">案件名</Label>
-                              <Input
-                                id="edit-name"
-                                value={currentProject.name}
-                                onChange={(e) => setCurrentProject({ ...currentProject, name: e.target.value })}
-                              />
-                            </div>
-                            <div className="grid gap-2">
-                              <Label htmlFor="edit-client">クライアント</Label>
-                              <Input
-                                id="edit-client"
-                                value={currentProject.client}
-                                onChange={(e) => setCurrentProject({ ...currentProject, client: e.target.value })}
-                              />
-                            </div>
-                            <div className="grid gap-2">
-                              <Label htmlFor="edit-description">説明</Label>
-                              <Textarea
-                                id="edit-description"
-                                value={currentProject.description}
-                                onChange={(e) => setCurrentProject({ ...currentProject, description: e.target.value })}
-                              />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="grid gap-2">
-                                <Label htmlFor="edit-startDate">開始日</Label>
-                                <Input
-                                  id="edit-startDate"
-                                  type="date"
-                                  value={
-                                    currentProject.startDate instanceof Date
-                                      ? currentProject.startDate.toISOString().split("T")[0]
-                                      : currentProject.startDate
-                                  }
-                                  onChange={(e) =>
-                                    setCurrentProject({
-                                      ...currentProject,
-                                      startDate: new Date(e.target.value),
-                                    })
-                                  }
-                                />
-                              </div>
-                              <div className="grid gap-2">
-                                <Label htmlFor="edit-endDate">終了日</Label>
-                                <Input
-                                  id="edit-endDate"
-                                  type="date"
-                                  value={
-                                    currentProject.endDate instanceof Date
-                                      ? currentProject.endDate.toISOString().split("T")[0]
-                                      : currentProject.endDate
-                                  }
-                                  onChange={(e) =>
-                                    setCurrentProject({
-                                      ...currentProject,
-                                      endDate: new Date(e.target.value),
-                                    })
-                                  }
-                                />
-                              </div>
-                            </div>
-                            <div className="grid gap-2">
-                              <Label htmlFor="edit-status">ステータス</Label>
-                              <select
-                                id="edit-status"
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                value={currentProject.status}
-                                onChange={(e) => setCurrentProject({ ...currentProject, status: e.target.value })}
-                              >
-                                <option>未着手</option>
-                                <option>計画中</option>
-                                <option>進行中</option>
-                                <option>完了</option>
-                              </select>
-                            </div>
-                          </div>
-                        )}
-                        <DialogFooter>
-                          <Button type="submit" onClick={handleEditProject}>
-                            保存
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                    <Button variant="outline" size="icon" onClick={() => handleDeleteProject(project.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                    {searchTerm ? "検索条件に一致する案件が見つかりません" : "案件がありません"}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        )}
       </CardContent>
     </Card>
   )

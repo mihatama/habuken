@@ -302,3 +302,43 @@ export const updateProfile = async (userId: string, profileData: any) => {
     return data
   }, `プロフィール(ID: ${userId})の更新に失敗しました`)
 }
+
+// プロジェクト割り当て関連の関数
+export const getProjectAssignments = async (projectId: string) => {
+  return handleSupabaseOperation(async () => {
+    const supabase = createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from("project_assignments")
+      .select(`
+        *,
+        staff:staff_id(id, full_name, position),
+        heavy_machinery:heavy_machinery_id(id, name, type),
+        vehicle:vehicle_id(id, name, type),
+        tool:tool_id(id, name, storage_location)
+      `)
+      .eq("project_id", projectId)
+
+    if (error) throw error
+    return data
+  }, `プロジェクト割り当て(プロジェクトID: ${projectId})の取得に失敗しました`)
+}
+
+export const createProjectAssignment = async (assignmentData: any) => {
+  return withRetry(async () => {
+    const supabase = getClientSupabaseInstance()
+    const { data, error } = await supabase.from("project_assignments").insert(assignmentData).select()
+
+    if (error) throw error
+    return data
+  })
+}
+
+export const deleteProjectAssignment = async (id: string) => {
+  return handleSupabaseOperation(async () => {
+    const supabase = getClientSupabaseInstance()
+    const { error } = await supabase.from("project_assignments").delete().eq("id", id)
+
+    if (error) throw error
+    return true
+  }, `プロジェクト割り当て(ID: ${id})の削除に失敗しました`)
+}

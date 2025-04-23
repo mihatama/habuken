@@ -4,7 +4,7 @@ import type * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Calendar, Users, Wrench, ClipboardList, Settings } from "lucide-react"
+import { Calendar, Users, Wrench, ClipboardList, Settings, Briefcase } from "lucide-react"
 
 export function MobileNav({ className, ...props }: React.HTMLAttributes<HTMLElement>) {
   const pathname = usePathname()
@@ -40,6 +40,16 @@ export function MobileNav({ className, ...props }: React.HTMLAttributes<HTMLElem
       >
         <Wrench className="w-5 h-5 mb-1" />
         <span>工具</span>
+      </Link>
+      <Link
+        href="/master/project"
+        className={cn(
+          "flex flex-col items-center justify-center px-2 py-1 text-xs font-medium transition-colors hover:text-primary",
+          pathname === "/master/project" ? "text-primary" : "text-muted-foreground",
+        )}
+      >
+        <Briefcase className="w-5 h-5 mb-1" />
+        <span>案件登録</span>
       </Link>
       <Link
         href="/leave"
