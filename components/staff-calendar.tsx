@@ -5,9 +5,10 @@ import { Calendar, momentLocalizer } from "react-big-calendar"
 import moment from "moment"
 import "moment/locale/ja"
 import "react-big-calendar/lib/css/react-big-calendar.css"
-import { StaffAssignmentDialog } from "@/components/staff-assignment-dialog"
-import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { StaffAssignmentDialog } from "@/components/staff-assignment-dialog"
 
 // 日本語ロケールを設定
 moment.locale("ja")
@@ -21,10 +22,8 @@ interface CalendarEvent {
   end: Date
   description?: string
   projectId?: number
-  staffIds?: string[]
-  toolIds?: string[]
+  staffId?: string
   allDay?: boolean
-  staffId?: number
 }
 
 // スタッフカレンダーのprops型定義
@@ -40,53 +39,43 @@ interface StaffCalendarProps {
 const sampleEvents: CalendarEvent[] = [
   {
     id: 1,
-    title: "A店舗担当",
+    title: "山田太郎：現場A",
     start: new Date(2023, 2, 1, 9, 0),
     end: new Date(2023, 2, 1, 17, 0),
-    staffId: 1,
+    staffId: "1",
     projectId: 1,
-    staffIds: ["1"],
-    toolIds: ["1"],
   },
   {
     id: 2,
-    title: "B店舗担当",
+    title: "佐藤次郎：現場B",
     start: new Date(2023, 2, 3, 9, 0),
     end: new Date(2023, 2, 3, 17, 0),
-    staffId: 1,
+    staffId: "2",
     projectId: 2,
-    staffIds: ["1"],
-    toolIds: ["2"],
   },
   {
     id: 3,
-    title: "C店舗担当",
+    title: "鈴木三郎：現場C",
     start: new Date(2023, 2, 5, 9, 0),
     end: new Date(2023, 2, 5, 17, 0),
-    staffId: 2,
+    staffId: "3",
     projectId: 3,
-    staffIds: ["2"],
-    toolIds: ["3"],
   },
   {
     id: 4,
-    title: "D店舗担当",
+    title: "高橋四郎：現場A",
     start: new Date(2023, 2, 8, 9, 0),
     end: new Date(2023, 2, 8, 17, 0),
-    staffId: 3,
+    staffId: "4",
     projectId: 1,
-    staffIds: ["3"],
-    toolIds: ["4"],
   },
   {
     id: 5,
-    title: "E店舗担当",
+    title: "山田太郎：現場B",
     start: new Date(2023, 2, 10, 9, 0),
     end: new Date(2023, 2, 10, 17, 0),
-    staffId: 2,
+    staffId: "1",
     projectId: 2,
-    staffIds: ["2"],
-    toolIds: ["5"],
   },
 ]
 
@@ -100,7 +89,8 @@ export function StaffCalendar({
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
-  const [selectedSlot, setSelectedSlot] = useState<{ start: Date; end: Date } | null>(null)
+  const [viewMode, setViewMode] = useState<"month" | "week" | "day">((timeframe as any) || "month")
+  const [currentDate, setCurrentDate] = useState(new Date())
 
   // イベントをクリックしたときのハンドラ
   const handleEventClick = useCallback((event: CalendarEvent) => {
@@ -110,7 +100,6 @@ export function StaffCalendar({
 
   // スロットを選択したときのハンドラ（新規イベント作成）
   const handleSelectSlot = useCallback(({ start, end }: { start: Date; end: Date }) => {
-    setSelectedSlot({ start, end })
     setSelectedEvent({ id: 0, title: "", start, end })
     setIsDialogOpen(true)
   }, [])
@@ -126,10 +115,15 @@ export function StaffCalendar({
   // イベント追加のハンドラ
   const handleEventAdd = useCallback(
     (event: CalendarEvent) => {
-      setEvents((prev) => [...prev, event])
-      if (onEventAdd) onEventAdd(event)
+      // 新しいIDを生成（実際のアプリではサーバーから取得）
+      const newEvent = {
+        ...event,
+        id: Math.max(0, ...events.map((e) => e.id)) + 1,
+      }
+      setEvents((prev) => [...prev, newEvent])
+      if (onEventAdd) onEventAdd(newEvent)
     },
-    [onEventAdd],
+    [events, onEventAdd],
   )
 
   // イベント更新のハンドラ
@@ -156,7 +150,7 @@ export function StaffCalendar({
     let backgroundColor = "#3174ad"
 
     if (event.staffId) {
-      const staffIndex = event.staffId % 5
+      const staffIndex = Number.parseInt(event.staffId) % 5
       const colors = ["#3174ad", "#ff8c00", "#008000", "#9932cc", "#ff4500"]
       backgroundColor = colors[staffIndex]
     }
@@ -176,11 +170,31 @@ export function StaffCalendar({
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <Button onClick={handleNewEventClick} size="sm">
-          <Plus className="h-4 w-4 mr-2" />
-          新規作成
+        <div className="flex items-center gap-2">
+          <Select value={viewMode} onValueChange={(value: "month" | "week" | "day") => setViewMode(value)}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="表示切替" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="month">月表示</SelectItem>
+              <SelectItem value="week">週表示</SelectItem>
+              <SelectItem value="day">日表示</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>
+            今日
+          </Button>
+        </div>
+
+        <div className="text-lg font-medium">スタッフカレンダー</div>
+
+        <Button size="sm" onClick={handleNewEventClick}>
+          <Plus className="h-4 w-4 mr-1" />
+          新規予定
         </Button>
       </div>
+
       <div style={{ height: 700 }}>
         <Calendar
           localizer={localizer}
@@ -192,7 +206,10 @@ export function StaffCalendar({
           onSelectSlot={handleSelectSlot}
           selectable
           views={["month", "week", "day"]}
-          defaultView={timeframe as any}
+          view={viewMode}
+          onView={(view) => setViewMode(view as "month" | "week" | "day")}
+          date={currentDate}
+          onNavigate={(date) => setCurrentDate(date)}
           eventPropGetter={eventStyleGetter}
           messages={{
             today: "今日",
