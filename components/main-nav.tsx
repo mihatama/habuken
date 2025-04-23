@@ -5,7 +5,6 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Calendar, Users, Wrench, Truck, Car, ClipboardList, FileCheck, Briefcase } from "lucide-react"
-import { Button } from "@/components/ui/button"
 
 export function MainNav({ className, isAdmin, ...props }: React.HTMLAttributes<HTMLElement> & { isAdmin?: boolean }) {
   const pathname = usePathname()
@@ -22,17 +21,16 @@ export function MainNav({ className, isAdmin, ...props }: React.HTMLAttributes<H
         <Calendar className="w-4 h-4 mr-2" />
         <span>ダッシュボード</span>
       </Link>
-      <Button
-        variant="outline"
-        size="sm"
-        className={cn("ml-2", pathname === "/master/project" ? "bg-primary text-primary-foreground" : "")}
-        asChild
+      <Link
+        href="/master/project"
+        className={cn(
+          "flex items-center text-sm font-medium transition-colors hover:text-primary whitespace-nowrap",
+          pathname === "/master/project" ? "text-primary" : "text-muted-foreground",
+        )}
       >
-        <Link href="/master/project">
-          <Briefcase className="w-4 h-4 mr-2" />
-          <span>案件登録</span>
-        </Link>
-      </Button>
+        <Briefcase className="w-4 h-4 mr-2" />
+        <span>案件登録</span>
+      </Link>
       <Link
         href="/staff"
         className={cn(
