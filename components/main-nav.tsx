@@ -4,7 +4,7 @@ import type * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Calendar, Settings, Users, Wrench, Truck, ClipboardList, FileCheck } from "lucide-react"
+import { Calendar, Users, Wrench, Truck, ClipboardList, FileCheck } from "lucide-react"
 
 export function MainNav({ className, isAdmin, ...props }: React.HTMLAttributes<HTMLElement> & { isAdmin?: boolean }) {
   const pathname = usePathname()
@@ -70,16 +70,6 @@ export function MainNav({ className, isAdmin, ...props }: React.HTMLAttributes<H
       >
         <FileCheck className="w-4 h-4 mr-2" />
         <span>現場報告</span>
-      </Link>
-      <Link
-        href="/settings"
-        className={cn(
-          "flex items-center text-sm font-medium transition-colors hover:text-primary",
-          pathname === "/settings" ? "text-primary" : "text-muted-foreground",
-        )}
-      >
-        <Settings className="w-4 h-4 mr-2" />
-        <span>設定</span>
       </Link>
       {isAdmin && (
         <Link
