@@ -4,13 +4,13 @@ import type * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Calendar, Users, Wrench, Truck, Car, ClipboardList, FileCheck, Briefcase } from "lucide-react"
+import { Calendar, Settings, Users, Wrench, Truck, ClipboardList, FileCheck } from "lucide-react"
 
-export function MainNav({ className, isAdmin, ...props }: React.HTMLAttributes<HTMLElement> & { isAdmin?: boolean }) {
+export function MainNav({ className, ...props }: React.HTMLAttributes<HTMLElement>) {
   const pathname = usePathname()
 
   return (
-    <nav className={cn("hidden md:flex items-center space-x-4 lg:space-x-6 overflow-x-auto", className)} {...props}>
+    <nav className={cn("flex items-center space-x-4 lg:space-x-6 overflow-x-auto", className)} {...props}>
       <Link
         href="/dashboard"
         className={cn(
@@ -20,16 +20,6 @@ export function MainNav({ className, isAdmin, ...props }: React.HTMLAttributes<H
       >
         <Calendar className="w-4 h-4 mr-2" />
         <span>ダッシュボード</span>
-      </Link>
-      <Link
-        href="/master/project"
-        className={cn(
-          "flex items-center text-sm font-medium transition-colors hover:text-primary whitespace-nowrap",
-          pathname === "/master/project" ? "text-primary" : "text-muted-foreground",
-        )}
-      >
-        <Briefcase className="w-4 h-4 mr-2" />
-        <span>案件登録</span>
       </Link>
       <Link
         href="/staff"
@@ -42,6 +32,16 @@ export function MainNav({ className, isAdmin, ...props }: React.HTMLAttributes<H
         <span>スタッフ</span>
       </Link>
       <Link
+        href="/tools"
+        className={cn(
+          "flex items-center text-sm font-medium transition-colors hover:text-primary",
+          pathname === "/tools" ? "text-primary" : "text-muted-foreground",
+        )}
+      >
+        <Wrench className="w-4 h-4 mr-2" />
+        <span>工具</span>
+      </Link>
+      <Link
         href="/master/heavy"
         className={cn(
           "flex items-center text-sm font-medium transition-colors hover:text-primary whitespace-nowrap",
@@ -50,26 +50,6 @@ export function MainNav({ className, isAdmin, ...props }: React.HTMLAttributes<H
       >
         <Truck className="w-4 h-4 mr-2" />
         <span>重機</span>
-      </Link>
-      <Link
-        href="/master/vehicle"
-        className={cn(
-          "flex items-center text-sm font-medium transition-colors hover:text-primary whitespace-nowrap",
-          pathname === "/master/vehicle" ? "text-primary" : "text-muted-foreground",
-        )}
-      >
-        <Car className="w-4 h-4 mr-2" />
-        <span>車両</span>
-      </Link>
-      <Link
-        href="/tools"
-        className={cn(
-          "flex items-center text-sm font-medium transition-colors hover:text-primary",
-          pathname === "/tools" ? "text-primary" : "text-muted-foreground",
-        )}
-      >
-        <Wrench className="w-4 h-4 mr-2" />
-        <span>備品</span>
       </Link>
       <Link
         href="/leave"
@@ -91,17 +71,16 @@ export function MainNav({ className, isAdmin, ...props }: React.HTMLAttributes<H
         <FileCheck className="w-4 h-4 mr-2" />
         <span>現場報告</span>
       </Link>
-      {isAdmin && (
-        <Link
-          href="/admin/users"
-          className={cn(
-            "flex items-center text-sm font-medium transition-colors hover:text-primary",
-            pathname === "/admin/users" ? "text-primary" : "text-muted-foreground",
-          )}
-        >
-          ユーザー管理
-        </Link>
-      )}
+      <Link
+        href="/settings"
+        className={cn(
+          "flex items-center text-sm font-medium transition-colors hover:text-primary",
+          pathname === "/settings" ? "text-primary" : "text-muted-foreground",
+        )}
+      >
+        <Settings className="w-4 h-4 mr-2" />
+        <span>設定</span>
+      </Link>
     </nav>
   )
 }

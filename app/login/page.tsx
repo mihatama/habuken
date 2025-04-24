@@ -3,8 +3,8 @@ import Link from "next/link"
 import { LoginForm } from "@/components/login-form"
 
 export const metadata: Metadata = {
-  title: "ログイン | 現助",
-  description: "アカウントにログインしてください",
+  title: "Login | Project Management SaaS",
+  description: "Login to your project management account",
 }
 
 export default function LoginPage() {
@@ -25,33 +25,28 @@ export default function LoginPage() {
           >
             <path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3" />
           </svg>
-          <span className="font-kaisho text-xl">現助</span>
+          Project Management SaaS
         </div>
         <div className="relative z-20 mt-auto">
           <blockquote className="space-y-2">
             <p className="text-lg">
-              "このプラットフォームは、プロジェクトとリソースの管理方法を変革しました。もうExcelシートやホワイトボードは必要ありません！"
+              "This platform has transformed how we manage our projects and resources. No more Excel sheets or
+              whiteboards!"
             </p>
-            <footer className="text-sm">田中 花子 - プロジェクトマネージャー</footer>
+            <footer className="text-sm">Sofia Davis - Project Manager</footer>
           </blockquote>
         </div>
       </div>
       <div className="lg:p-8">
         <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
           <div className="flex flex-col space-y-2 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight">ログイン</h1>
-            <p className="text-sm text-muted-foreground">メールアドレスとパスワードを入力してください</p>
+            <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
+            <p className="text-sm text-muted-foreground">Enter your credentials to access your account</p>
           </div>
           <LoginForm />
           <p className="px-8 text-center text-sm text-muted-foreground">
-            <Link href="/forgot-password" className="hover:text-brand underline underline-offset-4">
-              パスワードをお忘れですか？
-            </Link>
-          </p>
-          <p className="px-8 text-center text-sm text-muted-foreground">
-            アカウントをお持ちでないですか？{" "}
-            <Link href="/signup" className="underline underline-offset-4 hover:text-primary">
-              新規登録
+            <Link href="/forgot-password" className="underline underline-offset-4 hover:text-primary">
+              Forgot your password?
             </Link>
           </p>
         </div>

@@ -1,17 +1,22 @@
 "use client"
 
 import { useState } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Plus, Pencil, Trash2, Users, Briefcase, PenToolIcon as Tool } from "lucide-react"
+import { Plus, Pencil, Trash2, Users, Briefcase, Truck, Cpu, PenToolIcon as Tool } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { sampleTools, sampleProjects, sampleStaff } from "@/data/sample-data"
 
 export function ToolList() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const categoryParam = searchParams.get("category") || "all"
+
   const [tools, setTools] = useState(sampleTools)
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -19,7 +24,7 @@ export function ToolList() {
   const [currentTool, setCurrentTool] = useState<any>(null)
   const [newTool, setNewTool] = useState({
     name: "",
-    category: "工具",
+    category: "",
     location: "",
     status: "利用可能",
     lastMaintenance: "",
@@ -27,20 +32,27 @@ export function ToolList() {
     assignedStaff: [] as number[],
   })
 
-  // 工具のみをフィルタリング
-  const filteredTools = tools
-    .filter((tool) => tool.category === "工具")
-    .filter(
-      (tool) =>
-        tool.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tool.location.toLowerCase().includes(searchTerm.toLowerCase()),
-    )
+  // カテゴリーに基づいてツールをフィルタリング
+  const filteredByCategory = tools.filter((tool) => {
+    if (categoryParam === "all") return true
+    if (categoryParam === "tool") return tool.category === "工具"
+    if (categoryParam === "vehicle") return tool.category === "車両"
+    if (categoryParam === "machinery") return tool.category === "重機"
+    return true
+  })
+
+  const filteredTools = filteredByCategory.filter(
+    (tool) =>
+      tool.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tool.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tool.location.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
 
   const handleAddTool = () => {
     const tool = {
       id: tools.length + 1,
       name: newTool.name,
-      category: "工具",
+      category: newTool.category,
       location: newTool.location,
       status: newTool.status,
       lastMaintenance: newTool.lastMaintenance ? new Date(newTool.lastMaintenance) : null,
@@ -51,7 +63,7 @@ export function ToolList() {
     setTools([...tools, tool])
     setNewTool({
       name: "",
-      category: "工具",
+      category: "",
       location: "",
       status: "利用可能",
       lastMaintenance: "",
@@ -85,7 +97,16 @@ export function ToolList() {
   }
 
   const getCategoryIcon = (category: string) => {
-    return <Tool className="h-4 w-4 mr-2" />
+    switch (category) {
+      case "ツール":
+        return <Tool className="h-4 w-4 mr-2" />
+      case "車両・重機":
+        return <Truck className="h-4 w-4 mr-2" />
+      case "機器":
+        return <Cpu className="h-4 w-4 mr-2" />
+      default:
+        return <Tool className="h-4 w-4 mr-2" />
+    }
   }
 
   // ツールに紐づくプロジェクトを取得
@@ -107,7 +128,38 @@ export function ToolList() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <div className="flex items-center gap-4">{/* 切り替えボタンを削除 */}</div>
+        <div className="flex items-center gap-4">
+          <div className="flex gap-2">
+            <Button
+              variant={categoryParam === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => router.push("/tools?category=all")}
+            >
+              すべて
+            </Button>
+            <Button
+              variant={categoryParam === "tool" ? "default" : "outline"}
+              size="sm"
+              onClick={() => router.push("/tools?category=tool")}
+            >
+              工具
+            </Button>
+            <Button
+              variant={categoryParam === "machinery" ? "default" : "outline"}
+              size="sm"
+              onClick={() => router.push("/tools?category=machinery")}
+            >
+              重機
+            </Button>
+            <Button
+              variant={categoryParam === "vehicle" ? "default" : "outline"}
+              size="sm"
+              onClick={() => router.push("/tools?category=vehicle")}
+            >
+              車両
+            </Button>
+          </div>
+        </div>
         <div className="flex items-center space-x-2">
           <Input
             placeholder="検索..."
@@ -124,7 +176,15 @@ export function ToolList() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>工具の追加</DialogTitle>
+                <DialogTitle>
+                  {categoryParam === "tool"
+                    ? "工具の追加"
+                    : categoryParam === "vehicle"
+                      ? "車両の追加"
+                      : categoryParam === "machinery"
+                        ? "重機の追加"
+                        : "機材の追加"}
+                </DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
@@ -134,6 +194,20 @@ export function ToolList() {
                     value={newTool.name}
                     onChange={(e) => setNewTool({ ...newTool, name: e.target.value })}
                   />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="category">カテゴリー</Label>
+                  <select
+                    id="category"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={newTool.category}
+                    onChange={(e) => setNewTool({ ...newTool, category: e.target.value })}
+                  >
+                    <option value="">カテゴリーを選択</option>
+                    <option value="工具">工具</option>
+                    <option value="重機">重機</option>
+                    <option value="車両">車両</option>
+                  </select>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="location">保管場所</Label>
@@ -242,6 +316,7 @@ export function ToolList() {
           <TableHeader>
             <TableRow>
               <TableHead>名称</TableHead>
+              <TableHead>カテゴリー</TableHead>
               <TableHead>保管場所</TableHead>
               <TableHead>状態</TableHead>
               <TableHead>関連情報</TableHead>
@@ -252,6 +327,12 @@ export function ToolList() {
             {filteredTools.map((tool) => (
               <TableRow key={tool.id}>
                 <TableCell className="font-medium">{tool.name}</TableCell>
+                <TableCell>
+                  <div className="flex items-center">
+                    {getCategoryIcon(tool.category)}
+                    {tool.category}
+                  </div>
+                </TableCell>
                 <TableCell>{tool.location}</TableCell>
                 <TableCell>{getStatusBadge(tool.status)}</TableCell>
                 <TableCell>
@@ -297,7 +378,15 @@ export function ToolList() {
                       </DialogTrigger>
                       <DialogContent>
                         <DialogHeader>
-                          <DialogTitle>工具の編集</DialogTitle>
+                          <DialogTitle>
+                            {tool.category === "工具"
+                              ? "工具の編集"
+                              : tool.category === "車両"
+                                ? "車両の編集"
+                                : tool.category === "重機"
+                                  ? "重機の編集"
+                                  : "機材の編集"}
+                          </DialogTitle>
                         </DialogHeader>
                         {currentTool && (
                           <div className="grid gap-4 py-4">
@@ -308,6 +397,19 @@ export function ToolList() {
                                 value={currentTool.name}
                                 onChange={(e) => setCurrentTool({ ...currentTool, name: e.target.value })}
                               />
+                            </div>
+                            <div className="grid gap-2">
+                              <Label htmlFor="edit-category">カテゴリー</Label>
+                              <select
+                                id="edit-category"
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                value={currentTool.category}
+                                onChange={(e) => setCurrentTool({ ...currentTool, category: e.target.value })}
+                              >
+                                <option value="工具">工具</option>
+                                <option value="重機">重機</option>
+                                <option value="車両">車両</option>
+                              </select>
                             </div>
                             <div className="grid gap-2">
                               <Label htmlFor="edit-location">保管場所</Label>

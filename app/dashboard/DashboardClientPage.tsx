@@ -1,17 +1,25 @@
 "use client"
-import { Header } from "@/components/header"
+
+import { useState } from "react"
+import { DashboardLayout } from "@/components/dashboard-layout"
 import { CalendarView } from "@/components/calendar-view"
+import { CalendarViewSelector, type ViewType, type TimeframeType } from "@/components/calendar-view-selector"
 
 export default function DashboardClientPage() {
+  const [activeView, setActiveView] = useState<ViewType>("project")
+  const [timeframe, setTimeframe] = useState<TimeframeType>("month")
+
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header />
-      <main className="flex-1 p-6">
-        <div className="container mx-auto">
-          <h1 className="text-2xl font-bold mb-6">スケジュール管理</h1>
-          <CalendarView />
-        </div>
-      </main>
-    </div>
+    <DashboardLayout title="Calendar" isAdmin={true}>
+      <div className="flex flex-col space-y-6">
+        <CalendarViewSelector
+          activeView={activeView}
+          setActiveView={setActiveView}
+          timeframe={timeframe}
+          setTimeframe={setTimeframe}
+        />
+        <CalendarView activeView={activeView} timeframe={timeframe} />
+      </div>
+    </DashboardLayout>
   )
 }

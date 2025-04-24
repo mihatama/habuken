@@ -12,10 +12,74 @@ import { Plus, Check, X, AlertCircle, Calendar, Clock } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { sampleStaff, leaveRequests, updateLeaveRequest, getLeaveTypeName } from "@/data/sample-data"
+import { sampleStaff } from "@/data/sample-data"
+
+// 休暇申請のモックデータ
+const initialLeaveRequests = [
+  {
+    id: 1,
+    userId: 1,
+    userName: "羽布太郎",
+    leaveType: "paid",
+    startDate: new Date(2025, 3, 10),
+    endDate: new Date(2025, 3, 10),
+    reason: "私用のため",
+    status: "approved",
+    rejectReason: "",
+    createdAt: new Date(2025, 3, 1),
+  },
+  {
+    id: 2,
+    userId: 2,
+    userName: "羽布次郎",
+    leaveType: "paid",
+    startDate: new Date(2025, 3, 15),
+    endDate: new Date(2025, 3, 16),
+    reason: "家族旅行のため",
+    status: "approved",
+    rejectReason: "",
+    createdAt: new Date(2025, 3, 5),
+  },
+  {
+    id: 3,
+    userId: 3,
+    userName: "羽布花子",
+    leaveType: "special",
+    startDate: new Date(2025, 5, 1),
+    endDate: new Date(2025, 5, 2),
+    reason: "結婚式出席のため",
+    status: "pending",
+    rejectReason: "",
+    createdAt: new Date(2025, 4, 20),
+  },
+  {
+    id: 4,
+    userId: 4,
+    userName: "羽布三郎",
+    leaveType: "compensatory",
+    startDate: new Date(2025, 4, 20),
+    endDate: new Date(2025, 4, 20),
+    reason: "先週の休日出勤の振替",
+    status: "pending",
+    rejectReason: "",
+    createdAt: new Date(2025, 4, 15),
+  },
+  {
+    id: 5,
+    userId: 5,
+    userName: "羽布四郎",
+    leaveType: "absent",
+    startDate: new Date(2025, 3, 25),
+    endDate: new Date(2025, 3, 25),
+    reason: "体調不良のため",
+    status: "rejected",
+    rejectReason: "人員不足のため別日での調整をお願いします",
+    createdAt: new Date(2025, 3, 24),
+  },
+]
 
 export function LeaveRequestManagement() {
-  const [requests, setRequests] = useState(leaveRequests)
+  const [leaveRequests, setLeaveRequests] = useState(initialLeaveRequests)
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false)
@@ -31,7 +95,7 @@ export function LeaveRequestManagement() {
     reason: "",
   })
 
-  const filteredRequests = requests.filter(
+  const filteredRequests = leaveRequests.filter(
     (request) =>
       (request.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         getLeaveTypeName(request.leaveType).toLowerCase().includes(searchTerm.toLowerCase())) &&
@@ -50,7 +114,7 @@ export function LeaveRequestManagement() {
     if (!user) return
 
     const request = {
-      id: requests.length + 1,
+      id: leaveRequests.length + 1,
       userId,
       userName: user.name,
       leaveType: newRequest.leaveType,
@@ -62,8 +126,7 @@ export function LeaveRequestManagement() {
       createdAt: new Date(),
     }
 
-    const updatedRequests = [...requests, request]
-    setRequests(updatedRequests)
+    setLeaveRequests([...leaveRequests, request])
     setNewRequest({
       userId: "",
       leaveType: "paid",
@@ -75,32 +138,35 @@ export function LeaveRequestManagement() {
   }
 
   const handleApproveRequest = () => {
-    if (!currentRequest) return
-
-    const updatedRequest = { ...currentRequest, status: "approved" }
-
-    // グローバルデータを更新（年休一覧に自動登録）
-    updateLeaveRequest(updatedRequest)
-
-    // ローカル状態を更新
-    const updatedRequests = requests.map((request) => (request.id === currentRequest.id ? updatedRequest : request))
-    setRequests(updatedRequests)
+    const updatedRequests = leaveRequests.map((request) =>
+      request.id === currentRequest.id ? { ...request, status: "approved" } : request,
+    )
+    setLeaveRequests(updatedRequests)
     setIsApproveDialogOpen(false)
   }
 
   const handleRejectRequest = () => {
-    if (!currentRequest) return
-
-    const updatedRequest = { ...currentRequest, status: "rejected", rejectReason }
-
-    // グローバルデータを更新
-    updateLeaveRequest(updatedRequest)
-
-    // ローカル状態を更新
-    const updatedRequests = requests.map((request) => (request.id === currentRequest.id ? updatedRequest : request))
-    setRequests(updatedRequests)
+    const updatedRequests = leaveRequests.map((request) =>
+      request.id === currentRequest.id ? { ...request, status: "rejected", rejectReason } : request,
+    )
+    setLeaveRequests(updatedRequests)
     setRejectReason("")
     setIsRejectDialogOpen(false)
+  }
+
+  const getLeaveTypeName = (type: string) => {
+    switch (type) {
+      case "paid":
+        return "有給休暇"
+      case "compensatory":
+        return "振替休日"
+      case "special":
+        return "特別休暇"
+      case "absent":
+        return "欠勤"
+      default:
+        return type
+    }
   }
 
   const getStatusBadge = (status: string) => {

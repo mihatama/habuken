@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,18 +10,8 @@ import { Label } from "@/components/ui/label"
 import { Plus, Pencil, Trash2, Truck, Wrench, Calendar } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
-// 型定義
-interface Resource {
-  id: number
-  name: string
-  type: string
-  status: string
-  location: string
-  nextMaintenance: Date
-}
-
-// モックデータ
-const initialResources: Resource[] = [
+// Mock data for resources
+const initialResources = [
   {
     id: 1,
     name: "Excavator #1",
@@ -56,19 +46,12 @@ const initialResources: Resource[] = [
   },
 ]
 
-// ステータスバッジのマッピング
-const STATUS_BADGES = {
-  Available: { className: "bg-green-500 hover:bg-green-600" },
-  "In Use": { className: "bg-blue-500 hover:bg-blue-600" },
-  Maintenance: { className: "bg-yellow-500 hover:bg-yellow-600" },
-}
-
 export function ResourceList() {
-  const [resources, setResources] = useState<Resource[]>(initialResources)
+  const [resources, setResources] = useState(initialResources)
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [currentResource, setCurrentResource] = useState<Resource | null>(null)
+  const [currentResource, setCurrentResource] = useState<any>(null)
   const [newResource, setNewResource] = useState({
     name: "",
     type: "",
@@ -77,21 +60,15 @@ export function ResourceList() {
     nextMaintenance: "",
   })
 
-  // フィルタリングされたリソースリストをメモ化
-  const filteredResources = useMemo(() => {
-    return resources.filter(
-      (resource) =>
-        resource.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        resource.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        resource.location.toLowerCase().includes(searchTerm.toLowerCase()),
-    )
-  }, [resources, searchTerm])
+  const filteredResources = resources.filter(
+    (resource) =>
+      resource.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      resource.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      resource.location.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
 
-  // リソース追加ハンドラ
-  const handleAddResource = useCallback(() => {
-    if (newResource.name.trim() === "") return
-
-    const resource: Resource = {
+  const handleAddResource = () => {
+    const resource = {
       id: resources.length + 1,
       name: newResource.name,
       type: newResource.type,
@@ -100,7 +77,7 @@ export function ResourceList() {
       nextMaintenance: new Date(newResource.nextMaintenance),
     }
 
-    setResources((prev) => [...prev, resource])
+    setResources([...resources, resource])
     setNewResource({
       name: "",
       type: "",
@@ -109,40 +86,33 @@ export function ResourceList() {
       nextMaintenance: "",
     })
     setIsAddDialogOpen(false)
-  }, [newResource, resources])
+  }
 
-  // リソース編集ハンドラ
-  const handleEditResource = useCallback(() => {
-    if (!currentResource) return
+  const handleEditResource = () => {
+    const updatedResources = resources.map((resource) =>
+      resource.id === currentResource.id ? currentResource : resource,
+    )
 
-    setResources((prev) => prev.map((resource) => (resource.id === currentResource.id ? currentResource : resource)))
+    setResources(updatedResources)
     setIsEditDialogOpen(false)
-  }, [currentResource])
+  }
 
-  // リソース削除ハンドラ
-  const handleDeleteResource = useCallback((id: number) => {
-    setResources((prev) => prev.filter((resource) => resource.id !== id))
-  }, [])
+  const handleDeleteResource = (id: number) => {
+    setResources(resources.filter((resource) => resource.id !== id))
+  }
 
-  // ステータスバッジを取得する関数
-  const getStatusBadge = useCallback((status: string) => {
-    const badgeConfig = STATUS_BADGES[status as keyof typeof STATUS_BADGES] || {}
-    return <Badge className={badgeConfig.className || ""}>{status}</Badge>
-  }, [])
-
-  // 新しいリソースのフィールド更新ハンドラ
-  const handleNewResourceChange = useCallback((field: string, value: string) => {
-    setNewResource((prev) => ({ ...prev, [field]: value }))
-  }, [])
-
-  // 現在のリソースのフィールド更新ハンドラ
-  const handleCurrentResourceChange = useCallback(
-    (field: string, value: string | Date) => {
-      if (!currentResource) return
-      setCurrentResource((prev) => (prev ? { ...prev, [field]: value } : null))
-    },
-    [currentResource],
-  )
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "Available":
+        return <Badge className="bg-green-500 hover:bg-green-600">{status}</Badge>
+      case "In Use":
+        return <Badge className="bg-blue-500 hover:bg-blue-600">{status}</Badge>
+      case "Maintenance":
+        return <Badge className="bg-yellow-500 hover:bg-yellow-600">{status}</Badge>
+      default:
+        return <Badge>{status}</Badge>
+    }
+  }
 
   return (
     <Card>
@@ -172,7 +142,7 @@ export function ResourceList() {
                   <Input
                     id="name"
                     value={newResource.name}
-                    onChange={(e) => handleNewResourceChange("name", e.target.value)}
+                    onChange={(e) => setNewResource({ ...newResource, name: e.target.value })}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -180,7 +150,7 @@ export function ResourceList() {
                   <Input
                     id="type"
                     value={newResource.type}
-                    onChange={(e) => handleNewResourceChange("type", e.target.value)}
+                    onChange={(e) => setNewResource({ ...newResource, type: e.target.value })}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -189,7 +159,7 @@ export function ResourceList() {
                     id="status"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     value={newResource.status}
-                    onChange={(e) => handleNewResourceChange("status", e.target.value)}
+                    onChange={(e) => setNewResource({ ...newResource, status: e.target.value })}
                   >
                     <option>Available</option>
                     <option>In Use</option>
@@ -201,7 +171,7 @@ export function ResourceList() {
                   <Input
                     id="location"
                     value={newResource.location}
-                    onChange={(e) => handleNewResourceChange("location", e.target.value)}
+                    onChange={(e) => setNewResource({ ...newResource, location: e.target.value })}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -210,7 +180,7 @@ export function ResourceList() {
                     id="nextMaintenance"
                     type="date"
                     value={newResource.nextMaintenance}
-                    onChange={(e) => handleNewResourceChange("nextMaintenance", e.target.value)}
+                    onChange={(e) => setNewResource({ ...newResource, nextMaintenance: e.target.value })}
                   />
                 </div>
               </div>
@@ -289,7 +259,7 @@ export function ResourceList() {
                               <Input
                                 id="edit-name"
                                 value={currentResource.name}
-                                onChange={(e) => handleCurrentResourceChange("name", e.target.value)}
+                                onChange={(e) => setCurrentResource({ ...currentResource, name: e.target.value })}
                               />
                             </div>
                             <div className="grid gap-2">
@@ -297,7 +267,7 @@ export function ResourceList() {
                               <Input
                                 id="edit-type"
                                 value={currentResource.type}
-                                onChange={(e) => handleCurrentResourceChange("type", e.target.value)}
+                                onChange={(e) => setCurrentResource({ ...currentResource, type: e.target.value })}
                               />
                             </div>
                             <div className="grid gap-2">
@@ -306,7 +276,7 @@ export function ResourceList() {
                                 id="edit-status"
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                 value={currentResource.status}
-                                onChange={(e) => handleCurrentResourceChange("status", e.target.value)}
+                                onChange={(e) => setCurrentResource({ ...currentResource, status: e.target.value })}
                               >
                                 <option>Available</option>
                                 <option>In Use</option>
@@ -318,7 +288,7 @@ export function ResourceList() {
                               <Input
                                 id="edit-location"
                                 value={currentResource.location}
-                                onChange={(e) => handleCurrentResourceChange("location", e.target.value)}
+                                onChange={(e) => setCurrentResource({ ...currentResource, location: e.target.value })}
                               />
                             </div>
                             <div className="grid gap-2">
@@ -329,10 +299,13 @@ export function ResourceList() {
                                 value={
                                   currentResource.nextMaintenance instanceof Date
                                     ? currentResource.nextMaintenance.toISOString().split("T")[0]
-                                    : currentResource.nextMaintenance.toString()
+                                    : currentResource.nextMaintenance
                                 }
                                 onChange={(e) =>
-                                  handleCurrentResourceChange("nextMaintenance", new Date(e.target.value))
+                                  setCurrentResource({
+                                    ...currentResource,
+                                    nextMaintenance: new Date(e.target.value),
+                                  })
                                 }
                               />
                             </div>

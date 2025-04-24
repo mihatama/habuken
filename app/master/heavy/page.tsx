@@ -2,7 +2,9 @@ import { Header } from "@/components/header"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { HeavyMachineryManagement } from "@/components/heavy-machinery-management"
 import { Card, CardContent } from "@/components/ui/card"
-import { PenToolIcon as Tool, BarChart3, Calendar } from "lucide-react"
+import { Truck, PenToolIcon as Tool, BarChart3 } from "lucide-react"
+
+// ページタイトルと表示を修正
 
 export default function HeavyMachineryPage() {
   return (
@@ -10,7 +12,7 @@ export default function HeavyMachineryPage() {
       <Header />
       <main className="flex-1 p-6">
         <div className="container mx-auto">
-          <h1 className="text-2xl font-bold mb-6">重機管理</h1>
+          <h1 className="text-2xl font-bold mb-6">重機・車両管理</h1>
 
           <Tabs defaultValue="list" className="mb-6">
             <TabsList>
@@ -27,10 +29,10 @@ export default function HeavyMachineryPage() {
                 <CardContent className="p-6">
                   <div className="grid gap-4">
                     <div className="text-center p-12">
-                      <Calendar className="mx-auto h-12 w-12 text-muted-foreground" />
-                      <h3 className="mt-4 text-lg font-medium">重機カレンダー</h3>
+                      <Truck className="mx-auto h-12 w-12 text-muted-foreground" />
+                      <h3 className="mt-4 text-lg font-medium">機材カレンダー</h3>
                       <p className="mt-2 text-sm text-muted-foreground">
-                        重機の稼働スケジュールをカレンダー形式で表示します。
+                        重機・車両の稼働スケジュールをカレンダー形式で表示します。
                       </p>
                     </div>
                   </div>
@@ -44,7 +46,9 @@ export default function HeavyMachineryPage() {
                     <div className="text-center p-12">
                       <BarChart3 className="mx-auto h-12 w-12 text-muted-foreground" />
                       <h3 className="mt-4 text-lg font-medium">コスト分析</h3>
-                      <p className="mt-2 text-sm text-muted-foreground">重機ごとのコスト分析と収益性を確認できます。</p>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        重機・車両ごとのコスト分析と収益性を確認できます。
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -57,7 +61,9 @@ export default function HeavyMachineryPage() {
                     <div className="text-center p-12">
                       <Tool className="mx-auto h-12 w-12 text-muted-foreground" />
                       <h3 className="mt-4 text-lg font-medium">整備スケジュール</h3>
-                      <p className="mt-2 text-sm text-muted-foreground">重機の点検・整備スケジュールを管理します。</p>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        重機・車両の点検・整備スケジュールを管理します。
+                      </p>
                     </div>
                   </div>
                 </CardContent>

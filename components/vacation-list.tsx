@@ -1,38 +1,54 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Trash2 } from "lucide-react"
-import { getAllVacations } from "@/data/sample-data"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Plus, Trash2 } from "lucide-react"
+import { getAllVacations, sampleStaff } from "@/data/sample-data"
 
 export function VacationList() {
   const [vacations, setVacations] = useState(getAllVacations())
   const [searchTerm, setSearchTerm] = useState("")
-
-  // 休暇申請が承認されたときに年休一覧を更新
-  useEffect(() => {
-    // 定期的に最新の休暇データを取得
-    const updateVacations = () => {
-      setVacations(getAllVacations())
-    }
-
-    // コンポーネントマウント時に一度実行
-    updateVacations()
-
-    // 1秒ごとに更新（実際のアプリではイベントベースの更新が望ましい）
-    const intervalId = setInterval(updateVacations, 1000)
-
-    return () => clearInterval(intervalId)
-  }, [])
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [newVacation, setNewVacation] = useState({
+    staffId: "",
+    date: "",
+    type: "有給",
+  })
 
   const filteredVacations = vacations.filter(
     (vacation) =>
       vacation.staffName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vacation.type.toLowerCase().includes(searchTerm.toLowerCase()),
   )
+
+  const handleAddVacation = () => {
+    if (!newVacation.staffId || !newVacation.date) return
+
+    const staffId = Number.parseInt(newVacation.staffId)
+    const staff = sampleStaff.find((s) => s.id === staffId)
+
+    if (!staff) return
+
+    const vacation = {
+      staffId,
+      staffName: staff.name,
+      date: new Date(newVacation.date),
+      type: newVacation.type,
+    }
+
+    setVacations([...vacations, vacation])
+    setNewVacation({
+      staffId: "",
+      date: "",
+      type: "有給",
+    })
+    setIsAddDialogOpen(false)
+  }
 
   const handleDeleteVacation = (staffId: number, date: Date) => {
     setVacations(vacations.filter((v) => !(v.staffId === staffId && v.date.getTime() === date.getTime())))
@@ -49,7 +65,64 @@ export function VacationList() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-[250px]"
           />
-          {/* 年休登録ボタンを削除 */}
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                年休登録
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>年休の登録</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="staff">スタッフ</Label>
+                  <select
+                    id="staff"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={newVacation.staffId}
+                    onChange={(e) => setNewVacation({ ...newVacation, staffId: e.target.value })}
+                  >
+                    <option value="">スタッフを選択</option>
+                    {sampleStaff.map((staff) => (
+                      <option key={staff.id} value={staff.id}>
+                        {staff.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="date">日付</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    value={newVacation.date}
+                    onChange={(e) => setNewVacation({ ...newVacation, date: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="type">種類</Label>
+                  <select
+                    id="type"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={newVacation.type}
+                    onChange={(e) => setNewVacation({ ...newVacation, type: e.target.value })}
+                  >
+                    <option>有給</option>
+                    <option>特別休暇</option>
+                    <option>欠勤</option>
+                  </select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit" onClick={handleAddVacation}>
+                  登録
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </CardHeader>
       <CardContent>
@@ -79,13 +152,6 @@ export function VacationList() {
                 </TableCell>
               </TableRow>
             ))}
-            {filteredVacations.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
-                  該当する年休はありません
-                </TableCell>
-              </TableRow>
-            )}
           </TableBody>
         </Table>
       </CardContent>
