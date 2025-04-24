@@ -1,215 +1,229 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { BaseCalendar } from "@/components/base-calendar"
-import type { CalendarEvent } from "@/types/calendar"
-import {
-  getCalendarEvents,
-  updateCalendarEvent,
-  createCalendarEvent,
-  deleteCalendarEvent,
-} from "@/actions/calendar-events"
-import { useToast } from "@/components/ui/use-toast"
+import { useState, useCallback } from "react"
+import { Calendar, momentLocalizer } from "react-big-calendar"
+import moment from "moment"
+import "moment/locale/ja"
+import "react-big-calendar/lib/css/react-big-calendar.css"
+import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { StaffAssignmentDialog } from "@/components/staff-assignment-dialog"
 
-interface ProjectCalendarProps {
-  timeframe?: "month" | "week" | "day"
+// 日本語ロケールを設定
+moment.locale("ja")
+const localizer = momentLocalizer(moment)
+
+// カレンダーイベントの型定義
+interface CalendarEvent {
+  id: number
+  title: string
+  start: Date
+  end: Date
+  description?: string
+  projectId?: number
+  allDay?: boolean
 }
 
-export function ProjectCalendar({ timeframe = "month" }: ProjectCalendarProps) {
-  const [events, setEvents] = useState<CalendarEvent[]>([])
-  const [loading, setLoading] = useState(true)
-  const { toast } = useToast()
+// プロジェクトカレンダーのprops型定義
+interface ProjectCalendarProps {
+  events?: CalendarEvent[]
+  onEventAdd?: (event: CalendarEvent) => void
+  onEventUpdate?: (event: CalendarEvent) => void
+  onEventDelete?: (eventId: number) => void
+  timeframe?: string
+}
 
-  // イベントを取得
-  const fetchEvents = useCallback(async () => {
-    setLoading(true)
-    try {
-      const result = await getCalendarEvents({ eventType: "project" })
-      if (result.success && result.data) {
-        // サーバーから取得したデータをCalendarEvent型に変換
-        const formattedEvents = result.data.map((event: any) => ({
-          id: event.id,
-          title: event.title,
-          start: new Date(event.start_time),
-          end: new Date(event.end_time),
-          description: event.notes,
-          project_id: event.project_id,
-          staff_id: event.staff_id,
-          resource_id: event.resource_id,
-          event_type: event.event_type,
-          allDay: event.all_day,
-          // 関連データ
-          project: event.projects,
-          staff: event.staff,
-          resource: event.resources,
-        }))
-        setEvents(formattedEvents)
-      } else {
-        toast({
-          title: "エラー",
-          description: "イベントの取得に失敗しました",
-          variant: "destructive",
-        })
+// サンプルイベント
+const sampleEvents: CalendarEvent[] = [
+  {
+    id: 1,
+    title: "現場A：基礎工事",
+    start: new Date(2023, 2, 1, 9, 0),
+    end: new Date(2023, 2, 5, 17, 0),
+    projectId: 1,
+  },
+  {
+    id: 2,
+    title: "現場B：外壁工事",
+    start: new Date(2023, 2, 8, 9, 0),
+    end: new Date(2023, 2, 12, 17, 0),
+    projectId: 2,
+  },
+  {
+    id: 3,
+    title: "現場C：内装工事",
+    start: new Date(2023, 2, 15, 9, 0),
+    end: new Date(2023, 2, 19, 17, 0),
+    projectId: 3,
+  },
+  {
+    id: 4,
+    title: "現場A：屋根工事",
+    start: new Date(2023, 2, 22, 9, 0),
+    end: new Date(2023, 2, 26, 17, 0),
+    projectId: 1,
+  },
+  {
+    id: 5,
+    title: "現場B：設備工事",
+    start: new Date(2023, 2, 29, 9, 0),
+    end: new Date(2023, 3, 2, 17, 0),
+    projectId: 2,
+  },
+]
+
+export function ProjectCalendar({
+  events: initialEvents = sampleEvents,
+  onEventAdd,
+  onEventUpdate,
+  onEventDelete,
+  timeframe = "month",
+}: ProjectCalendarProps) {
+  const [events, setEvents] = useState<CalendarEvent[]>(initialEvents)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
+  const [viewMode, setViewMode] = useState<"month" | "week" | "day">((timeframe as any) || "month")
+  const [currentDate, setCurrentDate] = useState(new Date())
+
+  // イベントをクリックしたときのハンドラ
+  const handleEventClick = useCallback((event: CalendarEvent) => {
+    setSelectedEvent(event)
+    setIsDialogOpen(true)
+  }, [])
+
+  // スロットを選択したときのハンドラ（新規イベント作成）
+  const handleSelectSlot = useCallback(({ start, end }: { start: Date; end: Date }) => {
+    setSelectedEvent({ id: 0, title: "", start, end })
+    setIsDialogOpen(true)
+  }, [])
+
+  // 新規作成ボタンをクリックしたときのハンドラ
+  const handleNewEventClick = useCallback(() => {
+    const now = new Date()
+    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000)
+    setSelectedEvent({ id: 0, title: "", start: now, end: oneHourLater })
+    setIsDialogOpen(true)
+  }, [])
+
+  // イベント追加のハンドラ
+  const handleEventAdd = useCallback(
+    (event: CalendarEvent) => {
+      // 新しいIDを生成（実際のアプリではサーバーから取得）
+      const newEvent = {
+        ...event,
+        id: Math.max(0, ...events.map((e) => e.id)) + 1,
       }
-    } catch (error) {
-      console.error("イベント取得エラー:", error)
-      toast({
-        title: "エラー",
-        description: "イベントの取得中にエラーが発生しました",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
+      setEvents((prev) => [...prev, newEvent])
+      if (onEventAdd) onEventAdd(newEvent)
+    },
+    [events, onEventAdd],
+  )
+
+  // イベント更新のハンドラ
+  const handleEventUpdate = useCallback(
+    (updatedEvent: CalendarEvent) => {
+      setEvents((prev) => prev.map((event) => (event.id === updatedEvent.id ? updatedEvent : event)))
+      if (onEventUpdate) onEventUpdate(updatedEvent)
+    },
+    [onEventUpdate],
+  )
+
+  // イベント削除のハンドラ
+  const handleEventDelete = useCallback(
+    (eventId: number) => {
+      setEvents((prev) => prev.filter((event) => event.id !== eventId))
+      if (onEventDelete) onEventDelete(eventId)
+    },
+    [onEventDelete],
+  )
+
+  // イベントのスタイルをカスタマイズ
+  const eventStyleGetter = (event: CalendarEvent) => {
+    // プロジェクトIDに基づいて色を変更
+    let backgroundColor = "#3174ad"
+
+    if (event.projectId) {
+      const projectIndex = event.projectId % 5
+      const colors = ["#3174ad", "#ff8c00", "#008000", "#9932cc", "#ff4500"]
+      backgroundColor = colors[projectIndex]
     }
-  }, [toast])
 
-  useEffect(() => {
-    fetchEvents()
-  }, [fetchEvents])
-
-  // イベント追加
-  const handleEventAdd = async (event: CalendarEvent) => {
-    try {
-      const result = await createCalendarEvent({
-        title: event.title,
-        start_time: event.start,
-        end_time: event.end,
-        notes: event.description,
-        project_id: event.project_id,
-        staff_id: event.staff_id,
-        resource_id: event.resource_id,
-        event_type: "project",
-      })
-
-      if (result.success) {
-        toast({
-          title: "成功",
-          description: "イベントが追加されました",
-        })
-        fetchEvents()
-      } else {
-        toast({
-          title: "エラー",
-          description: result.error || "イベントの追加に失敗しました",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("イベント追加エラー:", error)
-      toast({
-        title: "エラー",
-        description: "イベントの追加中にエラーが発生しました",
-        variant: "destructive",
-      })
-    }
-  }
-
-  // イベント更新
-  const handleEventUpdate = async (event: CalendarEvent) => {
-    try {
-      const result = await updateCalendarEvent(event.id, {
-        title: event.title,
-        start_time: event.start,
-        end_time: event.end,
-        notes: event.description,
-        project_id: event.project_id,
-        staff_id: event.staff_id,
-        resource_id: event.resource_id,
-        event_type: "project",
-      })
-
-      if (result.success) {
-        toast({
-          title: "成功",
-          description: "イベントが更新されました",
-        })
-        fetchEvents()
-      } else {
-        toast({
-          title: "エラー",
-          description: result.error || "イベントの更新に失敗しました",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("イベント更新エラー:", error)
-      toast({
-        title: "エラー",
-        description: "イベントの更新中にエラーが発生しました",
-        variant: "destructive",
-      })
-    }
-  }
-
-  // イベント削除
-  const handleEventDelete = async (eventId: string) => {
-    try {
-      const result = await deleteCalendarEvent(eventId)
-
-      if (result.success) {
-        toast({
-          title: "成功",
-          description: "イベントが削除されました",
-        })
-        fetchEvents()
-      } else {
-        toast({
-          title: "エラー",
-          description: result.error || "イベントの削除に失敗しました",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("イベント削除エラー:", error)
-      toast({
-        title: "エラー",
-        description: "イベントの削除中にエラーが発生しました",
-        variant: "destructive",
-      })
-    }
-  }
-
-  // イベントのドラッグ＆ドロップ
-  const handleEventDrop = async (event: CalendarEvent, start: Date, end: Date) => {
-    try {
-      const result = await updateCalendarEvent(event.id, {
-        start_time: start,
-        end_time: end,
-      })
-
-      if (result.success) {
-        toast({
-          title: "成功",
-          description: "イベントが移動されました",
-        })
-        fetchEvents()
-      } else {
-        toast({
-          title: "エラー",
-          description: result.error || "イベントの移動に失敗しました",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("イベント移動エラー:", error)
-      toast({
-        title: "エラー",
-        description: "イベントの移動中にエラーが発生しました",
-        variant: "destructive",
-      })
+    return {
+      style: {
+        backgroundColor,
+        borderRadius: "4px",
+        opacity: 0.8,
+        color: "white",
+        border: "0px",
+        display: "block",
+      },
     }
   }
 
   return (
-    <BaseCalendar
-      events={events}
-      onEventAdd={handleEventAdd}
-      onEventUpdate={handleEventUpdate}
-      onEventDelete={handleEventDelete}
-      onEventDrop={handleEventDrop}
-      timeframe={timeframe}
-      viewType="project"
-      loading={loading}
-    />
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center gap-2">
+          <Select value={viewMode} onValueChange={(value: "month" | "week" | "day") => setViewMode(value)}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="表示切替" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="month">月表示</SelectItem>
+              <SelectItem value="week">週表示</SelectItem>
+              <SelectItem value="day">日表示</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>
+            今日
+          </Button>
+        </div>
+
+        <div className="text-lg font-medium">案件カレンダー</div>
+      </div>
+
+      <div style={{ height: 700 }}>
+        <Calendar
+          localizer={localizer}
+          events={events}
+          startAccessor="start"
+          endAccessor="end"
+          style={{ height: "100%" }}
+          onSelectEvent={handleEventClick}
+          onSelectSlot={handleSelectSlot}
+          selectable
+          views={["month", "week", "day"]}
+          view={viewMode}
+          onView={(view) => setViewMode(view as "month" | "week" | "day")}
+          date={currentDate}
+          onNavigate={(date) => setCurrentDate(date)}
+          eventPropGetter={eventStyleGetter}
+          messages={{
+            today: "今日",
+            previous: "前へ",
+            next: "次へ",
+            month: "月",
+            week: "週",
+            day: "日",
+            agenda: "予定リスト",
+            date: "日付",
+            time: "時間",
+            event: "イベント",
+            allDay: "終日",
+            showMore: (total) => `他 ${total} 件`,
+          }}
+        />
+      </div>
+
+      <StaffAssignmentDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        eventData={selectedEvent}
+        onEventAdd={handleEventAdd}
+        onEventUpdate={handleEventUpdate}
+        onEventDelete={handleEventDelete}
+      />
+    </div>
   )
 }

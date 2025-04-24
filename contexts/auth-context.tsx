@@ -1,12 +1,13 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState } from "react"
-import type { User } from "@supabase/supabase-js"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { SupabaseClient, User } from "@supabase/supabase-js"
+import type { Database } from "@/types/supabase"
 import type { ReactNode } from "react"
 import type { AuthError } from "@supabase/supabase-js"
-import { getClientSupabaseInstance } from "@/lib/supabase-client"
 
-// パスワード強度チェック用の正規表現
+// パスワード強度チェック用の正規表現を修正
 const PASSWORD_REGEX = {
   minLength: /.{6,}/,
 }
@@ -16,8 +17,10 @@ export type PasswordStrength = {
   errors: string[]
 }
 
+// AuthContextType型を修正して、signInとsignUpを追加
 type AuthContextType = {
   user: User | null
+  supabase: SupabaseClient<Database>
   loading: boolean
   signOut: () => Promise<void>
   signIn: (emailOrId: string, password: string) => Promise<any>
@@ -30,7 +33,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = getClientSupabaseInstance()
+  const supabase = createClientComponentClient<Database>()
 
   useEffect(() => {
     const getUser = async () => {
@@ -64,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     getUser()
   }, [supabase.auth])
 
-  // パスワード強度チェック関数
+  // パスワード強度チェック関数を修正
   const checkPasswordStrength = (password: string): PasswordStrength => {
     const errors: string[] = []
 
@@ -80,6 +83,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, metadata?: { full_name?: string }) => {
     try {
+      if (!supabase) {
+        return {
+          error: {
+            message: "Supabase環境変数が設定されていないため、サインアップできません。",
+          } as AuthError,
+          data: null,
+        }
+      }
+
       // パスワード強度チェック
       const passwordCheck = checkPasswordStrength(password)
       if (!passwordCheck.isValid) {
@@ -108,10 +120,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // signIn関数 - IDによるログインをサポート
+  // signIn関数を修正してIDによるログインをサポート
   const signIn = async (emailOrId: string, password: string) => {
     try {
       console.log("Signing in with:", emailOrId)
+
+      // Supabaseクライアントが存在しない場合はエラーを返す
+      if (!supabase) {
+        console.error("Supabaseクライアントが初期化されていません")
+        return {
+          error: {
+            message: "Supabase環境変数が設定されていないため、認証できません。",
+          } as AuthError,
+          data: null,
+        }
+      }
 
       // メールアドレスかIDかを判断
       const isEmail = emailOrId.includes("@")
@@ -175,6 +198,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = async (email: string) => {
     try {
+      if (!supabase) {
+        return {
+          error: {
+            message: "Supabase環境変数が設定されていないため、パスワードリセットできません。",
+          } as AuthError,
+          data: null,
+        }
+      }
+
       return await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       })
@@ -184,8 +216,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // AuthProviderのvalueオブジェクトを修正
   const value = {
     user,
+    supabase,
     loading,
     signOut,
     signIn,

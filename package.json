@@ -60,9 +60,9 @@
     "zod": "latest",
     "@supabase/supabase-js": "latest",
     "@supabase/auth-helpers-nextjs": "latest",
+    "uuid": "latest",
     "react-big-calendar": "latest",
-    "moment": "latest",
-    "uuid": "latest"
+    "moment": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

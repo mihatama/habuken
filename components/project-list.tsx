@@ -2,21 +2,19 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react"
+import { Plus, Pencil, Trash2, Loader2, Search, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { getClientSupabaseInstance } from "@/lib/supabase/supabaseClient"
-import { StaffSearch } from "./staff-search"
-import { HeavyMachinerySearch } from "./heavy-machinery-search"
-import { VehicleSearch } from "./vehicle-search"
-import { ToolSearch } from "./tool-search"
 
 export function ProjectList() {
   const { toast } = useToast()
@@ -27,6 +25,18 @@ export function ProjectList() {
   const [currentProject, setCurrentProject] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [dataLoading, setDataLoading] = useState(true)
+
+  // スタッフ、重機、車両、備品のデータを保持するための状態
+  const [staffList, setStaffList] = useState<any[]>([])
+  const [heavyMachineryList, setHeavyMachineryList] = useState<any[]>([])
+  const [vehiclesList, setVehiclesList] = useState<any[]>([])
+  const [toolsList, setToolsList] = useState<any[]>([])
+
+  // 検索用の状態
+  const [searchStaff, setSearchStaff] = useState("")
+  const [searchHeavyMachinery, setSearchHeavyMachinery] = useState("")
+  const [searchVehicles, setSearchVehicles] = useState("")
+  const [searchTools, setSearchTools] = useState("")
 
   // 新規案件の状態
   const [newProject, setNewProject] = useState({
@@ -46,6 +56,10 @@ export function ProjectList() {
   // プロジェクト一覧を取得
   useEffect(() => {
     fetchProjects()
+    fetchStaff()
+    fetchHeavyMachinery()
+    fetchVehicles()
+    fetchTools()
   }, [])
 
   // プロジェクト一覧を取得する関数
@@ -72,12 +86,124 @@ export function ProjectList() {
     }
   }
 
+  // スタッフ一覧を取得する関数
+  const fetchStaff = async () => {
+    try {
+      const supabase = getClientSupabaseInstance()
+      const { data, error } = await supabase.from("staff").select("*").order("full_name", { ascending: true })
+
+      if (error) throw error
+
+      if (data) {
+        setStaffList(data)
+      }
+    } catch (error) {
+      console.error("スタッフ取得エラー:", error)
+      toast({
+        title: "エラー",
+        description: "スタッフ一覧の取得に失敗しました",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // 重機一覧を取得する関数
+  const fetchHeavyMachinery = async () => {
+    try {
+      const supabase = getClientSupabaseInstance()
+      const { data, error } = await supabase.from("heavy_machinery").select("*").order("name", { ascending: true })
+
+      if (error) throw error
+
+      if (data) {
+        setHeavyMachineryList(data)
+      }
+    } catch (error) {
+      console.error("重機取得エラー:", error)
+      toast({
+        title: "エラー",
+        description: "重機一覧の取得に失敗しました",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // 車両一覧を取得する関数
+  const fetchVehicles = async () => {
+    try {
+      const supabase = getClientSupabaseInstance()
+      const { data, error } = await supabase.from("vehicles").select("*").order("name", { ascending: true })
+
+      if (error) throw error
+
+      if (data) {
+        setVehiclesList(data)
+      }
+    } catch (error) {
+      console.error("車両取得エラー:", error)
+      toast({
+        title: "エラー",
+        description: "車両一覧の取得に失敗しました",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // 備品一覧を取得する関数
+  const fetchTools = async () => {
+    try {
+      const supabase = getClientSupabaseInstance()
+      const { data, error } = await supabase.from("tools").select("*").order("name", { ascending: true })
+
+      if (error) throw error
+
+      if (data) {
+        setToolsList(data)
+      }
+    } catch (error) {
+      console.error("備品取得エラー:", error)
+      toast({
+        title: "エラー",
+        description: "備品一覧の取得に失敗しました",
+        variant: "destructive",
+      })
+    }
+  }
+
   // 検索条件に一致するプロジェクトをフィルタリング
   const filteredProjects = projects.filter(
     (project) =>
       project.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       project.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       project.client?.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
+
+  // 検索条件に一致するスタッフをフィルタリング
+  const filteredStaff = staffList.filter(
+    (staff) =>
+      staff.full_name?.toLowerCase().includes(searchStaff.toLowerCase()) ||
+      staff.position?.toLowerCase().includes(searchStaff.toLowerCase()),
+  )
+
+  // 検索条件に一致する重機をフィルタリング
+  const filteredHeavyMachinery = heavyMachineryList.filter(
+    (machinery) =>
+      machinery.name?.toLowerCase().includes(searchHeavyMachinery.toLowerCase()) ||
+      machinery.type?.toLowerCase().includes(searchHeavyMachinery.toLowerCase()),
+  )
+
+  // 検索条件に一致する車両をフィルタリング
+  const filteredVehicles = vehiclesList.filter(
+    (vehicle) =>
+      vehicle.name?.toLowerCase().includes(searchVehicles.toLowerCase()) ||
+      vehicle.type?.toLowerCase().includes(searchVehicles.toLowerCase()),
+  )
+
+  // 検索条件に一致する備品をフィルタリング
+  const filteredTools = toolsList.filter(
+    (tool) =>
+      tool.name?.toLowerCase().includes(searchTools.toLowerCase()) ||
+      tool.storage_location?.toLowerCase().includes(searchTools.toLowerCase()),
   )
 
   // スタッフの選択状態を変更する関数
@@ -122,6 +248,26 @@ export function ProjectList() {
         return { ...prev, selectedTools: prev.selectedTools.filter((id) => id !== toolId) }
       }
     })
+  }
+
+  // 選択したスタッフの情報を取得
+  const getSelectedStaffInfo = () => {
+    return staffList.filter((staff) => newProject.selectedStaff.includes(staff.id))
+  }
+
+  // 選択した重機の情報を取得
+  const getSelectedHeavyMachineryInfo = () => {
+    return heavyMachineryList.filter((machinery) => newProject.selectedHeavyMachinery.includes(machinery.id))
+  }
+
+  // 選択した車両の情報を取得
+  const getSelectedVehiclesInfo = () => {
+    return vehiclesList.filter((vehicle) => newProject.selectedVehicles.includes(vehicle.id))
+  }
+
+  // 選択した備品の情報を取得
+  const getSelectedToolsInfo = () => {
+    return toolsList.filter((tool) => newProject.selectedTools.includes(tool.id))
   }
 
   // 新規案件を追加する関数
@@ -456,7 +602,7 @@ export function ProjectList() {
                   <Label htmlFor="status">ステータス</Label>
                   <select
                     id="status"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50city-50"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     value={newProject.status}
                     onChange={(e) => setNewProject({ ...newProject, status: e.target.value })}
                   >
@@ -486,28 +632,292 @@ export function ProjectList() {
 
                   {/* スタッフ選択タブ */}
                   <TabsContent value="staff" className="border rounded-md p-4">
-                    <StaffSearch selectedStaff={newProject.selectedStaff} onStaffChange={handleStaffChange} />
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Search className="h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="スタッフを検索（名前、役職など）"
+                        value={searchStaff}
+                        onChange={(e) => setSearchStaff(e.target.value)}
+                        className="flex-1"
+                      />
+                    </div>
+
+                    {/* 選択済みスタッフ表示 */}
+                    {newProject.selectedStaff.length > 0 && (
+                      <div className="mb-4">
+                        <h4 className="text-sm font-medium mb-2">選択済みスタッフ</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {getSelectedStaffInfo().map((staff) => (
+                            <Badge key={staff.id} variant="outline" className="flex items-center gap-1 py-1">
+                              {staff.full_name}
+                              <button
+                                onClick={() => handleStaffChange(staff.id, false)}
+                                className="ml-1 rounded-full hover:bg-muted p-0.5"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* スタッフ一覧 */}
+                    <ScrollArea className="h-[300px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[50px]"></TableHead>
+                            <TableHead>名前</TableHead>
+                            <TableHead>役職</TableHead>
+                            <TableHead>連絡先</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredStaff.length > 0 ? (
+                            filteredStaff.map((staff) => (
+                              <TableRow key={staff.id} className="cursor-pointer hover:bg-muted/50">
+                                <TableCell>
+                                  <Checkbox
+                                    checked={newProject.selectedStaff.includes(staff.id)}
+                                    onCheckedChange={(checked) => handleStaffChange(staff.id, checked as boolean)}
+                                  />
+                                </TableCell>
+                                <TableCell className="font-medium">{staff.full_name}</TableCell>
+                                <TableCell>{staff.position || "-"}</TableCell>
+                                <TableCell>{staff.phone || "-"}</TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
+                                検索条件に一致するスタッフが見つかりません
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
                   </TabsContent>
 
                   {/* 重機選択タブ */}
                   <TabsContent value="machinery" className="border rounded-md p-4">
-                    <HeavyMachinerySearch
-                      selectedMachinery={newProject.selectedHeavyMachinery}
-                      onMachineryChange={handleHeavyMachineryChange}
-                    />
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Search className="h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="重機を検索（名前、種類など）"
+                        value={searchHeavyMachinery}
+                        onChange={(e) => setSearchHeavyMachinery(e.target.value)}
+                        className="flex-1"
+                      />
+                    </div>
+
+                    {/* 選択済み重機表示 */}
+                    {newProject.selectedHeavyMachinery.length > 0 && (
+                      <div className="mb-4">
+                        <h4 className="text-sm font-medium mb-2">選択済み重機</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {getSelectedHeavyMachineryInfo().map((machinery) => (
+                            <Badge key={machinery.id} variant="outline" className="flex items-center gap-1 py-1">
+                              {machinery.name}
+                              <button
+                                onClick={() => handleHeavyMachineryChange(machinery.id, false)}
+                                className="ml-1 rounded-full hover:bg-muted p-0.5"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 重機一覧 */}
+                    <ScrollArea className="h-[300px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[50px]"></TableHead>
+                            <TableHead>名前</TableHead>
+                            <TableHead>種類</TableHead>
+                            <TableHead>所有形態</TableHead>
+                            <TableHead>場所</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredHeavyMachinery.length > 0 ? (
+                            filteredHeavyMachinery.map((machinery) => (
+                              <TableRow key={machinery.id} className="cursor-pointer hover:bg-muted/50">
+                                <TableCell>
+                                  <Checkbox
+                                    checked={newProject.selectedHeavyMachinery.includes(machinery.id)}
+                                    onCheckedChange={(checked) =>
+                                      handleHeavyMachineryChange(machinery.id, checked as boolean)
+                                    }
+                                  />
+                                </TableCell>
+                                <TableCell className="font-medium">{machinery.name}</TableCell>
+                                <TableCell>{machinery.type || "-"}</TableCell>
+                                <TableCell>{machinery.ownership_type || "-"}</TableCell>
+                                <TableCell>{machinery.location || "-"}</TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                                検索条件に一致する重機が見つかりません
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
                   </TabsContent>
 
                   {/* 車両選択タブ */}
                   <TabsContent value="vehicles" className="border rounded-md p-4">
-                    <VehicleSearch
-                      selectedVehicles={newProject.selectedVehicles}
-                      onVehicleChange={handleVehicleChange}
-                    />
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Search className="h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="車両を検索（名前、種類など）"
+                        value={searchVehicles}
+                        onChange={(e) => setSearchVehicles(e.target.value)}
+                        className="flex-1"
+                      />
+                    </div>
+
+                    {/* 選択済み車両表示 */}
+                    {newProject.selectedVehicles.length > 0 && (
+                      <div className="mb-4">
+                        <h4 className="text-sm font-medium mb-2">選択済み車両</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {getSelectedVehiclesInfo().map((vehicle) => (
+                            <Badge key={vehicle.id} variant="outline" className="flex items-center gap-1 py-1">
+                              {vehicle.name}
+                              <button
+                                onClick={() => handleVehicleChange(vehicle.id, false)}
+                                className="ml-1 rounded-full hover:bg-muted p-0.5"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 車両一覧 */}
+                    <ScrollArea className="h-[300px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[50px]"></TableHead>
+                            <TableHead>名前</TableHead>
+                            <TableHead>種類</TableHead>
+                            <TableHead>所有形態</TableHead>
+                            <TableHead>場所</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredVehicles.length > 0 ? (
+                            filteredVehicles.map((vehicle) => (
+                              <TableRow key={vehicle.id} className="cursor-pointer hover:bg-muted/50">
+                                <TableCell>
+                                  <Checkbox
+                                    checked={newProject.selectedVehicles.includes(vehicle.id)}
+                                    onCheckedChange={(checked) => handleVehicleChange(vehicle.id, checked as boolean)}
+                                  />
+                                </TableCell>
+                                <TableCell className="font-medium">{vehicle.name}</TableCell>
+                                <TableCell>{vehicle.type || "-"}</TableCell>
+                                <TableCell>{vehicle.ownership_type || "-"}</TableCell>
+                                <TableCell>{vehicle.location || "-"}</TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                                検索条件に一致する車両が見つかりません
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
                   </TabsContent>
 
                   {/* 備品選択タブ */}
                   <TabsContent value="tools" className="border rounded-md p-4">
-                    <ToolSearch selectedTools={newProject.selectedTools} onToolChange={handleToolChange} />
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Search className="h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="備品を検索（名前、保管場所など）"
+                        value={searchTools}
+                        onChange={(e) => setSearchTools(e.target.value)}
+                        className="flex-1"
+                      />
+                    </div>
+
+                    {/* 選択済み備品表示 */}
+                    {newProject.selectedTools.length > 0 && (
+                      <div className="mb-4">
+                        <h4 className="text-sm font-medium mb-2">選択済み備品</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {getSelectedToolsInfo().map((tool) => (
+                            <Badge key={tool.id} variant="outline" className="flex items-center gap-1 py-1">
+                              {tool.name}
+                              <button
+                                onClick={() => handleToolChange(tool.id, false)}
+                                className="ml-1 rounded-full hover:bg-muted p-0.5"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 備品一覧 */}
+                    <ScrollArea className="h-[300px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[50px]"></TableHead>
+                            <TableHead>名前</TableHead>
+                            <TableHead>保管場所</TableHead>
+                            <TableHead>状態</TableHead>
+                            <TableHead>最終メンテナンス日</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredTools.length > 0 ? (
+                            filteredTools.map((tool) => (
+                              <TableRow key={tool.id} className="cursor-pointer hover:bg-muted/50">
+                                <TableCell>
+                                  <Checkbox
+                                    checked={newProject.selectedTools.includes(tool.id)}
+                                    onCheckedChange={(checked) => handleToolChange(tool.id, checked as boolean)}
+                                  />
+                                </TableCell>
+                                <TableCell className="font-medium">{tool.name}</TableCell>
+                                <TableCell>{tool.storage_location || "-"}</TableCell>
+                                <TableCell>{tool.condition || "-"}</TableCell>
+                                <TableCell>
+                                  {tool.last_maintenance_date ? formatDate(tool.last_maintenance_date) : "-"}
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                                検索条件に一致する備品が見つかりません
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
                   </TabsContent>
                 </Tabs>
               </div>
@@ -524,7 +934,7 @@ export function ProjectList() {
           </Dialog>
         </div>
       </CardHeader>
-      <CardContentComponent>
+      <CardContent>
         {dataLoading ? (
           <div className="flex justify-center items-center py-8">
             <Loader2 className="h-8 w-8 animate-spin" />
@@ -682,9 +1092,7 @@ export function ProjectList() {
             </TableBody>
           </Table>
         )}
-      </CardContentComponent>
+      </CardContent>
     </Card>
   )
 }
-
-import { CardContent as CardContentComponent } from "@/components/ui/card"

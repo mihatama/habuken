@@ -1,23 +1,21 @@
-// このファイルは互換性のために残しています
-// 新しいコードでは lib/supabase.ts を直接インポートすることをお勧めします
+import { createClient } from "@supabase/supabase-js"
+import type { Database } from "@/types/supabase"
 
-import {
-  createServerSupabaseClient,
-  getPublicSupabaseClient,
-  getClientSupabaseInstance,
-  createSafeSupabaseClient,
-  resetSupabaseClients,
-} from "../supabase"
+// クライアントサイドでのみ使用するSupabaseクライアント
+// シングルトンパターンを使用して、クライアントサイドで複数のインスタンスが作成されないようにする
+let clientSupabase: ReturnType<typeof createClient<Database>> | null = null
 
-// 既存のコードとの互換性のために再エクスポート
-export {
-  createServerSupabaseClient,
-  getPublicSupabaseClient,
-  getClientSupabaseInstance,
-  createSafeSupabaseClient,
-  resetSupabaseClients,
+export function getClientSupabaseInstance() {
+  if (clientSupabase) return clientSupabase
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.warn("Missing Supabase environment variables")
+    return null
+  }
+
+  clientSupabase = createClient<Database>(supabaseUrl, supabaseKey)
+  return clientSupabase
 }
-
-// サーバーサイドでも安全に使用できるSupabaseクライアント
-// これはgetClientSupabaseInstanceの代替として使用できる
-export const getSupabaseClient = createSafeSupabaseClient

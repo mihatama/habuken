@@ -1,80 +1,69 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase-client"
+import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs"
 
 // 認証が必要なパス
 const protectedPaths = [
   "/dashboard",
   "/projects",
+  "/tasks",
   "/staff",
-  "/tools",
   "/reports",
+  "/tools",
+  "/shifts",
+  "/leave",
   "/profile",
   "/settings",
   "/admin",
   "/master",
-  "/leave",
-  "/tasks",
   "/inspection",
   "/report",
 ]
 
-// 管理者権限が必要なパス
-const adminPaths = ["/admin"]
+// 認証が不要なパス
+const publicPaths = ["/", "/login", "/signup", "/forgot-password", "/reset-password"]
 
-// このミドルウェアはすべてのリクエストに対して実行される
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
+export async function middleware(req: NextRequest) {
+  const res = NextResponse.next()
+  const supabase = createMiddlewareClient({ req, res })
 
-  // 認証が必要なパスかどうかをチェック
-  const isProtectedPath = protectedPaths.some((path) => pathname.startsWith(path))
+  // セッションを取得
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
 
-  // 管理者権限が必要なパスかどうかをチェック
-  const isAdminPath = adminPaths.some((path) => pathname.startsWith(path))
+  const path = req.nextUrl.pathname
 
-  // 認証が必要ないパスの場合はそのまま次へ
-  if (!isProtectedPath) {
-    return NextResponse.next()
+  // デバッグ用ログ
+  console.log(`Middleware: Path=${path}, Session=${session ? "exists" : "null"}`)
+  if (session) {
+    console.log(`User authenticated: ${session.user.email}, User ID: ${session.user.id}`)
+  } else {
+    console.log("No active session found")
   }
 
-  try {
-    // Supabaseクライアントを初期化
-    const supabase = createServerSupabaseClient()
+  // 保護されたパスへのアクセスで認証されていない場合はログインページにリダイレクト
+  const isProtectedPath = protectedPaths.some(
+    (protectedPath) => path === protectedPath || path.startsWith(`${protectedPath}/`),
+  )
 
-    // セッションを取得
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-
-    // セッションがない場合はログインページにリダイレクト
-    if (!session) {
-      const url = new URL("/login", request.url)
-      url.searchParams.set("redirect", pathname)
-      return NextResponse.redirect(url)
-    }
-
-    // 管理者権限が必要なパスの場合は権限チェック
-    if (isAdminPath) {
-      // ユーザーロールを取得
-      const { data: userRoles } = await supabase.from("user_roles").select("role").eq("user_id", session.user.id)
-
-      // 管理者権限がない場合はダッシュボードにリダイレクト
-      const isAdmin = userRoles?.some((role) => role.role === "admin")
-      if (!isAdmin) {
-        return NextResponse.redirect(new URL("/dashboard", request.url))
-      }
-    }
-
-    // 認証済みの場合は次へ
-    return NextResponse.next()
-  } catch (error) {
-    console.error("Middleware error:", error)
-    // エラーが発生した場合はログインページにリダイレクト
-    return NextResponse.redirect(new URL("/login", request.url))
+  if (isProtectedPath && !session) {
+    console.log(`Redirecting to login: Protected path=${path}, no session`)
+    const redirectUrl = new URL("/login", req.url)
+    return NextResponse.redirect(redirectUrl)
   }
+
+  // 認証済みユーザーがログインページなどにアクセスした場合はダッシュボードにリダイレクト
+  const isAuthPath = publicPaths.includes(path)
+
+  if (isAuthPath && session && path !== "/") {
+    console.log(`Redirecting to dashboard: Auth path=${path}, has session`)
+    return NextResponse.redirect(new URL("/dashboard", req.url))
+  }
+
+  return res
 }
 
-// 特定のパスに対してのみミドルウェアを実行
 export const config = {
   matcher: [
     /*
@@ -83,8 +72,7 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public (public files)
-     * - login, signup, forgot-password, reset-password (auth pages)
      */
-    "/((?!_next/static|_next/image|favicon.ico|public|login|signup|forgot-password|reset-password).*)",
+    "/((?!_next/static|_next/image|favicon.ico|public).*)",
   ],
 }
