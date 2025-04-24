@@ -1,5 +1,5 @@
 // このファイルは互換性のために存在します
-// 新しいコードでは lib/supabase-client.ts を使用してください
+// 新しいコードでは lib/supabase.ts を使用してください
 
 import {
   createServerSupabaseClient,

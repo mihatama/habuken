@@ -1,61 +1,56 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Search, Loader2, X } from "lucide-react"
+import { useEffect, useState } from "react"
 import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Badge } from "@/components/ui/badge"
-import { useToast } from "@/hooks/use-toast"
-import { getClientSupabaseInstance } from "@/lib/supabase-client"
+import { useToast } from "@/components/ui/use-toast"
+import { getClientSupabaseInstance } from "@/lib/supabase"
 
-interface StaffSearchProps {
-  selectedStaff: string[]
-  onStaffChange: (staffId: string, checked: boolean) => void
-  showSelected?: boolean
+interface Staff {
+  id: string
+  full_name: string
+  position: string
+  department: string
+  email: string
+  phone: string
+  // 他のスタッフ関連フィールド
 }
 
-export function StaffSearch({ selectedStaff, onStaffChange, showSelected = true }: StaffSearchProps) {
-  const { toast } = useToast()
-  const [staffList, setStaffList] = useState<any[]>([])
-  const [searchTerm, setSearchTerm] = useState("")
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+interface StaffSearchProps {
+  selectedStaff: Staff[]
+  onStaffChange: (staff: Staff[]) => void
+}
 
-  // スタッフデータを取得
+export function StaffSearch({ selectedStaff = [], onStaffChange }: StaffSearchProps) {
+  const [staffList, setStaffList] = useState<Staff[]>([])
+  const [filteredStaff, setFilteredStaff] = useState<Staff[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
+  const { toast } = useToast()
+
+  // スタッフデータの取得
   useEffect(() => {
     const fetchStaff = async () => {
       try {
         setIsLoading(true)
-        setError(null)
-
         const supabase = getClientSupabaseInstance()
-        console.log("Fetching staff data...")
-
         const { data, error } = await supabase.from("staff").select("*").order("full_name", { ascending: true })
 
-        if (error) {
-          console.error("Staff fetch error:", error)
-          setError(`スタッフデータの取得に失敗しました: ${error.message}`)
-          toast({
-            title: "エラー",
-            description: `スタッフ一覧の取得に失敗しました: ${error.message}`,
-            variant: "destructive",
-          })
-          throw error
-        }
-
-        console.log(`Retrieved ${data?.length || 0} staff records`)
+        if (error) throw error
 
         if (data) {
+          console.log("取得したスタッフデータ:", data)
           setStaffList(data)
-        } else {
-          setStaffList([])
+          setFilteredStaff(data)
         }
       } catch (error) {
-        console.error("Staff fetch exception:", error)
-        setError("スタッフデータの取得中に例外が発生しました")
+        console.error("スタッフ取得エラー:", error)
+        toast({
+          title: "エラー",
+          description: "スタッフ一覧の取得に失敗しました",
+          variant: "destructive",
+        })
       } finally {
         setIsLoading(false)
       }
@@ -64,104 +59,93 @@ export function StaffSearch({ selectedStaff, onStaffChange, showSelected = true 
     fetchStaff()
   }, [toast])
 
-  // 検索条件に一致するスタッフをフィルタリング
-  const filteredStaff = staffList.filter(
-    (staff) =>
-      staff.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      staff.position?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      staff.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      staff.email?.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  // 検索フィルタリング
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredStaff(staffList)
+    } else {
+      const query = searchQuery.toLowerCase()
+      const filtered = staffList.filter(
+        (staff) =>
+          staff.full_name.toLowerCase().includes(query) ||
+          staff.position.toLowerCase().includes(query) ||
+          staff.department.toLowerCase().includes(query),
+      )
+      setFilteredStaff(filtered)
+    }
+  }, [searchQuery, staffList])
 
-  // 選択されたスタッフの情報を取得
-  const getSelectedStaffInfo = () => {
-    return staffList.filter((staff) => selectedStaff.includes(staff.id))
+  // スタッフの選択状態を切り替える
+  const toggleStaffSelection = (staff: Staff) => {
+    const isSelected = selectedStaff.some((s) => s.id === staff.id)
+    let updatedSelection
+
+    if (isSelected) {
+      updatedSelection = selectedStaff.filter((s) => s.id !== staff.id)
+    } else {
+      updatedSelection = [...selectedStaff, staff]
+    }
+
+    onStaffChange(updatedSelection)
+  }
+
+  // スタッフが選択されているかチェック
+  const isStaffSelected = (staffId: string) => {
+    return selectedStaff.some((staff) => staff.id === staffId)
   }
 
   return (
-    <div>
-      <div className="flex items-center space-x-2 mb-4">
-        <Search className="h-4 w-4 text-muted-foreground" />
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
         <Input
-          placeholder="スタッフを検索（名前、役職、部署など）"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="名前、役職、部署で検索..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
           className="flex-1"
         />
+        {searchQuery && (
+          <Button variant="ghost" size="sm" onClick={() => setSearchQuery("")}>
+            クリア
+          </Button>
+        )}
       </div>
 
-      {/* エラー表示 */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-          <p>{error}</p>
-        </div>
-      )}
-
-      {/* 選択済みスタッフ表示 */}
-      {showSelected && selectedStaff.length > 0 && (
-        <div className="mb-4">
-          <h4 className="text-sm font-medium mb-2">選択済みスタッフ</h4>
-          <div className="flex flex-wrap gap-2">
-            {getSelectedStaffInfo().map((staff) => (
-              <Badge key={staff.id} variant="outline" className="flex items-center gap-1 py-1">
-                {staff.full_name}
-                <button
-                  onClick={() => onStaffChange(staff.id, false)}
-                  className="ml-1 rounded-full hover:bg-muted p-0.5"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* スタッフ一覧 */}
-      <ScrollArea className="h-[300px]">
+      <div className="max-h-60 overflow-y-auto border rounded-md">
         {isLoading ? (
-          <div className="flex flex-col items-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin mb-2" />
-            <span>スタッフデータを読み込み中...</span>
-          </div>
+          <div className="p-4 text-center text-muted-foreground">スタッフデータを読み込み中...</div>
+        ) : filteredStaff.length === 0 ? (
+          <div className="p-4 text-center text-muted-foreground">該当するスタッフが見つかりません</div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[50px]"></TableHead>
-                <TableHead>名前</TableHead>
-                <TableHead>役職</TableHead>
-                <TableHead>部署</TableHead>
-                <TableHead>連絡先</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredStaff.length > 0 ? (
-                filteredStaff.map((staff) => (
-                  <TableRow key={staff.id} className="cursor-pointer hover:bg-muted/50">
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedStaff.includes(staff.id)}
-                        onCheckedChange={(checked) => onStaffChange(staff.id, checked as boolean)}
-                      />
-                    </TableCell>
-                    <TableCell className="font-medium">{staff.full_name}</TableCell>
-                    <TableCell>{staff.position || "-"}</TableCell>
-                    <TableCell>{staff.department || "-"}</TableCell>
-                    <TableCell>{staff.phone || staff.email || "-"}</TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
-                    {error ? "エラーが発生しました" : "検索条件に一致するスタッフが見つかりません"}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+          <ul className="divide-y">
+            {filteredStaff.map((staff) => (
+              <li key={staff.id} className="flex items-center p-2 hover:bg-muted/50">
+                <Checkbox
+                  id={`staff-${staff.id}`}
+                  checked={isStaffSelected(staff.id)}
+                  onCheckedChange={() => toggleStaffSelection(staff)}
+                  className="mr-2"
+                />
+                <label
+                  htmlFor={`staff-${staff.id}`}
+                  className="flex flex-1 cursor-pointer text-sm"
+                  onClick={() => toggleStaffSelection(staff)}
+                >
+                  <div className="flex-1">
+                    <div className="font-medium">{staff.full_name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {staff.position} • {staff.department}
+                    </div>
+                  </div>
+                </label>
+              </li>
+            ))}
+          </ul>
         )}
-      </ScrollArea>
+      </div>
+
+      <div className="text-sm text-muted-foreground">
+        {selectedStaff.length > 0 ? `${selectedStaff.length}名のスタッフを選択中` : "スタッフを選択してください"}
+      </div>
     </div>
   )
 }
