@@ -50,7 +50,7 @@ export function ProjectList() {
     selectedStaff: [] as string[],
     selectedHeavyMachinery: [] as string[],
     selectedVehicles: [] as string[],
-    selectedTools: [] as string[],
+    selectedTools: [],
   })
 
   // プロジェクト一覧を取得
