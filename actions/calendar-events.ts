@@ -150,53 +150,118 @@ export async function getCalendarEvents(filters?: {
 }
 
 // 複数スタッフ・リソースのイベント作成
-export async function createMultipleAssignmentEvent(
-  eventData: Omit<CalendarEvent, "id" | "created_at" | "updated_at" | "staff_id" | "resource_id"> & {
-    staff_ids?: string[]
-    resource_ids?: string[]
-  },
-) {
+export async function createMultipleAssignmentEvent({
+  title,
+  start_time,
+  end_time,
+  notes,
+  project_id,
+  staff_ids,
+  resource_ids,
+  heavy_machinery_ids,
+  vehicle_ids,
+  tool_ids,
+  event_type = "general",
+}: {
+  title: string
+  start_time: Date
+  end_time: Date
+  notes?: string
+  project_id?: string
+  staff_ids?: string[]
+  resource_ids?: string[]
+  heavy_machinery_ids?: string[]
+  vehicle_ids?: string[]
+  tool_ids?: string[]
+  event_type?: "project" | "staff" | "tool" | "general"
+}) {
   try {
     const supabase = createServerSupabaseClient()
-    const { staff_ids, resource_ids, ...baseEventData } = eventData
+    const user = await supabase.auth.getUser()
 
-    // スタッフごとにイベントを作成
+    if (!user.data.user) {
+      return { success: false, error: "ユーザーが認証されていません" }
+    }
+
+    // 基本イベントデータ
+    const baseEventData = {
+      title,
+      start_time: new Date(start_time).toISOString(),
+      end_time: new Date(end_time).toISOString(),
+      notes,
+      project_id: project_id || null,
+      created_by: user.data.user.id,
+      event_type,
+    }
+
+    // スタッフの割り当てがある場合
     if (staff_ids && staff_ids.length > 0) {
-      for (const staffId of staff_ids) {
+      for (const staff_id of staff_ids) {
         await supabase.from("shifts").insert({
           ...baseEventData,
-          staff_id: staffId,
-          start_time: new Date(baseEventData.start_time).toISOString(),
-          end_time: new Date(baseEventData.end_time).toISOString(),
+          staff_id,
         })
       }
     }
 
-    // リソースごとにイベントを作成
+    // リソースの割り当てがある場合
     if (resource_ids && resource_ids.length > 0) {
-      for (const resourceId of resource_ids) {
+      for (const resource_id of resource_ids) {
         await supabase.from("shifts").insert({
           ...baseEventData,
-          resource_id: resourceId,
-          start_time: new Date(baseEventData.start_time).toISOString(),
-          end_time: new Date(baseEventData.end_time).toISOString(),
+          resource_id,
         })
       }
     }
 
-    // スタッフもリソースも指定されていない場合は1つだけイベントを作成
-    if ((!staff_ids || staff_ids.length === 0) && (!resource_ids || resource_ids.length === 0)) {
-      await supabase.from("shifts").insert({
-        ...baseEventData,
-        start_time: new Date(baseEventData.start_time).toISOString(),
-        end_time: new Date(baseEventData.end_time).toISOString(),
-      })
+    // 重機の割り当てがある場合
+    if (heavy_machinery_ids && heavy_machinery_ids.length > 0) {
+      for (const heavy_machinery_id of heavy_machinery_ids) {
+        await supabase.from("shifts").insert({
+          ...baseEventData,
+          heavy_machinery_id,
+        })
+      }
+    }
+
+    // 車両の割り当てがある場合
+    if (vehicle_ids && vehicle_ids.length > 0) {
+      for (const vehicle_id of vehicle_ids) {
+        await supabase.from("shifts").insert({
+          ...baseEventData,
+          vehicle_id,
+        })
+      }
+    }
+
+    // 備品の割り当てがある場合
+    if (tool_ids && tool_ids.length > 0) {
+      for (const tool_id of tool_ids) {
+        await supabase.from("shifts").insert({
+          ...baseEventData,
+          tool_id,
+        })
+      }
+    }
+
+    // 何も割り当てがない場合は一般的なイベントとして作成
+    if (
+      (!staff_ids || staff_ids.length === 0) &&
+      (!resource_ids || resource_ids.length === 0) &&
+      (!heavy_machinery_ids || heavy_machinery_ids.length === 0) &&
+      (!vehicle_ids || vehicle_ids.length === 0) &&
+      (!tool_ids || tool_ids.length === 0)
+    ) {
+      await supabase.from("shifts").insert(baseEventData)
     }
 
     revalidatePath("/dashboard")
-    return { success: true }
+    return { success: true, id: crypto.randomUUID() }
   } catch (error) {
-    console.error("複数割り当てイベント作成エラー:", error)
-    return { success: false, error: error instanceof Error ? error.message : "不明なエラー" }
+    console.error("イベント作成エラー:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "イベントの作成に失敗しました",
+    }
   }
 }
