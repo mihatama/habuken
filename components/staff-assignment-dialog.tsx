@@ -20,6 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useToast } from "@/hooks/use-toast"
 import { createMultipleAssignmentEvent, updateCalendarEvent, deleteCalendarEvent } from "@/actions/calendar-events"
+import { getClientSupabaseInstance } from "@/lib/supabase/supabaseClient"
 
 interface StaffAssignmentDialogProps {
   open: boolean
@@ -45,11 +46,6 @@ export function StaffAssignmentDialog({
   resources = [],
 }: StaffAssignmentDialogProps) {
   console.log("StaffAssignmentDialog: レンダリング", { open, eventData })
-  console.log("StaffAssignmentDialog: 初期データ", {
-    projectsCount: projects.length,
-    staffCount: staff.length,
-    resourcesCount: resources.length,
-  })
 
   const { toast } = useToast()
   const [title, setTitle] = useState("")
@@ -67,7 +63,8 @@ export function StaffAssignmentDialog({
   const [searchStaff, setSearchStaff] = useState("")
   const [searchResources, setSearchResources] = useState("")
   const [dataLoading, setDataLoading] = useState(false)
-  const [dataLoadError, setDataLoadError] = useState<string | null>(null)
+  const [staffData, setStaffData] = useState<any[]>([])
+  const [resourceData, setResourceData] = useState<any[]>([])
 
   // Reset form when dialog opens/closes or eventData changes
   useEffect(() => {
@@ -135,19 +132,55 @@ export function StaffAssignmentDialog({
     }
   }, [open, eventData])
 
+  // Load staff and resources data if not provided
+  useEffect(() => {
+    const loadData = async () => {
+      if (open) {
+        setDataLoading(true)
+        try {
+          const supabase = getClientSupabaseInstance()
+
+          // Always load fresh staff data
+          const { data: staffData, error: staffError } = await supabase
+            .from("staff")
+            .select("*")
+            .order("full_name", { ascending: true })
+
+          if (staffError) throw new Error(`スタッフ取得エラー: ${staffError.message}`)
+          if (staffData && staffData.length > 0) {
+            setStaffData(staffData)
+          }
+
+          // Always load fresh resource data
+          const { data: resourceData, error: resourceError } = await supabase
+            .from("resources")
+            .select("*")
+            .order("name", { ascending: true })
+
+          if (resourceError) throw new Error(`リソース取得エラー: ${resourceError.message}`)
+          if (resourceData && resourceData.length > 0) {
+            setResourceData(resourceData)
+          }
+        } catch (error) {
+          console.error("データ読み込みエラー:", error)
+          toast({
+            title: "データ読み込みエラー",
+            description: error instanceof Error ? error.message : "スタッフと機材データの読み込みに失敗しました",
+            variant: "destructive",
+          })
+        } finally {
+          setDataLoading(false)
+        }
+      }
+    }
+
+    loadData()
+  }, [open, toast])
+
   // useEffectを追加してopenの変更を監視
   useEffect(() => {
     console.log("StaffAssignmentDialog: open状態が変更されました", { open })
-
-    // ダイアログが開かれたときに親コンポーネントから渡されたデータを確認
-    if (open) {
-      console.log("ダイアログが開かれました。親から渡されたデータ:", {
-        projects,
-        staff,
-        resources,
-      })
-    }
-  }, [open, projects, staff, resources])
+  }, [open])
 
   // Format date for input field (YYYY-MM-DD)
   const formatDateForInput = (date: Date) => {
@@ -160,14 +193,20 @@ export function StaffAssignmentDialog({
   }
 
   // Filter staff based on search
-  const filteredStaff = staff.filter(
-    (s) =>
-      s.name?.toLowerCase().includes(searchStaff.toLowerCase()) ||
-      s.full_name?.toLowerCase().includes(searchStaff.toLowerCase()),
-  )
+  const filteredStaff = dataLoading
+    ? []
+    : (staffData.length > 0 ? staffData : staff).filter(
+        (s) =>
+          s.name?.toLowerCase().includes(searchStaff.toLowerCase()) ||
+          s.full_name?.toLowerCase().includes(searchStaff.toLowerCase()),
+      )
 
   // Filter resources based on search
-  const filteredResources = resources.filter((r) => r.name?.toLowerCase().includes(searchResources.toLowerCase()))
+  const filteredResources = dataLoading
+    ? []
+    : (resourceData.length > 0 ? resourceData : resources).filter((r) =>
+        r.name?.toLowerCase().includes(searchResources.toLowerCase()),
+      )
 
   // Handle form submission
   const handleSubmit = async () => {
@@ -358,7 +397,7 @@ export function StaffAssignmentDialog({
                 <SelectValue placeholder="案件を選択" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">案件なし</SelectItem>
+                <SelectItem value="no-project">案件なし</SelectItem>
                 {projects.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
                     <div className="flex items-center">
@@ -437,16 +476,7 @@ export function StaffAssignmentDialog({
                       </div>
                     ) : (
                       <div className="text-center py-4 text-muted-foreground">
-                        {staff.length === 0 ? (
-                          <>
-                            <p>スタッフデータがありません</p>
-                            <p className="text-sm text-gray-500 mt-1">
-                              親コンポーネントからスタッフデータが提供されていません
-                            </p>
-                          </>
-                        ) : (
-                          "検索条件に一致するスタッフが見つかりません"
-                        )}
+                        検索条件に一致するスタッフが見つかりません
                       </div>
                     )}
                   </>
@@ -486,16 +516,7 @@ export function StaffAssignmentDialog({
                       </div>
                     ) : (
                       <div className="text-center py-4 text-muted-foreground">
-                        {resources.length === 0 ? (
-                          <>
-                            <p>機材データがありません</p>
-                            <p className="text-sm text-gray-500 mt-1">
-                              親コンポーネントから機材データが提供されていません
-                            </p>
-                          </>
-                        ) : (
-                          "検索条件に一致する機材が見つかりません"
-                        )}
+                        検索条件に一致する機材が見つかりません
                       </div>
                     )}
                   </>
