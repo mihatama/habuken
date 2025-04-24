@@ -180,21 +180,36 @@ export function StaffAssignmentDialog({
         try {
           const supabase = getClientSupabaseInstance()
 
-          console.log("Supabaseインスタンス取得完了", { supabase })
+          console.log("Supabaseインスタンス取得完了", {
+            supabaseExists: !!supabase,
+            supabaseAuth: !!supabase.auth,
+            supabaseFrom: !!supabase.from,
+          })
           console.log("スタッフデータ取得開始")
 
           // Always load fresh staff data
+          console.log("スタッフデータ取得開始 - クエリ実行前")
           const { data: staffData, error: staffError } = await supabase
             .from("staff")
             .select("*")
             .order("full_name", { ascending: true })
 
-          console.log("スタッフデータ取得結果:", { staffData, staffError })
+          console.log("スタッフデータ取得結果の詳細:", {
+            staffData: staffData ? JSON.stringify(staffData) : null,
+            staffError: staffError ? JSON.stringify(staffError) : null,
+            staffDataExists: staffData && staffData.length > 0,
+            staffDataLength: staffData ? staffData.length : 0,
+          })
 
-          if (staffError) throw new Error(`スタッフ取得エラー: ${staffError.message}`)
+          if (staffError) {
+            console.error("スタッフ取得エラー詳細:", staffError)
+            throw new Error(`スタッフ取得エラー: ${staffError.message}`)
+          }
           if (staffData && staffData.length > 0) {
-            console.log("スタッフデータをステートにセット:", staffData)
+            console.log("スタッフデータをステートにセット:", JSON.stringify(staffData))
             setStaffData(staffData)
+          } else {
+            console.warn("スタッフデータが空です。テーブルにデータが存在しないか、アクセス権限がない可能性があります。")
           }
 
           // Always load fresh resource data
