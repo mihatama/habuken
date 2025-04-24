@@ -55,6 +55,7 @@ export function ProjectList() {
 
   // プロジェクト一覧を取得
   useEffect(() => {
+    console.log("コンポーネントがマウントされました")
     fetchProjects()
     fetchStaff()
     fetchHeavyMachinery()
@@ -90,12 +91,20 @@ export function ProjectList() {
   const fetchStaff = async () => {
     try {
       const supabase = getClientSupabaseInstance()
+      // staffテーブルから全データを取得
       const { data, error } = await supabase.from("staff").select("*").order("full_name", { ascending: true })
 
-      if (error) throw error
+      if (error) {
+        console.error("スタッフ取得エラー:", error)
+        throw error
+      }
 
       if (data) {
+        console.log("取得したスタッフデータ:", data) // デバッグ用ログ
         setStaffList(data)
+      } else {
+        console.log("スタッフデータが空です")
+        setStaffList([])
       }
     } catch (error) {
       console.error("スタッフ取得エラー:", error)
@@ -182,7 +191,7 @@ export function ProjectList() {
   const filteredStaff = staffList.filter(
     (staff) =>
       staff.full_name?.toLowerCase().includes(searchStaff.toLowerCase()) ||
-      staff.position?.toLowerCase().includes(searchStaff.toLowerCase()),
+      (staff.position && staff.position.toLowerCase().includes(searchStaff.toLowerCase())),
   )
 
   // 検索条件に一致する重機をフィルタリング
@@ -674,7 +683,14 @@ export function ProjectList() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {filteredStaff.length > 0 ? (
+                          {dataLoading ? (
+                            <TableRow>
+                              <TableCell colSpan={4} className="text-center py-4">
+                                <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                                <span className="text-muted-foreground">データを読み込み中...</span>
+                              </TableCell>
+                            </TableRow>
+                          ) : filteredStaff.length > 0 ? (
                             filteredStaff.map((staff) => (
                               <TableRow key={staff.id} className="cursor-pointer hover:bg-muted/50">
                                 <TableCell>
@@ -683,7 +699,7 @@ export function ProjectList() {
                                     onCheckedChange={(checked) => handleStaffChange(staff.id, checked as boolean)}
                                   />
                                 </TableCell>
-                                <TableCell className="font-medium">{staff.full_name}</TableCell>
+                                <TableCell className="font-medium">{staff.full_name || "名前なし"}</TableCell>
                                 <TableCell>{staff.position || "-"}</TableCell>
                                 <TableCell>{staff.phone || "-"}</TableCell>
                               </TableRow>
@@ -691,7 +707,9 @@ export function ProjectList() {
                           ) : (
                             <TableRow>
                               <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
-                                検索条件に一致するスタッフが見つかりません
+                                {searchStaff
+                                  ? "検索条件に一致するスタッフが見つかりません"
+                                  : "スタッフデータがありません"}
                               </TableCell>
                             </TableRow>
                           )}
