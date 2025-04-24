@@ -1,28 +1,29 @@
 import type React from "react"
+import "@/app/globals.css"
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
-import "./globals.css"
+import { Inter, Noto_Serif_JP } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
+import { AuthProvider } from "@/contexts/auth-context"
 
 const inter = Inter({ subsets: ["latin"] })
+const notoSerifJP = Noto_Serif_JP({
+  weight: ["400", "700"],
+  subsets: ["latin"],
+  variable: "--font-kaisho",
+})
 
-// レイアウトのメタデータから「サポスケ」の記載を削除
 export const metadata: Metadata = {
-  title: "プロジェクト管理クラウド",
-  description: "Excelのような自由度を持ちつつ、簡単に共有できるスケジュール管理ツール",
+  title: "現助 - 建設業向け業務管理システム",
+  description: "スケジュール管理、シフト管理、日報・安全パトロール記録など、建設業に特化した業務管理システムです。",
     generator: 'v0.dev'
 }
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ja">
-      <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          {children}
+    <html lang="ja" suppressHydrationWarning>
+      <body className={`${inter.className} ${notoSerifJP.variable}`}>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>
       </body>
     </html>

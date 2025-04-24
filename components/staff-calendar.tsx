@@ -1,328 +1,240 @@
 "use client"
 
-import { useState } from "react"
-import { ChevronLeft, ChevronRight, Plus, Wrench, Briefcase, Users, Mail, Phone } from "lucide-react"
+import { useState, useCallback } from "react"
+import { Calendar, momentLocalizer } from "react-big-calendar"
+import moment from "moment"
+import "moment/locale/ja"
+import "react-big-calendar/lib/css/react-big-calendar.css"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { sampleProjects, sampleStaff, sampleTools } from "@/data/sample-data"
+import { StaffAssignmentDialog } from "@/components/staff-assignment-dialog"
 
-export function StaffCalendar() {
-  const [currentMonth, setCurrentMonth] = useState(new Date())
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
-  const [selectedStaff, setSelectedStaff] = useState<any | null>(null)
-  const [viewMode, setViewMode] = useState<"month" | "week" | "day">("month")
-  const [filterStaff, setFilterStaff] = useState<string>("all")
+// 日本語ロケールを設定
+moment.locale("ja")
+const localizer = momentLocalizer(moment)
 
-  const getDaysInMonth = (year: number, month: number) => {
-    return new Date(year, month + 1, 0).getDate()
-  }
+// カレンダーイベントの型定義
+interface CalendarEvent {
+  id: number
+  title: string
+  start: Date
+  end: Date
+  description?: string
+  projectId?: number
+  staffId?: string
+  allDay?: boolean
+}
 
-  const getFirstDayOfMonth = (year: number, month: number) => {
-    return new Date(year, month, 1).getDay()
-  }
+// スタッフカレンダーのprops型定義
+interface StaffCalendarProps {
+  events?: CalendarEvent[]
+  onEventAdd?: (event: CalendarEvent) => void
+  onEventUpdate?: (event: CalendarEvent) => void
+  onEventDelete?: (eventId: number) => void
+  timeframe?: string
+}
 
-  // スタッフをフィルタリング
-  const filteredStaff =
-    filterStaff === "all" ? sampleStaff : sampleStaff.filter((staff) => staff.id.toString() === filterStaff)
+// サンプルイベント
+const sampleEvents: CalendarEvent[] = [
+  {
+    id: 1,
+    title: "山田太郎：現場A",
+    start: new Date(2023, 2, 1, 9, 0),
+    end: new Date(2023, 2, 1, 17, 0),
+    staffId: "1",
+    projectId: 1,
+  },
+  {
+    id: 2,
+    title: "佐藤次郎：現場B",
+    start: new Date(2023, 2, 3, 9, 0),
+    end: new Date(2023, 2, 3, 17, 0),
+    staffId: "2",
+    projectId: 2,
+  },
+  {
+    id: 3,
+    title: "鈴木三郎：現場C",
+    start: new Date(2023, 2, 5, 9, 0),
+    end: new Date(2023, 2, 5, 17, 0),
+    staffId: "3",
+    projectId: 3,
+  },
+  {
+    id: 4,
+    title: "高橋四郎：現場A",
+    start: new Date(2023, 2, 8, 9, 0),
+    end: new Date(2023, 2, 8, 17, 0),
+    staffId: "4",
+    projectId: 1,
+  },
+  {
+    id: 5,
+    title: "山田太郎：現場B",
+    start: new Date(2023, 2, 10, 9, 0),
+    end: new Date(2023, 2, 10, 17, 0),
+    staffId: "1",
+    projectId: 2,
+  },
+]
 
-  // スタッフに紐づくプロジェクトを取得（改善版）
-  const getStaffProjects = (staffId: number) => {
-    const staff = sampleStaff.find((s) => s.id === staffId)
-    if (!staff) return []
+export function StaffCalendar({
+  events: initialEvents = sampleEvents,
+  onEventAdd,
+  onEventUpdate,
+  onEventDelete,
+  timeframe = "month",
+}: StaffCalendarProps) {
+  const [events, setEvents] = useState<CalendarEvent[]>(initialEvents)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
+  const [viewMode, setViewMode] = useState<"month" | "week" | "day">((timeframe as any) || "month")
+  const [currentDate, setCurrentDate] = useState(new Date())
 
-    return sampleProjects.filter((project) => staff.assignedProjects.includes(project.id))
-  }
+  // イベントをクリックしたときのハンドラ
+  const handleEventClick = useCallback((event: CalendarEvent) => {
+    setSelectedEvent(event)
+    setIsDialogOpen(true)
+  }, [])
 
-  // スタッフに紐づく重機を取得（改善版）
-  const getStaffTools = (staffId: number) => {
-    const staff = sampleStaff.find((s) => s.id === staffId)
-    if (!staff || !staff.assignedTools) return []
+  // スロットを選択したときのハンドラ（新規イベント作成）
+  const handleSelectSlot = useCallback(({ start, end }: { start: Date; end: Date }) => {
+    setSelectedEvent({ id: 0, title: "", start, end })
+    setIsDialogOpen(true)
+  }, [])
 
-    return sampleTools.filter((tool) => staff.assignedTools.includes(tool.id))
-  }
+  // 新規作成ボタンをクリックしたときのハンドラ
+  const handleNewEventClick = useCallback(() => {
+    console.log("スタッフカレンダー: 新規作成ボタンがクリックされました")
+    const now = new Date()
+    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000)
+    setSelectedEvent({ id: 0, title: "", start: now, end: oneHourLater })
+    console.log("ダイアログを開きます", { isDialogOpen: false, willBe: true })
+    setIsDialogOpen(true)
+  }, [])
 
-  // スタッフの休暇を取得
-  const getStaffVacations = (staffId: number) => {
-    const staff = sampleStaff.find((s) => s.id === staffId)
-    return staff ? staff.vacations : []
-  }
+  // イベント追加のハンドラ
+  const handleEventAdd = useCallback(
+    (event: CalendarEvent) => {
+      // 新しいIDを生成（実際のアプリではサーバーから取得）
+      const newEvent = {
+        ...event,
+        id: Math.max(0, ...events.map((e) => e.id)) + 1,
+      }
+      setEvents((prev) => [...prev, newEvent])
+      if (onEventAdd) onEventAdd(newEvent)
+    },
+    [events, onEventAdd],
+  )
 
-  const renderCalendar = () => {
-    const year = currentMonth.getFullYear()
-    const month = currentMonth.getMonth()
-    const daysInMonth = getDaysInMonth(year, month)
-    const firstDayOfMonth = getFirstDayOfMonth(year, month)
+  // イベント更新のハンドラ
+  const handleEventUpdate = useCallback(
+    (updatedEvent: CalendarEvent) => {
+      setEvents((prev) => prev.map((event) => (event.id === updatedEvent.id ? updatedEvent : event)))
+      if (onEventUpdate) onEventUpdate(updatedEvent)
+    },
+    [onEventUpdate],
+  )
 
-    const days = []
+  // イベント削除のハンドラ
+  const handleEventDelete = useCallback(
+    (eventId: number) => {
+      setEvents((prev) => prev.filter((event) => event.id !== eventId))
+      if (onEventDelete) onEventDelete(eventId)
+    },
+    [onEventDelete],
+  )
 
-    // 月の最初の日の前の空白セルを追加
-    for (let i = 0; i < firstDayOfMonth; i++) {
-      days.push(<div key={`empty-${i}`} className="h-24 border border-muted bg-muted/20"></div>)
+  // イベントのスタイルをカスタマイズ
+  const eventStyleGetter = (event: CalendarEvent) => {
+    // スタッフIDに基づいて色を変更
+    let backgroundColor = "#3174ad"
+
+    if (event.staffId) {
+      const staffIndex = Number.parseInt(event.staffId) % 5
+      const colors = ["#3174ad", "#ff8c00", "#008000", "#9932cc", "#ff4500"]
+      backgroundColor = colors[staffIndex]
     }
 
-    // 月の各日のセルを追加
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month, day)
-      const isToday = new Date().toDateString() === date.toDateString()
-      const isSelected = selectedDate?.toDateString() === date.toDateString()
-
-      // この日のスタッフの予定を検索
-      const dayStaffEvents: any[] = []
-
-      filteredStaff.forEach((staff) => {
-        // 休暇の確認
-        const vacations = getStaffVacations(staff.id)
-        const hasVacation = vacations.some((v) => v.date.toDateString() === date.toDateString())
-
-        if (hasVacation) {
-          dayStaffEvents.push({
-            type: "vacation",
-            staff,
-            date,
-          })
-        }
-
-        // プロジェクトの確認
-        const projects = getStaffProjects(staff.id)
-        projects.forEach((project) => {
-          const projectStart = new Date(project.startDate)
-          const projectEnd = new Date(project.endDate)
-          if (date >= projectStart && date <= projectEnd) {
-            dayStaffEvents.push({
-              type: "project",
-              staff,
-              project,
-              date,
-            })
-          }
-        })
-      })
-
-      days.push(
-        <div
-          key={day}
-          className={cn(
-            "h-24 border p-1 transition-colors hover:bg-muted/50 cursor-pointer",
-            isToday && "bg-muted/30",
-            isSelected && "bg-muted",
-          )}
-          onClick={() => setSelectedDate(date)}
-        >
-          <div className="flex justify-between">
-            <span className={cn("text-sm font-medium", isToday && "text-primary")}>{day}</span>
-          </div>
-          <ScrollArea className="h-16 w-full">
-            {dayStaffEvents.map((event, index) => {
-              if (event.type === "vacation") {
-                return (
-                  <div
-                    key={`vacation-${event.staff.id}-${index}`}
-                    className="mt-1 rounded p-1 text-xs border bg-green-100 border-green-300"
-                  >
-                    <div className="font-medium truncate">{event.staff.name}</div>
-                    <div className="text-xs">年次有給休暇</div>
-                  </div>
-                )
-              } else if (event.type === "project") {
-                return (
-                  <Dialog key={`project-${event.staff.id}-${event.project.id}-${index}`}>
-                    <DialogTrigger asChild>
-                      <div
-                        className="mt-1 rounded p-1 text-xs border bg-blue-100 border-blue-300"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setSelectedStaff(event.staff)
-                        }}
-                      >
-                        <div className="font-medium truncate">{event.staff.name}</div>
-                        <div className="text-xs truncate">{event.project.name}</div>
-                      </div>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[500px]">
-                      <DialogHeader>
-                        <DialogTitle className="text-xl flex items-center gap-2">
-                          <Users className="h-5 w-5" />
-                          {event.staff.name}
-                        </DialogTitle>
-                      </DialogHeader>
-                      <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <h4 className="text-sm font-medium text-muted-foreground mb-1">役職</h4>
-                            <p className="font-medium">{event.staff.position}</p>
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-medium text-muted-foreground mb-1">担当エリア</h4>
-                            <p className="font-medium">{event.staff.area || "未設定"}</p>
-                          </div>
-                        </div>
-
-                        <div>
-                          <h4 className="text-sm font-medium text-muted-foreground mb-1">連絡先</h4>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="flex items-center gap-1">
-                              <Mail className="h-4 w-4 text-muted-foreground" />
-                              <span>{event.staff.email}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Phone className="h-4 w-4 text-muted-foreground" />
-                              <span>{event.staff.phone}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div>
-                          <h4 className="text-sm font-medium text-muted-foreground mb-1">スキル・資格</h4>
-                          <div className="flex flex-wrap gap-1">
-                            {event.staff.skills.map((skill: string, index: number) => (
-                              <Badge key={index} variant="outline">
-                                {skill}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="border-t pt-4">
-                          <h4 className="font-medium mb-2">現在の案件</h4>
-                          <div className="space-y-3">
-                            <div className="p-3 bg-blue-50 rounded-md border border-blue-200">
-                              <div className="flex justify-between mb-1">
-                                <span className="font-medium">{event.project.name}</span>
-                                <Badge>{event.project.status}</Badge>
-                              </div>
-                              <p className="text-sm text-muted-foreground mb-2">{event.project.client}</p>
-                              <div className="text-sm">
-                                {event.project.startDate.toLocaleDateString()} 〜{" "}
-                                {event.project.endDate.toLocaleDateString()}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div>
-                          <h4 className="font-medium mb-2">担当案件一覧</h4>
-                          <div className="grid gap-2">
-                            {getStaffProjects(event.staff.id).map((project) => (
-                              <div key={project.id} className="flex items-center justify-between p-2 border rounded-md">
-                                <div className="flex items-center gap-2">
-                                  <Briefcase className="h-4 w-4 text-muted-foreground" />
-                                  <span>{project.name}</span>
-                                </div>
-                                <Badge variant="outline">{project.status}</Badge>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div>
-                          <h4 className="font-medium mb-2">使用重機・車両</h4>
-                          <div className="grid gap-2">
-                            {getStaffTools(event.staff.id).map((tool) => (
-                              <div key={tool.id} className="flex items-center justify-between p-2 border rounded-md">
-                                <div className="flex items-center gap-2">
-                                  <Wrench className="h-4 w-4 text-muted-foreground" />
-                                  <span>{tool.name}</span>
-                                </div>
-                                <Badge variant="outline">{tool.category}</Badge>
-                              </div>
-                            ))}
-                            {getStaffTools(event.staff.id).length === 0 && (
-                              <p className="text-sm text-muted-foreground">担当する重機・車両はありません</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                )
-              }
-              return null
-            })}
-          </ScrollArea>
-        </div>,
-      )
+    return {
+      style: {
+        backgroundColor,
+        borderRadius: "4px",
+        opacity: 0.8,
+        color: "white",
+        border: "0px",
+        display: "block",
+      },
     }
-
-    return days
-  }
-
-  const prevMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))
-  }
-
-  const nextMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))
-  }
-
-  const goToToday = () => {
-    setCurrentMonth(new Date())
-    setSelectedDate(new Date())
   }
 
   return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
-          <div className="flex items-center">
-            <h2 className="text-xl font-semibold">
-              {currentMonth.toLocaleDateString("ja-JP", { year: "numeric", month: "long" })}
-            </h2>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Select value={filterStaff} onValueChange={setFilterStaff}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="スタッフを選択" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">すべてのスタッフ</SelectItem>
-                {sampleStaff.map((staff) => (
-                  <SelectItem key={staff.id} value={staff.id.toString()}>
-                    {staff.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center gap-2">
+          <Select value={viewMode} onValueChange={(value: "month" | "week" | "day") => setViewMode(value)}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="表示切替" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="month">月表示</SelectItem>
+              <SelectItem value="week">週表示</SelectItem>
+              <SelectItem value="day">日表示</SelectItem>
+            </SelectContent>
+          </Select>
 
-            <Select value={viewMode} onValueChange={(value: "month" | "week" | "day") => setViewMode(value)}>
-              <SelectTrigger className="w-[120px]">
-                <SelectValue placeholder="表示形式" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="month">月表示</SelectItem>
-                <SelectItem value="week">週表示</SelectItem>
-                <SelectItem value="day">日表示</SelectItem>
-              </SelectContent>
-            </Select>
+          <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>
+            今日
+          </Button>
+        </div>
 
-            <Button variant="outline" size="sm" onClick={goToToday}>
-              今日
-            </Button>
-            <Button variant="outline" size="icon" onClick={prevMonth}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="icon" onClick={nextMonth}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              新規作成
-            </Button>
-          </div>
-        </div>
-        <div className="grid grid-cols-7 gap-1 mb-1">
-          {["日", "月", "火", "水", "木", "金", "土"].map((day) => (
-            <div key={day} className="text-center font-medium py-2">
-              {day}
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7 gap-1">{renderCalendar()}</div>
-      </CardContent>
-    </Card>
+        <div className="text-lg font-medium">スタッフカレンダー</div>
+        <Button variant="default" size="sm" onClick={handleNewEventClick}>
+          新規作成
+        </Button>
+      </div>
+
+      <div style={{ height: 700 }}>
+        <Calendar
+          localizer={localizer}
+          events={events}
+          startAccessor="start"
+          endAccessor="end"
+          style={{ height: "100%" }}
+          onSelectEvent={handleEventClick}
+          onSelectSlot={handleSelectSlot}
+          selectable
+          views={["month", "week", "day"]}
+          view={viewMode}
+          onView={(view) => setViewMode(view as "month" | "week" | "day")}
+          date={currentDate}
+          onNavigate={(date) => setCurrentDate(date)}
+          eventPropGetter={eventStyleGetter}
+          messages={{
+            today: "今日",
+            previous: "前へ",
+            next: "次へ",
+            month: "月",
+            week: "週",
+            day: "日",
+            agenda: "予定リスト",
+            date: "日付",
+            time: "時間",
+            event: "イベント",
+            allDay: "終日",
+            showMore: (total) => `他 ${total} 件`,
+          }}
+        />
+      </div>
+
+      <StaffAssignmentDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        eventData={selectedEvent}
+        onEventAdd={handleEventAdd}
+        onEventUpdate={handleEventUpdate}
+        onEventDelete={handleEventDelete}
+      />
+    </div>
   )
 }

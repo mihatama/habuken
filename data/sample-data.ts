@@ -223,10 +223,75 @@ export const sampleTools = [
   },
 ]
 
-// 休暇データを集約
+// 休暇申請のモックデータ
+export let leaveRequests = [
+  {
+    id: 1,
+    userId: 1,
+    userName: "羽布太郎",
+    leaveType: "paid",
+    startDate: new Date(2025, 3, 10),
+    endDate: new Date(2025, 3, 10),
+    reason: "私用のため",
+    status: "approved",
+    rejectReason: "",
+    createdAt: new Date(2025, 3, 1),
+  },
+  {
+    id: 2,
+    userId: 2,
+    userName: "羽布次郎",
+    leaveType: "paid",
+    startDate: new Date(2025, 3, 15),
+    endDate: new Date(2025, 3, 16),
+    reason: "家族旅行のため",
+    status: "approved",
+    rejectReason: "",
+    createdAt: new Date(2025, 3, 5),
+  },
+  {
+    id: 3,
+    userId: 3,
+    userName: "羽布花子",
+    leaveType: "special",
+    startDate: new Date(2025, 5, 1),
+    endDate: new Date(2025, 5, 2),
+    reason: "結婚式出席のため",
+    status: "pending",
+    rejectReason: "",
+    createdAt: new Date(2025, 4, 20),
+  },
+  {
+    id: 4,
+    userId: 4,
+    userName: "羽布三郎",
+    leaveType: "compensatory",
+    startDate: new Date(2025, 4, 20),
+    endDate: new Date(2025, 4, 20),
+    reason: "先週の休日出勤の振替",
+    status: "pending",
+    rejectReason: "",
+    createdAt: new Date(2025, 4, 15),
+  },
+  {
+    id: 5,
+    userId: 5,
+    userName: "羽布四郎",
+    leaveType: "absent",
+    startDate: new Date(2025, 3, 25),
+    endDate: new Date(2025, 3, 25),
+    reason: "体調不良のため",
+    status: "rejected",
+    rejectReason: "人員不足のため別日での調整をお願いします",
+    createdAt: new Date(2025, 3, 24),
+  },
+]
+
+// 休暇データを集約（承認された休暇申請も含める）
 export const getAllVacations = () => {
   const vacations: { staffId: number; staffName: string; date: Date; type: string }[] = []
 
+  // スタッフの休暇データを追加
   sampleStaff.forEach((staff) => {
     staff.vacations.forEach((vacation) => {
       vacations.push({
@@ -238,7 +303,76 @@ export const getAllVacations = () => {
     })
   })
 
+  // 承認された休暇申請を追加
+  leaveRequests
+    .filter((request) => request.status === "approved")
+    .forEach((request) => {
+      // 開始日から終了日までの各日を追加
+      const currentDate = new Date(request.startDate)
+      const endDate = new Date(request.endDate)
+
+      while (currentDate <= endDate) {
+        vacations.push({
+          staffId: request.userId,
+          staffName: request.userName,
+          date: new Date(currentDate),
+          type: getLeaveTypeName(request.leaveType),
+        })
+        currentDate.setDate(currentDate.getDate() + 1)
+      }
+    })
+
   return vacations.sort((a, b) => a.date.getTime() - b.date.getTime())
+}
+
+// 休暇申請を更新する関数
+export const updateLeaveRequest = (updatedRequest) => {
+  leaveRequests = leaveRequests.map((request) => (request.id === updatedRequest.id ? updatedRequest : request))
+
+  // 承認された場合、対応するスタッフの休暇データを更新
+  if (updatedRequest.status === "approved") {
+    addVacationFromApprovedRequest(updatedRequest)
+  }
+}
+
+// 承認された休暇申請からスタッフの休暇データを追加
+export const addVacationFromApprovedRequest = (approvedRequest) => {
+  const staffIndex = sampleStaff.findIndex((staff) => staff.id === approvedRequest.userId)
+  if (staffIndex === -1) return
+
+  // 開始日から終了日までの各日を追加
+  const currentDate = new Date(approvedRequest.startDate)
+  const endDate = new Date(approvedRequest.endDate)
+
+  while (currentDate <= endDate) {
+    // 既存の休暇と重複していないか確認
+    const existingVacation = sampleStaff[staffIndex].vacations.find((v) => v.date.getTime() === currentDate.getTime())
+
+    if (!existingVacation) {
+      sampleStaff[staffIndex].vacations.push({
+        date: new Date(currentDate),
+        type: getLeaveTypeName(approvedRequest.leaveType),
+      })
+    }
+
+    currentDate.setDate(currentDate.getDate() + 1)
+  }
+}
+
+// 休暇種類の名前を取得
+export const getLeaveTypeName = (type: string) => {
+  switch (type) {
+    case "paid":
+      return "有給"
+    case "compensatory":
+      return "振替休日"
+    case "special":
+      return "特別休暇"
+    case "absent":
+      return "欠勤"
+    default:
+      return type
+  }
 }
 
 // ヘルパー関数：データ取得を改善

@@ -1,35 +1,54 @@
+"use client"
+
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { MainNav } from "@/components/main-nav"
 import { MobileNav } from "@/components/mobile-nav"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { UserNav } from "@/components/user-nav"
 import { Button } from "@/components/ui/button"
-import { Clock } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
 
 export function Header() {
+  const pathname = usePathname()
+  const { user } = useAuth()
+
   return (
-    <header className="sticky top-0 z-40 border-b bg-background">
-      <div className="container mx-auto px-2 sm:px-4 lg:px-6">
-        <div className="flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center space-x-2">
-            <Clock className="h-6 w-6 text-green-700" />
-            <span className="font-bold text-xl text-green-700">プロジェクト管理</span>
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-14 items-center">
+        <div className="mr-4 flex items-center">
+          <Link href="/" className="flex items-center">
+            <span className="font-kaisho text-xl font-bold">現助</span>
           </Link>
-          <div className="flex-1 flex justify-center overflow-hidden">
-            <div className="hidden md:block md:w-full">
-              <MainNav />
-            </div>
-          </div>
-          <div className="flex items-center space-x-4">
-            <div className="hidden md:flex">
-              <Button variant="outline" size="sm" className="mr-2">
-                今日
-              </Button>
-            </div>
-            <UserNav />
-          </div>
-          <div className="md:hidden">
-            <MobileNav />
-          </div>
+        </div>
+        <>
+          <MainNav />
+          <MobileNav />
+        </>
+        <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
+          <div className="w-full flex-1 md:w-auto md:flex-none">{/* 検索フォームなどがあればここに */}</div>
+          <nav className="flex items-center space-x-2">
+            {user ? (
+              <>
+                <ThemeToggle />
+                <UserNav />
+              </>
+            ) : (
+              <>
+                <ThemeToggle />
+                {pathname !== "/login" && (
+                  <Button asChild variant="outline" size="sm">
+                    <Link href="/login">ログイン</Link>
+                  </Button>
+                )}
+                {pathname !== "/signup" && (
+                  <Button asChild size="sm">
+                    <Link href="/signup">新規登録</Link>
+                  </Button>
+                )}
+              </>
+            )}
+          </nav>
         </div>
       </div>
     </header>

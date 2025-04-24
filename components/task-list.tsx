@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,8 +11,26 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, Clock, AlertCircle, MessageSquare } from "lucide-react"
 
-// Mock data for tasks
-const initialTasks = [
+// 型定義
+interface Comment {
+  author: string
+  date: Date
+  text: string
+}
+
+interface Task {
+  id: number
+  name: string
+  project: string
+  dueDate: Date
+  status: string
+  priority: string
+  description: string
+  comments: Comment[]
+}
+
+// モックデータ
+const initialTasks: Task[] = [
   {
     id: 1,
     name: "Site Survey",
@@ -73,34 +91,55 @@ const initialTasks = [
   },
 ]
 
+// ステータスアイコンのマッピング
+const STATUS_ICONS = {
+  Completed: <CheckCircle2 className="h-5 w-5 text-green-500" />,
+  "In Progress": <Clock className="h-5 w-5 text-blue-500" />,
+  "Not Started": <AlertCircle className="h-5 w-5 text-gray-500" />,
+}
+
+// 優先度バッジのマッピング
+const PRIORITY_BADGES = {
+  High: { className: "bg-red-500 hover:bg-red-600" },
+  Medium: { className: "bg-yellow-500 hover:bg-yellow-600" },
+  Low: { className: "bg-green-500 hover:bg-green-600" },
+}
+
 export function TaskList() {
-  const [tasks, setTasks] = useState(initialTasks)
+  const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [searchTerm, setSearchTerm] = useState("")
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
-  const [currentTask, setCurrentTask] = useState<any>(null)
+  const [currentTask, setCurrentTask] = useState<Task | null>(null)
   const [newComment, setNewComment] = useState("")
 
-  const filteredTasks = tasks.filter(
-    (task) =>
-      task.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      task.project.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      task.status.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  // フィルタリングされたタスクリストをメモ化
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(
+      (task) =>
+        task.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        task.project.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        task.status.toLowerCase().includes(searchTerm.toLowerCase()),
+    )
+  }, [tasks, searchTerm])
 
-  const handleStatusChange = (taskId: number, newStatus: string) => {
-    const updatedTasks = tasks.map((task) => (task.id === taskId ? { ...task, status: newStatus } : task))
-    setTasks(updatedTasks)
+  // ステータス変更ハンドラ
+  const handleStatusChange = useCallback((taskId: number, newStatus: string) => {
+    setTasks((prev) => prev.map((task) => (task.id === taskId ? { ...task, status: newStatus } : task)))
 
-    if (currentTask && currentTask.id === taskId) {
-      setCurrentTask({ ...currentTask, status: newStatus })
-    }
-  }
+    setCurrentTask((prev) => {
+      if (prev && prev.id === taskId) {
+        return { ...prev, status: newStatus }
+      }
+      return prev
+    })
+  }, [])
 
-  const handleAddComment = () => {
-    if (!newComment.trim()) return
+  // コメント追加ハンドラ
+  const handleAddComment = useCallback(() => {
+    if (!newComment.trim() || !currentTask) return
 
-    const comment = {
-      author: "John Doe", // In a real app, this would be the current user
+    const comment: Comment = {
+      author: "John Doe", // 実際のアプリでは現在のユーザー
       date: new Date(),
       text: newComment,
     }
@@ -110,38 +149,27 @@ export function TaskList() {
       comments: [...currentTask.comments, comment],
     }
 
-    const updatedTasks = tasks.map((task) => (task.id === currentTask.id ? updatedTask : task))
-
-    setTasks(updatedTasks)
+    setTasks((prev) => prev.map((task) => (task.id === currentTask.id ? updatedTask : task)))
     setCurrentTask(updatedTask)
     setNewComment("")
-  }
+  }, [newComment, currentTask])
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "Completed":
-        return <CheckCircle2 className="h-5 w-5 text-green-500" />
-      case "In Progress":
-        return <Clock className="h-5 w-5 text-blue-500" />
-      case "Not Started":
-        return <AlertCircle className="h-5 w-5 text-gray-500" />
-      default:
-        return null
-    }
-  }
+  // ステータスアイコンを取得する関数
+  const getStatusIcon = useCallback((status: string) => {
+    return STATUS_ICONS[status as keyof typeof STATUS_ICONS] || null
+  }, [])
 
-  const getPriorityBadge = (priority: string) => {
-    switch (priority) {
-      case "High":
-        return <Badge className="bg-red-500 hover:bg-red-600">{priority}</Badge>
-      case "Medium":
-        return <Badge className="bg-yellow-500 hover:bg-yellow-600">{priority}</Badge>
-      case "Low":
-        return <Badge className="bg-green-500 hover:bg-green-600">{priority}</Badge>
-      default:
-        return <Badge>{priority}</Badge>
-    }
-  }
+  // 優先度バッジを取得する関数
+  const getPriorityBadge = useCallback((priority: string) => {
+    const badgeConfig = PRIORITY_BADGES[priority as keyof typeof PRIORITY_BADGES] || {}
+    return <Badge className={badgeConfig.className || ""}>{priority}</Badge>
+  }, [])
+
+  // タスク詳細を表示する関数
+  const viewTaskDetails = useCallback((task: Task) => {
+    setCurrentTask(task)
+    setIsViewDialogOpen(true)
+  }, [])
 
   return (
     <Card>
@@ -191,13 +219,7 @@ export function TaskList() {
                       }}
                     >
                       <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setCurrentTask(task)
-                            setIsViewDialogOpen(true)
-                          }}
-                        >
+                        <Button variant="outline" onClick={() => viewTaskDetails(task)}>
                           View Details
                         </Button>
                       </DialogTrigger>
@@ -265,7 +287,7 @@ export function TaskList() {
                               </div>
                               <div className="space-y-4 max-h-[200px] overflow-y-auto">
                                 {currentTask.comments.length > 0 ? (
-                                  currentTask.comments.map((comment: any, index: number) => (
+                                  currentTask.comments.map((comment, index) => (
                                     <div key={index} className="p-3 bg-muted rounded-md">
                                       <div className="flex justify-between mb-1">
                                         <span className="font-medium">{comment.author}</span>
