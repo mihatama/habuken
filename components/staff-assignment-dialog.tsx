@@ -176,8 +176,12 @@ export function StaffAssignmentDialog({
     const loadData = async () => {
       if (open) {
         setDataLoading(true)
+        console.log("データ取得開始 - ダイアログが開かれました", { open })
         try {
           const supabase = getClientSupabaseInstance()
+
+          console.log("Supabaseインスタンス取得完了", { supabase })
+          console.log("スタッフデータ取得開始")
 
           // Always load fresh staff data
           const { data: staffData, error: staffError } = await supabase
@@ -185,8 +189,11 @@ export function StaffAssignmentDialog({
             .select("*")
             .order("full_name", { ascending: true })
 
+          console.log("スタッフデータ取得結果:", { staffData, staffError })
+
           if (staffError) throw new Error(`スタッフ取得エラー: ${staffError.message}`)
           if (staffData && staffData.length > 0) {
+            console.log("スタッフデータをステートにセット:", staffData)
             setStaffData(staffData)
           }
 
@@ -272,6 +279,15 @@ export function StaffAssignmentDialog({
           s.name?.toLowerCase().includes(searchStaff.toLowerCase()) ||
           s.full_name?.toLowerCase().includes(searchStaff.toLowerCase()),
       )
+
+  console.log("フィルタリング後のスタッフデータ:", {
+    dataLoading,
+    staffDataLength: staffData.length,
+    propsStaffLength: staff?.length || 0,
+    filteredStaffLength: filteredStaff.length,
+    searchTerm: searchStaff,
+    filteredStaff,
+  })
 
   // Filter resources based on search
   const filteredResources = dataLoading
@@ -582,6 +598,11 @@ export function StaffAssignmentDialog({
               <TabsTrigger value="tools">備品</TabsTrigger>
             </TabsList>
             <TabsContent value="staff" className="border rounded-md p-4">
+              {console.log("スタッフタブレンダリング", {
+                dataLoading,
+                filteredStaff,
+                selectedStaff,
+              })}
               <div className="mb-4">
                 <Input
                   placeholder="スタッフを検索"
