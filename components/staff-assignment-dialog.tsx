@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Briefcase, Loader2 } from "lucide-react"
+import { useState, useEffect, useCallback, useMemo } from "react"
+import { Briefcase, Loader2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
 import { createMultipleAssignmentEvent, updateCalendarEvent, deleteCalendarEvent } from "@/actions/calendar-events"
 import { getClientSupabaseInstance } from "@/lib/supabase/supabaseClient"
@@ -74,6 +75,8 @@ export function StaffAssignmentDialog({
   const [searchHeavyMachinery, setSearchHeavyMachinery] = useState("")
   const [searchVehicles, setSearchVehicles] = useState("")
   const [searchTools, setSearchTools] = useState("")
+  const [debugInfo, setDebugInfo] = useState<any>(null)
+  const [showDebugInfo, setShowDebugInfo] = useState(false)
 
   // Reset form when dialog opens/closes or eventData changes
   useEffect(() => {
@@ -176,6 +179,7 @@ export function StaffAssignmentDialog({
     const loadData = async () => {
       if (open) {
         setDataLoading(true)
+        setDebugInfo(null)
         console.log("データ取得開始 - ダイアログが開かれました", { open })
         try {
           const supabase = getClientSupabaseInstance()
@@ -216,14 +220,30 @@ export function StaffAssignmentDialog({
 
           try {
             console.log("スタッフデータ取得開始 - クエリ実行前")
+            const startTime = performance.now()
+
+            // スタッフデータを取得
             const { data: staffData, error: staffError } = await supabase
               .from("staff")
               .select("*")
               .order("full_name", { ascending: true })
 
+            const endTime = performance.now()
+
+            // デバッグ情報を設定
+            setDebugInfo({
+              queryTime: Math.round(endTime - startTime),
+              staffData: staffData?.length > 0 ? `${staffData.length}件取得` : "0件",
+              staffError: staffError?.message,
+              supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 10) + "...",
+              supabaseKeyExists: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+              timestamp: new Date().toISOString(),
+            })
+
             console.log("スタッフデータ取得結果:", {
               staffData: staffData ? `${staffData.length}件取得` : null,
               staffError: staffError ? staffError.message : null,
+              queryTime: Math.round(endTime - startTime) + "ms",
             })
 
             if (staffError) {
@@ -241,6 +261,10 @@ export function StaffAssignmentDialog({
             console.error("スタッフクエリエラー:", staffQueryError)
             console.log("サンプルデータを使用します")
             setStaffData(sampleStaffData)
+            setDebugInfo((prev) => ({
+              ...prev,
+              queryError: staffQueryError instanceof Error ? staffQueryError.message : "不明なエラー",
+            }))
           }
 
           // 同様にリソースデータも改善（サンプルデータを用意）
@@ -396,6 +420,11 @@ export function StaffAssignmentDialog({
               email: "sato@example.com",
             },
           ])
+
+          setDebugInfo((prev) => ({
+            ...prev,
+            loadError: error instanceof Error ? error.message : "不明なエラー",
+          }))
         } finally {
           setDataLoading(false)
         }
@@ -405,72 +434,71 @@ export function StaffAssignmentDialog({
     loadData()
   }, [open, toast])
 
-  // useEffectを追加してopenの変更を監視
-  useEffect(() => {
-    console.log("StaffAssignmentDialog: open状態が変更されました", { open })
-  }, [open])
-
   // Format date for input field (YYYY-MM-DD)
-  const formatDateForInput = (date: Date) => {
+  const formatDateForInput = useCallback((date: Date) => {
     return date.toISOString().split("T")[0]
-  }
+  }, [])
 
   // Format time for input field (HH:MM)
-  const formatTimeForInput = (date: Date) => {
+  const formatTimeForInput = useCallback((date: Date) => {
     return date.toTimeString().slice(0, 5)
-  }
+  }, [])
 
   // Filter staff based on search
-  const filteredStaff = dataLoading
-    ? []
-    : (staffData.length > 0 ? staffData : staff).filter(
-        (s) =>
-          s.name?.toLowerCase().includes(searchStaff.toLowerCase()) ||
-          s.full_name?.toLowerCase().includes(searchStaff.toLowerCase()),
-      )
+  const filteredStaff = useMemo(() => {
+    if (dataLoading) return []
 
-  console.log("フィルタリング後のスタッフデータ:", {
-    dataLoading,
-    staffDataLength: staffData.length,
-    propsStaffLength: staff?.length || 0,
-    filteredStaffLength: filteredStaff.length,
-    searchTerm: searchStaff,
-    filteredStaff,
-  })
+    const staffToFilter = staffData.length > 0 ? staffData : staff
+    const lowerSearchTerm = searchStaff.toLowerCase()
+
+    return staffToFilter.filter(
+      (s) => s.name?.toLowerCase().includes(lowerSearchTerm) || s.full_name?.toLowerCase().includes(lowerSearchTerm),
+    )
+  }, [dataLoading, staffData, staff, searchStaff])
 
   // Filter resources based on search
-  const filteredResources = dataLoading
-    ? []
-    : (resourceData.length > 0 ? resourceData : resources).filter((r) =>
-        r.name?.toLowerCase().includes(searchResources.toLowerCase()),
-      )
+  const filteredResources = useMemo(() => {
+    if (dataLoading) return []
+
+    const resourcesToFilter = resourceData.length > 0 ? resourceData : resources
+    const lowerSearchTerm = searchResources.toLowerCase()
+
+    return resourcesToFilter.filter((r) => r.name?.toLowerCase().includes(lowerSearchTerm))
+  }, [dataLoading, resourceData, resources, searchResources])
 
   // Filter heavy machinery based on search
-  const filteredHeavyMachinery = dataLoading
-    ? []
-    : heavyMachineryData.filter(
-        (h) =>
-          h.name?.toLowerCase().includes(searchHeavyMachinery.toLowerCase()) ||
-          h.type?.toLowerCase().includes(searchHeavyMachinery.toLowerCase()),
-      )
+  const filteredHeavyMachinery = useMemo(() => {
+    if (dataLoading) return []
+
+    const lowerSearchTerm = searchHeavyMachinery.toLowerCase()
+
+    return heavyMachineryData.filter(
+      (h) => h.name?.toLowerCase().includes(lowerSearchTerm) || h.type?.toLowerCase().includes(lowerSearchTerm),
+    )
+  }, [dataLoading, heavyMachineryData, searchHeavyMachinery])
 
   // Filter vehicles based on search
-  const filteredVehicles = dataLoading
-    ? []
-    : vehicleData.filter(
-        (v) =>
-          v.name?.toLowerCase().includes(searchVehicles.toLowerCase()) ||
-          v.type?.toLowerCase().includes(searchVehicles.toLowerCase()),
-      )
+  const filteredVehicles = useMemo(() => {
+    if (dataLoading) return []
+
+    const lowerSearchTerm = searchVehicles.toLowerCase()
+
+    return vehicleData.filter(
+      (v) => v.name?.toLowerCase().includes(lowerSearchTerm) || v.type?.toLowerCase().includes(lowerSearchTerm),
+    )
+  }, [dataLoading, vehicleData, searchVehicles])
 
   // Filter tools based on search
-  const filteredTools = dataLoading
-    ? []
-    : toolData.filter(
-        (t) =>
-          t.name?.toLowerCase().includes(searchTools.toLowerCase()) ||
-          t.storage_location?.toLowerCase().includes(searchTools.toLowerCase()),
-      )
+  const filteredTools = useMemo(() => {
+    if (dataLoading) return []
+
+    const lowerSearchTerm = searchTools.toLowerCase()
+
+    return toolData.filter(
+      (t) =>
+        t.name?.toLowerCase().includes(lowerSearchTerm) || t.storage_location?.toLowerCase().includes(lowerSearchTerm),
+    )
+  }, [dataLoading, toolData, searchTools])
 
   // Handle form submission
   const handleSubmit = async () => {
@@ -609,7 +637,7 @@ export function StaffAssignmentDialog({
   }
 
   // Handle staff selection
-  const handleStaffChange = (staffId: string, checked: boolean) => {
+  const handleStaffChange = useCallback((staffId: string, checked: boolean) => {
     setSelectedStaff((prev) => {
       if (checked) {
         return [...prev, staffId]
@@ -617,10 +645,10 @@ export function StaffAssignmentDialog({
         return prev.filter((id) => id !== staffId)
       }
     })
-  }
+  }, [])
 
   // Handle resource selection
-  const handleResourceChange = (resourceId: string, checked: boolean) => {
+  const handleResourceChange = useCallback((resourceId: string, checked: boolean) => {
     setSelectedResources((prev) => {
       if (checked) {
         return [...prev, resourceId]
@@ -628,10 +656,10 @@ export function StaffAssignmentDialog({
         return prev.filter((id) => id !== resourceId)
       }
     })
-  }
+  }, [])
 
   // Handle heavy machinery selection
-  const handleHeavyMachineryChange = (id: string, checked: boolean) => {
+  const handleHeavyMachineryChange = useCallback((id: string, checked: boolean) => {
     setSelectedHeavyMachinery((prev) => {
       if (checked) {
         return [...prev, id]
@@ -639,10 +667,10 @@ export function StaffAssignmentDialog({
         return prev.filter((itemId) => itemId !== id)
       }
     })
-  }
+  }, [])
 
   // Handle vehicle selection
-  const handleVehicleChange = (id: string, checked: boolean) => {
+  const handleVehicleChange = useCallback((id: string, checked: boolean) => {
     setSelectedVehicles((prev) => {
       if (checked) {
         return [...prev, id]
@@ -650,10 +678,10 @@ export function StaffAssignmentDialog({
         return prev.filter((itemId) => itemId !== id)
       }
     })
-  }
+  }, [])
 
   // Handle tool selection
-  const handleToolChange = (id: string, checked: boolean) => {
+  const handleToolChange = useCallback((id: string, checked: boolean) => {
     setSelectedTools((prev) => {
       if (checked) {
         return [...prev, id]
@@ -661,7 +689,7 @@ export function StaffAssignmentDialog({
         return prev.filter((itemId) => itemId !== id)
       }
     })
-  }
+  }, [])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -674,6 +702,17 @@ export function StaffAssignmentDialog({
               : "既存の予定を編集します。変更したい情報を更新してください。"}
           </DialogDescription>
         </DialogHeader>
+
+        {debugInfo && showDebugInfo && (
+          <Alert className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>デバッグ情報</AlertTitle>
+            <AlertDescription>
+              <pre className="text-xs overflow-auto max-h-40 mt-2">{JSON.stringify(debugInfo, null, 2)}</pre>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="title" className="text-right">
@@ -747,11 +786,6 @@ export function StaffAssignmentDialog({
               <TabsTrigger value="tools">備品</TabsTrigger>
             </TabsList>
             <TabsContent value="staff" className="border rounded-md p-4">
-              {console.log("スタッフタブレンダリング", {
-                dataLoading,
-                filteredStaff,
-                selectedStaff,
-              })}
               <div className="mb-4">
                 <Input
                   placeholder="スタッフを検索"
@@ -962,20 +996,32 @@ export function StaffAssignmentDialog({
             />
           </div>
         </div>
-        <DialogFooter>
-          {!isNewEvent && (
-            <Button variant="destructive" onClick={handleDelete} disabled={isLoading} className="mr-auto">
-              {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-              削除
+        <DialogFooter className="flex items-center justify-between">
+          <div className="flex items-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDebugInfo(!showDebugInfo)}
+              className="text-xs text-muted-foreground"
+            >
+              {showDebugInfo ? "デバッグ情報を隠す" : "デバッグ情報を表示"}
             </Button>
-          )}
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
-            キャンセル
-          </Button>
-          <Button onClick={handleSubmit} disabled={isLoading}>
-            {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-            保存
-          </Button>
+          </div>
+          <div className="flex gap-2">
+            {!isNewEvent && (
+              <Button variant="destructive" onClick={handleDelete} disabled={isLoading}>
+                {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                削除
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+              キャンセル
+            </Button>
+            <Button onClick={handleSubmit} disabled={isLoading}>
+              {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              保存
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
