@@ -50,8 +50,11 @@ export const getPublicSupabaseClient = () => {
 }
 
 export const getClientSupabaseInstance = () => {
+  // サーバーサイドでの使用を許可するが、警告を出す
   if (typeof window === "undefined") {
-    throw new Error("getClientSupabaseInstance should only be called in client components")
+    console.warn("getClientSupabaseInstance is being called in a server component. This is not recommended.")
+    // サーバーサイドでは公開クライアントを返す
+    return getPublicSupabaseClient()
   }
 
   if (!supabaseUrl || !supabaseAnonKey) {
