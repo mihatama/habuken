@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
-import { getClientSupabaseInstance } from "@/lib/supabase/supabaseClient"
+import { getClientSupabaseInstance } from "@/lib/supabase-client"
 
 interface StaffSearchProps {
   selectedStaff: string[]
@@ -21,27 +21,41 @@ export function StaffSearch({ selectedStaff, onStaffChange, showSelected = true 
   const [staffList, setStaffList] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   // スタッフデータを取得
   useEffect(() => {
     const fetchStaff = async () => {
       try {
         setIsLoading(true)
+        setError(null)
+
         const supabase = getClientSupabaseInstance()
+        console.log("Fetching staff data...")
+
         const { data, error } = await supabase.from("staff").select("*").order("full_name", { ascending: true })
 
-        if (error) throw error
+        if (error) {
+          console.error("Staff fetch error:", error)
+          setError(`スタッフデータの取得に失敗しました: ${error.message}`)
+          toast({
+            title: "エラー",
+            description: `スタッフ一覧の取得に失敗しました: ${error.message}`,
+            variant: "destructive",
+          })
+          throw error
+        }
+
+        console.log(`Retrieved ${data?.length || 0} staff records`)
 
         if (data) {
           setStaffList(data)
+        } else {
+          setStaffList([])
         }
       } catch (error) {
-        console.error("スタッフ取得エラー:", error)
-        toast({
-          title: "エラー",
-          description: "スタッフ一覧の取得に失敗しました",
-          variant: "destructive",
-        })
+        console.error("Staff fetch exception:", error)
+        setError("スタッフデータの取得中に例外が発生しました")
       } finally {
         setIsLoading(false)
       }
@@ -75,6 +89,13 @@ export function StaffSearch({ selectedStaff, onStaffChange, showSelected = true 
           className="flex-1"
         />
       </div>
+
+      {/* エラー表示 */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+          <p>{error}</p>
+        </div>
+      )}
 
       {/* 選択済みスタッフ表示 */}
       {showSelected && selectedStaff.length > 0 && (
@@ -133,7 +154,7 @@ export function StaffSearch({ selectedStaff, onStaffChange, showSelected = true 
               ) : (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
-                    検索条件に一致するスタッフが見つかりません
+                    {error ? "エラーが発生しました" : "検索条件に一致するスタッフが見つかりません"}
                   </TableCell>
                 </TableRow>
               )}

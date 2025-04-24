@@ -1,6 +1,6 @@
 "use server"
 
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase-client"
 import { revalidatePath } from "next/cache"
 import { v4 as uuidv4 } from "uuid"
 
@@ -145,14 +145,14 @@ export async function getUsers() {
     const { data, error } = await supabase
       .from("profiles")
       .select(`
-        id,
-        email,
-        full_name,
-        position,
-        department,
-        created_at,
-        user_roles(role)
-      `)
+      id,
+      email,
+      full_name,
+      position,
+      department,
+      created_at,
+      user_roles(role)
+    `)
       .order("created_at", { ascending: false })
 
     if (error) {
