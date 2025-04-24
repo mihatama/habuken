@@ -49,19 +49,18 @@ export const getPublicSupabaseClient = () => {
 }
 
 // クライアントサイド用のクライアント
-// サーバーサイドでも使用可能だが、その場合は公開クライアントと同じ設定になる
+// この関数はクライアントコンポーネントでのみ使用すべき
 export const getClientSupabaseInstance = () => {
+  // サーバーサイドでの使用を完全に禁止
+  if (typeof window === "undefined") {
+    throw new Error("getClientSupabaseInstance should only be called in client components")
+  }
+
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error("Missing Supabase URL or Anon Key")
   }
 
-  // サーバーサイドの場合は公開クライアントを返す
-  if (typeof window === "undefined") {
-    return getPublicSupabaseClient()
-  }
-
   // クライアントサイドの場合は、windowオブジェクトにクライアントを保存する
-  // これにより、複数のインスタンスが作成されるのを防ぐ
   if (!(window as any).__supabaseClient) {
     ;(window as any).__supabaseClient = createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
@@ -73,6 +72,18 @@ export const getClientSupabaseInstance = () => {
   }
 
   return (window as any).__supabaseClient
+}
+
+// サーバーサイドでも安全に使用できるSupabaseクライアント
+// これはgetClientSupabaseInstanceの代替として使用できる
+export const createSafeSupabaseClient = () => {
+  // サーバーサイドの場合は公開クライアントを返す
+  if (typeof window === "undefined") {
+    return getPublicSupabaseClient()
+  }
+
+  // クライアントサイドの場合はクライアントインスタンスを返す
+  return getClientSupabaseInstance()
 }
 
 // クライアントをリセットする（主にテスト用）

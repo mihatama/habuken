@@ -1,12 +1,23 @@
-// このファイルは互換性のために存在します
-// 新しいコードでは lib/supabase.ts を使用してください
+// このファイルは互換性のために残しています
+// 新しいコードでは lib/supabase.ts を直接インポートすることをお勧めします
 
 import {
   createServerSupabaseClient,
-  getClientSupabaseInstance,
   getPublicSupabaseClient,
+  getClientSupabaseInstance,
+  createSafeSupabaseClient,
   resetSupabaseClients,
 } from "../supabase"
 
-// 古いインポートパスとの互換性のために再エクスポート
-export { createServerSupabaseClient, getClientSupabaseInstance, getPublicSupabaseClient, resetSupabaseClients }
+// 既存のコードとの互換性のために再エクスポート
+export {
+  createServerSupabaseClient,
+  getPublicSupabaseClient,
+  getClientSupabaseInstance,
+  createSafeSupabaseClient,
+  resetSupabaseClients,
+}
+
+// サーバーサイドでも安全に使用できるSupabaseクライアント
+// これはgetClientSupabaseInstanceの代替として使用できる
+export const getSupabaseClient = createSafeSupabaseClient
