@@ -55,7 +55,6 @@ export function ProjectList() {
 
   // プロジェクト一覧を取得
   useEffect(() => {
-    console.log("コンポーネントがマウントされました")
     fetchProjects()
     fetchStaff()
     fetchHeavyMachinery()
@@ -91,21 +90,12 @@ export function ProjectList() {
   const fetchStaff = async () => {
     try {
       const supabase = getClientSupabaseInstance()
-      // staffテーブルから全データを取得
-      console.log("スタッフデータを取得中...")
       const { data, error } = await supabase.from("staff").select("*").order("full_name", { ascending: true })
 
-      if (error) {
-        console.error("スタッフ取得エラー:", error)
-        throw error
-      }
+      if (error) throw error
 
       if (data) {
-        console.log("取得したスタッフデータ:", data.length)
         setStaffList(data)
-      } else {
-        console.log("スタッフデータが空です")
-        setStaffList([])
       }
     } catch (error) {
       console.error("スタッフ取得エラー:", error)
@@ -121,20 +111,12 @@ export function ProjectList() {
   const fetchHeavyMachinery = async () => {
     try {
       const supabase = getClientSupabaseInstance()
-      console.log("重機データを取得中...")
       const { data, error } = await supabase.from("heavy_machinery").select("*").order("name", { ascending: true })
 
-      if (error) {
-        console.error("重機取得エラー:", error)
-        throw error
-      }
+      if (error) throw error
 
       if (data) {
-        console.log("取得した重機データ:", data.length)
         setHeavyMachineryList(data)
-      } else {
-        console.log("重機データが空です")
-        setHeavyMachineryList([])
       }
     } catch (error) {
       console.error("重機取得エラー:", error)
@@ -150,20 +132,12 @@ export function ProjectList() {
   const fetchVehicles = async () => {
     try {
       const supabase = getClientSupabaseInstance()
-      console.log("車両データを取得中...")
       const { data, error } = await supabase.from("vehicles").select("*").order("name", { ascending: true })
 
-      if (error) {
-        console.error("車両取得エラー:", error)
-        throw error
-      }
+      if (error) throw error
 
       if (data) {
-        console.log("取得した車両データ:", data.length)
         setVehiclesList(data)
-      } else {
-        console.log("車両データが空です")
-        setVehiclesList([])
       }
     } catch (error) {
       console.error("車両取得エラー:", error)
@@ -179,20 +153,12 @@ export function ProjectList() {
   const fetchTools = async () => {
     try {
       const supabase = getClientSupabaseInstance()
-      console.log("備品データを取得中...")
       const { data, error } = await supabase.from("tools").select("*").order("name", { ascending: true })
 
-      if (error) {
-        console.error("備品取得エラー:", error)
-        throw error
-      }
+      if (error) throw error
 
       if (data) {
-        console.log("取得した備品データ:", data.length)
         setToolsList(data)
-      } else {
-        console.log("備品データが空です")
-        setToolsList([])
       }
     } catch (error) {
       console.error("備品取得エラー:", error)
@@ -216,7 +182,7 @@ export function ProjectList() {
   const filteredStaff = staffList.filter(
     (staff) =>
       staff.full_name?.toLowerCase().includes(searchStaff.toLowerCase()) ||
-      (staff.position && staff.position.toLowerCase().includes(searchStaff.toLowerCase())),
+      staff.position?.toLowerCase().includes(searchStaff.toLowerCase()),
   )
 
   // 検索条件に一致する重機をフィルタリング
@@ -683,7 +649,7 @@ export function ProjectList() {
                         <div className="flex flex-wrap gap-2">
                           {getSelectedStaffInfo().map((staff) => (
                             <Badge key={staff.id} variant="outline" className="flex items-center gap-1 py-1">
-                              {staff.full_name || "名前なし"}
+                              {staff.full_name}
                               <button
                                 onClick={() => handleStaffChange(staff.id, false)}
                                 className="ml-1 rounded-full hover:bg-muted p-0.5"
@@ -708,14 +674,7 @@ export function ProjectList() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {dataLoading ? (
-                            <TableRow>
-                              <TableCell colSpan={4} className="text-center py-4">
-                                <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                                <span className="text-muted-foreground">データを読み込み中...</span>
-                              </TableCell>
-                            </TableRow>
-                          ) : filteredStaff.length > 0 ? (
+                          {filteredStaff.length > 0 ? (
                             filteredStaff.map((staff) => (
                               <TableRow key={staff.id} className="cursor-pointer hover:bg-muted/50">
                                 <TableCell>
@@ -724,7 +683,7 @@ export function ProjectList() {
                                     onCheckedChange={(checked) => handleStaffChange(staff.id, checked as boolean)}
                                   />
                                 </TableCell>
-                                <TableCell className="font-medium">{staff.full_name || "名前なし"}</TableCell>
+                                <TableCell className="font-medium">{staff.full_name}</TableCell>
                                 <TableCell>{staff.position || "-"}</TableCell>
                                 <TableCell>{staff.phone || "-"}</TableCell>
                               </TableRow>
@@ -732,9 +691,7 @@ export function ProjectList() {
                           ) : (
                             <TableRow>
                               <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
-                                {searchStaff
-                                  ? "検索条件に一致するスタッフが見つかりません"
-                                  : "スタッフデータがありません"}
+                                検索条件に一致するスタッフが見つかりません
                               </TableCell>
                             </TableRow>
                           )}
@@ -762,7 +719,7 @@ export function ProjectList() {
                         <div className="flex flex-wrap gap-2">
                           {getSelectedHeavyMachineryInfo().map((machinery) => (
                             <Badge key={machinery.id} variant="outline" className="flex items-center gap-1 py-1">
-                              {machinery.name || "名前なし"}
+                              {machinery.name}
                               <button
                                 onClick={() => handleHeavyMachineryChange(machinery.id, false)}
                                 className="ml-1 rounded-full hover:bg-muted p-0.5"
@@ -788,14 +745,7 @@ export function ProjectList() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {dataLoading ? (
-                            <TableRow>
-                              <TableCell colSpan={5} className="text-center py-4">
-                                <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                                <span className="text-muted-foreground">データを読み込み中...</span>
-                              </TableCell>
-                            </TableRow>
-                          ) : filteredHeavyMachinery.length > 0 ? (
+                          {filteredHeavyMachinery.length > 0 ? (
                             filteredHeavyMachinery.map((machinery) => (
                               <TableRow key={machinery.id} className="cursor-pointer hover:bg-muted/50">
                                 <TableCell>
@@ -806,7 +756,7 @@ export function ProjectList() {
                                     }
                                   />
                                 </TableCell>
-                                <TableCell className="font-medium">{machinery.name || "名前なし"}</TableCell>
+                                <TableCell className="font-medium">{machinery.name}</TableCell>
                                 <TableCell>{machinery.type || "-"}</TableCell>
                                 <TableCell>{machinery.ownership_type || "-"}</TableCell>
                                 <TableCell>{machinery.location || "-"}</TableCell>
@@ -815,9 +765,7 @@ export function ProjectList() {
                           ) : (
                             <TableRow>
                               <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
-                                {searchHeavyMachinery
-                                  ? "検索条件に一致する重機が見つかりません"
-                                  : "重機データがありません"}
+                                検索条件に一致する重機が見つかりません
                               </TableCell>
                             </TableRow>
                           )}
@@ -845,7 +793,7 @@ export function ProjectList() {
                         <div className="flex flex-wrap gap-2">
                           {getSelectedVehiclesInfo().map((vehicle) => (
                             <Badge key={vehicle.id} variant="outline" className="flex items-center gap-1 py-1">
-                              {vehicle.name || "名前なし"}
+                              {vehicle.name}
                               <button
                                 onClick={() => handleVehicleChange(vehicle.id, false)}
                                 className="ml-1 rounded-full hover:bg-muted p-0.5"
@@ -871,14 +819,7 @@ export function ProjectList() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {dataLoading ? (
-                            <TableRow>
-                              <TableCell colSpan={5} className="text-center py-4">
-                                <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                                <span className="text-muted-foreground">データを読み込み中...</span>
-                              </TableCell>
-                            </TableRow>
-                          ) : filteredVehicles.length > 0 ? (
+                          {filteredVehicles.length > 0 ? (
                             filteredVehicles.map((vehicle) => (
                               <TableRow key={vehicle.id} className="cursor-pointer hover:bg-muted/50">
                                 <TableCell>
@@ -887,7 +828,7 @@ export function ProjectList() {
                                     onCheckedChange={(checked) => handleVehicleChange(vehicle.id, checked as boolean)}
                                   />
                                 </TableCell>
-                                <TableCell className="font-medium">{vehicle.name || "名前なし"}</TableCell>
+                                <TableCell className="font-medium">{vehicle.name}</TableCell>
                                 <TableCell>{vehicle.type || "-"}</TableCell>
                                 <TableCell>{vehicle.ownership_type || "-"}</TableCell>
                                 <TableCell>{vehicle.location || "-"}</TableCell>
@@ -896,7 +837,7 @@ export function ProjectList() {
                           ) : (
                             <TableRow>
                               <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
-                                {searchVehicles ? "検索条件に一致する車両が見つかりません" : "車両データがありません"}
+                                検索条件に一致する車両が見つかりません
                               </TableCell>
                             </TableRow>
                           )}
@@ -924,7 +865,7 @@ export function ProjectList() {
                         <div className="flex flex-wrap gap-2">
                           {getSelectedToolsInfo().map((tool) => (
                             <Badge key={tool.id} variant="outline" className="flex items-center gap-1 py-1">
-                              {tool.name || "名前なし"}
+                              {tool.name}
                               <button
                                 onClick={() => handleToolChange(tool.id, false)}
                                 className="ml-1 rounded-full hover:bg-muted p-0.5"
@@ -950,14 +891,7 @@ export function ProjectList() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {dataLoading ? (
-                            <TableRow>
-                              <TableCell colSpan={5} className="text-center py-4">
-                                <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                                <span className="text-muted-foreground">データを読み込み中...</span>
-                              </TableCell>
-                            </TableRow>
-                          ) : filteredTools.length > 0 ? (
+                          {filteredTools.length > 0 ? (
                             filteredTools.map((tool) => (
                               <TableRow key={tool.id} className="cursor-pointer hover:bg-muted/50">
                                 <TableCell>
@@ -966,7 +900,7 @@ export function ProjectList() {
                                     onCheckedChange={(checked) => handleToolChange(tool.id, checked as boolean)}
                                   />
                                 </TableCell>
-                                <TableCell className="font-medium">{tool.name || "名前なし"}</TableCell>
+                                <TableCell className="font-medium">{tool.name}</TableCell>
                                 <TableCell>{tool.storage_location || "-"}</TableCell>
                                 <TableCell>{tool.condition || "-"}</TableCell>
                                 <TableCell>
@@ -977,7 +911,7 @@ export function ProjectList() {
                           ) : (
                             <TableRow>
                               <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
-                                {searchTools ? "検索条件に一致する備品が見つかりません" : "備品データがありません"}
+                                検索条件に一致する備品が見つかりません
                               </TableCell>
                             </TableRow>
                           )}

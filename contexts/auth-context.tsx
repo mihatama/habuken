@@ -1,11 +1,11 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState } from "react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { SupabaseClient, User } from "@supabase/supabase-js"
 import type { Database } from "@/types/supabase"
 import type { ReactNode } from "react"
 import type { AuthError } from "@supabase/supabase-js"
+import { getClientSupabaseInstance } from "@/lib/supabase"
 
 // パスワード強度チェック用の正規表現を修正
 const PASSWORD_REGEX = {
@@ -33,7 +33,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClientComponentClient<Database>()
+  const supabase = getClientSupabaseInstance()
 
   useEffect(() => {
     const getUser = async () => {
