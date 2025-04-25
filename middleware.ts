@@ -35,9 +35,21 @@ export async function middleware(req: NextRequest) {
     const url = req.nextUrl.clone()
     const path = url.pathname
 
-    // デバッグ用ログ
-    console.log(`Middleware実行: Path=${path}, Headers=${JSON.stringify(Object.fromEntries(req.headers))}`)
-    console.log(`Cookies: ${req.cookies.toString()}`)
+    // タイムスタンプ付きのログ
+    const timestamp = new Date().toISOString().split("T")[1].split(".")[0] // HH:MM:SS形式
+    console.log(`[${timestamp}] Middleware実行: Path=${path}`)
+
+    // Cookieの詳細をログに出力
+    const cookieStr = req.cookies.toString()
+    console.log(`[${timestamp}] Cookies: ${cookieStr}`)
+
+    // 重要なヘッダーをログに出力
+    const headers = {
+      referer: req.headers.get("referer") || "none",
+      "user-agent": req.headers.get("user-agent") || "none",
+      "x-redirect-count": req.headers.get("x-redirect-count") || "0",
+    }
+    console.log(`[${timestamp}] Headers:`, headers)
 
     // 静的アセットやAPIルートはスキップ
     if (staticPaths.some((staticPath) => path.startsWith(staticPath)) || path.includes(".")) {
@@ -46,14 +58,14 @@ export async function middleware(req: NextRequest) {
 
     // デバッグパスは常にアクセス可能
     if (debugPaths.some((debugPath) => path === debugPath || path.startsWith(`${debugPath}/`))) {
-      console.log(`Middleware: Debug path, skipping auth check: ${path}`)
+      console.log(`[${timestamp}] Middleware: Debug path, skipping auth check: ${path}`)
       return NextResponse.next()
     }
 
     // リダイレクトループ検出
     const redirectCount = Number.parseInt(req.headers.get("x-redirect-count") || "0")
     if (redirectCount > 5) {
-      console.error(`リダイレクトループを検出しました: ${path}, カウント: ${redirectCount}`)
+      console.error(`[${timestamp}] リダイレクトループを検出しました: ${path}, カウント: ${redirectCount}`)
       // デバッグページにリダイレクト
       return NextResponse.redirect(new URL("/debug/supabase", req.url))
     }
@@ -64,16 +76,18 @@ export async function middleware(req: NextRequest) {
     const supabase = createMiddlewareClient({ req, res })
 
     // セッションを取得
+    const startTime = Date.now()
     const {
       data: { session },
     } = await supabase.auth.getSession()
+    const duration = Date.now() - startTime
 
     // デバッグ用ログ
-    console.log(`Middleware: Session=${session ? "exists" : "null"}`)
+    console.log(`[${timestamp}] Middleware: Session=${session ? "exists" : "null"} (取得時間: ${duration}ms)`)
     if (session) {
-      console.log(`User authenticated in middleware: ${session.user.email}`)
+      console.log(`[${timestamp}] User authenticated in middleware: ${session.user.email}`)
     } else {
-      console.log("No active session found in middleware")
+      console.log(`[${timestamp}] No active session found in middleware`)
     }
 
     // 保護されたパスへのアクセスで認証されていない場合はログインページにリダイレクト
@@ -82,7 +96,9 @@ export async function middleware(req: NextRequest) {
     )
 
     if (isProtectedPath && !session) {
-      console.log(`Middleware: リダイレクト実行 - 保護されたパス(${path})にセッションなしでアクセス -> /login`)
+      console.log(
+        `[${timestamp}] Middleware: リダイレクト実行 - 保護されたパス(${path})にセッションなしでアクセス -> /login`,
+      )
       const redirectUrl = new URL("/login", req.url)
       redirectUrl.searchParams.set("redirect", path)
       const redirectRes = NextResponse.redirect(redirectUrl)
@@ -96,7 +112,9 @@ export async function middleware(req: NextRequest) {
     const isAuthPath = publicPaths.includes(path)
 
     if (isAuthPath && session && path !== "/") {
-      console.log(`Middleware: リダイレクト実行 - 認証パス(${path})にセッションありでアクセス -> /dashboard`)
+      console.log(
+        `[${timestamp}] Middleware: リダイレクト実行 - 認証パス(${path})にセッションありでアクセス -> /dashboard`,
+      )
       // リダイレクトURLを設定
       const redirectUrl = new URL("/dashboard", req.url)
       // リダイレクトを実行

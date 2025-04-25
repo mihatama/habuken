@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/auth-context"
 import Link from "next/link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, Info } from "lucide-react"
+import { logWithTimestamp, logNavigation, collectAuthDiagnostics } from "@/lib/auth-debug"
 
 // フォームスキーマを修正
 const formSchema = z.object({
@@ -31,24 +32,25 @@ export function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams.get("redirect") || "/dashboard"
-  const { signIn, supabase } = useAuth()
+  const { signIn, supabase, authDiagnostics } = useAuth()
   const [isLoading, setIsLoading] = React.useState<boolean>(false)
   const [loginError, setLoginError] = React.useState<string | null>(null)
   const [supabaseStatus, setSupabaseStatus] = React.useState<"checking" | "ok" | "error">("checking")
   const [redirectHistory, setRedirectHistory] = React.useState<string[]>([])
+  const [redirectMethod, setRedirectMethod] = React.useState<"router" | "location" | "none">("location")
 
   // Supabase接続テスト
   React.useEffect(() => {
     const checkSupabase = async () => {
       try {
-        console.log("Supabase接続テスト開始")
+        logWithTimestamp("Supabase接続テスト開始")
         // 簡単な接続テスト - 匿名セッションを取得
         const { data, error } = await supabase.auth.getSession()
         if (error) {
           console.error("Supabase connection error:", error)
           setSupabaseStatus("error")
         } else {
-          console.log("Supabase connection successful", data)
+          logWithTimestamp("Supabase connection successful", data)
           setSupabaseStatus("ok")
         }
       } catch (err) {
@@ -70,6 +72,27 @@ export function LoginForm() {
     },
   })
 
+  // リダイレクト実行関数
+  const executeRedirect = (destination: string, method: "router" | "location") => {
+    logNavigation("実行", `${destination} (方法: ${method})`)
+
+    if (method === "router") {
+      setRedirectHistory((prev) => [...prev, `Next.jsルーターでリダイレクト: ${destination}`])
+      router.push(destination)
+    } else {
+      setRedirectHistory((prev) => [...prev, `window.locationでリダイレクト: ${destination}`])
+
+      // リダイレクト前に診断情報を収集
+      const diagnostics = collectAuthDiagnostics()
+      console.log("リダイレクト前の診断情報:", diagnostics)
+
+      // 少し遅延を入れてからリダイレクト
+      setTimeout(() => {
+        window.location.href = destination
+      }, 500)
+    }
+  }
+
   // onSubmit関数を修正
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true)
@@ -83,11 +106,18 @@ export function LoginForm() {
         return
       }
 
-      console.log("Attempting login with:", values.emailOrId)
+      logWithTimestamp("Attempting login with:", values.emailOrId)
       setRedirectHistory((prev) => [...prev, `ログイン試行: ${values.emailOrId}`])
 
+      // ログイン前の診断情報を収集
+      const preDiagnostics = authDiagnostics()
+      logWithTimestamp("ログイン前の診断情報:", preDiagnostics)
+
       // Supabase認証を使用
+      const startTime = Date.now()
       const { error, data } = await signIn(values.emailOrId, values.password)
+      const duration = Date.now() - startTime
+      logWithTimestamp(`ログイン処理完了: ${duration}ms`)
 
       if (error) {
         console.error("Login error:", error)
@@ -116,22 +146,29 @@ export function LoginForm() {
         })
       } else {
         // ログイン成功
-        console.log("Login successful:", data)
+        logWithTimestamp("Login successful:", {
+          user: data.user?.email,
+          session: data.session ? "存在します" : "存在しません",
+        })
         setRedirectHistory((prev) => [...prev, "ログイン成功: セッション設定完了"])
+
+        // ログイン後の診断情報を収集
+        const postDiagnostics = authDiagnostics()
+        logWithTimestamp("ログイン後の診断情報:", postDiagnostics)
 
         toast({
           title: "ログイン成功",
           description: "ログインに成功しました。",
         })
 
-        // 明示的にリダイレクトを実行 - window.location.hrefを使用
-        console.log(`リダイレクト先: ${redirect}`)
-        setRedirectHistory((prev) => [...prev, `リダイレクト実行: ${redirect} (window.location使用)`])
+        // 明示的にリダイレクトを実行
+        logWithTimestamp(`リダイレクト先: ${redirect} (方法: ${redirectMethod})`)
+        setRedirectHistory((prev) => [...prev, `リダイレクト実行: ${redirect} (方法: ${redirectMethod})`])
 
-        // 少し遅延を入れてからリダイレクト
+        // リダイレクト前に少し待機して認証状態が確実に更新されるようにする
         setTimeout(() => {
-          window.location.href = redirect
-        }, 500)
+          executeRedirect(redirect, redirectMethod)
+        }, 300)
       }
     } catch (error) {
       console.error("Login error:", error)
@@ -152,7 +189,7 @@ export function LoginForm() {
   // 手動リダイレクト
   const handleManualRedirect = () => {
     setRedirectHistory((prev) => [...prev, `手動リダイレクト実行: ${redirect}`])
-    window.location.href = redirect
+    executeRedirect(redirect, redirectMethod)
   }
 
   // ストレージクリア
@@ -163,6 +200,16 @@ export function LoginForm() {
     toast({
       title: "ストレージクリア",
       description: "ブラウザのストレージをクリアしました。",
+    })
+  }
+
+  // 診断情報収集
+  const handleCollectDiagnostics = () => {
+    const diagnostics = authDiagnostics()
+    setRedirectHistory((prev) => [...prev, `診断情報収集: ${JSON.stringify(diagnostics)}`])
+    toast({
+      title: "診断情報収集",
+      description: "認証診断情報を収集しました。コンソールを確認してください。",
     })
   }
 
@@ -265,13 +312,38 @@ export function LoginForm() {
       <div className="mt-6 border-t pt-4">
         <h3 className="text-sm font-medium mb-2">デバッグツール</h3>
 
-        <div className="flex gap-2 mb-4">
-          <Button onClick={handleManualRedirect} variant="outline" size="sm">
-            手動リダイレクト
-          </Button>
-          <Button onClick={handleClearStorage} variant="outline" size="sm">
-            ストレージクリア
-          </Button>
+        <div className="space-y-4">
+          <div className="flex flex-col gap-2">
+            <div className="text-sm font-medium">リダイレクト方法:</div>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setRedirectMethod("router")}
+                variant={redirectMethod === "router" ? "default" : "outline"}
+                size="sm"
+              >
+                Next.js Router
+              </Button>
+              <Button
+                onClick={() => setRedirectMethod("location")}
+                variant={redirectMethod === "location" ? "default" : "outline"}
+                size="sm"
+              >
+                window.location
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <Button onClick={handleManualRedirect} variant="outline" size="sm">
+              手動リダイレクト
+            </Button>
+            <Button onClick={handleClearStorage} variant="outline" size="sm">
+              ストレージクリア
+            </Button>
+            <Button onClick={handleCollectDiagnostics} variant="outline" size="sm">
+              診断情報収集
+            </Button>
+          </div>
         </div>
 
         {redirectHistory.length > 0 && (

@@ -1,7 +1,8 @@
 import DashboardClientPage from "./DashboardClientPage"
+import { logWithTimestamp } from "@/lib/auth-debug"
 
 // ページコンポーネントの先頭に追加
-console.log("Dashboard page component rendered")
+logWithTimestamp("Dashboard page component rendered")
 
 export default function DashboardPage() {
   return <DashboardClientPage />
