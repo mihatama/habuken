@@ -15,6 +15,7 @@ import Link from "next/link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, Info } from "lucide-react"
 import { logWithTimestamp, logNavigation, collectAuthDiagnostics } from "@/lib/auth-debug"
+import { cleanupAuthStorage } from "@/lib/supabase/supabaseClient"
 
 // フォームスキーマを修正
 const formSchema = z.object({
@@ -32,12 +33,43 @@ export function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams.get("redirect") || "/dashboard"
-  const { signIn, supabase, authDiagnostics } = useAuth()
+  const { signIn, supabase, authDiagnostics, session, user } = useAuth()
   const [isLoading, setIsLoading] = React.useState<boolean>(false)
   const [loginError, setLoginError] = React.useState<string | null>(null)
   const [supabaseStatus, setSupabaseStatus] = React.useState<"checking" | "ok" | "error">("checking")
   const [redirectHistory, setRedirectHistory] = React.useState<string[]>([])
   const [redirectMethod, setRedirectMethod] = React.useState<"router" | "location" | "none">("location")
+  const [redirectDelay, setRedirectDelay] = React.useState<number>(500)
+  const [autoRedirectEnabled, setAutoRedirectEnabled] = React.useState<boolean>(true)
+  const redirectAttemptedRef = React.useRef<boolean>(false)
+
+  // 初回マウント時に認証ストレージをクリーンアップ
+  React.useEffect(() => {
+    cleanupAuthStorage()
+  }, [])
+
+  // セッションが既に存在する場合は自動的にリダイレクト
+  React.useEffect(() => {
+    if (session && user && autoRedirectEnabled && !redirectAttemptedRef.current) {
+      redirectAttemptedRef.current = true
+
+      logWithTimestamp("既存のセッションを検出しました - 自動リダイレクト", {
+        user: user.email,
+        redirect,
+        sessionExpiry: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : "unknown",
+      })
+
+      setRedirectHistory((prev) => [...prev, `既存セッション検出: ${user.email} - 自動リダイレクト準備`])
+
+      // 少し遅延を入れてからリダイレクト
+      const timer = setTimeout(() => {
+        setRedirectHistory((prev) => [...prev, `自動リダイレクト実行: ${redirect}`])
+        executeRedirect(redirect, "location")
+      }, 300)
+
+      return () => clearTimeout(timer)
+    }
+  }, [session, user, redirect, autoRedirectEnabled])
 
   // Supabase接続テスト
   React.useEffect(() => {
@@ -50,8 +82,16 @@ export function LoginForm() {
           console.error("Supabase connection error:", error)
           setSupabaseStatus("error")
         } else {
-          logWithTimestamp("Supabase connection successful", data)
+          logWithTimestamp("Supabase connection successful", {
+            hasSession: !!data.session,
+            user: data.session?.user?.email || "未ログイン",
+          })
           setSupabaseStatus("ok")
+
+          // セッションがあるが自動リダイレクトが無効の場合は通知
+          if (data.session && !autoRedirectEnabled) {
+            setRedirectHistory((prev) => [...prev, `セッション検出: ${data.session.user.email} (自動リダイレクト無効)`])
+          }
         }
       } catch (err) {
         console.error("Supabase check error:", err)
@@ -60,7 +100,7 @@ export function LoginForm() {
     }
 
     checkSupabase()
-  }, [supabase])
+  }, [supabase, autoRedirectEnabled])
 
   // フォームのデフォルト値を修正
   const form = useForm<z.infer<typeof formSchema>>({
@@ -68,7 +108,7 @@ export function LoginForm() {
     defaultValues: {
       emailOrId: "",
       password: "",
-      rememberMe: false,
+      rememberMe: true, // デフォルトでログイン状態を保持するように変更
     },
   })
 
@@ -88,8 +128,34 @@ export function LoginForm() {
 
       // 少し遅延を入れてからリダイレクト
       setTimeout(() => {
+        // リダイレクト前に認証情報をセッションストレージに一時保存
+        // これにより、ページ遷移後も認証状態を維持できる
+        if (session && user) {
+          try {
+            sessionStorage.setItem("auth_redirect_timestamp", Date.now().toString())
+            sessionStorage.setItem("auth_redirect_user", user.email || user.id)
+            sessionStorage.setItem("auth_redirect_session_exists", "true")
+
+            // 認証情報の一時保存をログに記録
+            logWithTimestamp("認証情報を一時保存しました", {
+              user: user.email || user.id,
+              timestamp: Date.now(),
+            })
+          } catch (e) {
+            console.error("セッションストレージへの保存に失敗:", e)
+          }
+        }
+
+        // リダイレクト直前の状態を記録
+        logWithTimestamp("リダイレクト直前の状態:", {
+          cookies: document.cookie,
+          localStorage: Object.keys(localStorage).filter(
+            (k) => k.includes("auth") || k.includes("supabase") || k.includes("habuken"),
+          ),
+        })
+
         window.location.href = destination
-      }, 500)
+      }, redirectDelay)
     }
   }
 
@@ -168,7 +234,7 @@ export function LoginForm() {
         // リダイレクト前に少し待機して認証状態が確実に更新されるようにする
         setTimeout(() => {
           executeRedirect(redirect, redirectMethod)
-        }, 300)
+        }, redirectDelay)
       }
     } catch (error) {
       console.error("Login error:", error)
@@ -244,6 +310,23 @@ export function LoginForm() {
         </Alert>
       )}
 
+      {user && session && (
+        <Alert className="bg-blue-50 border-blue-200">
+          <Info className="h-4 w-4 text-blue-600" />
+          <AlertTitle className="text-blue-600">既存のセッション</AlertTitle>
+          <AlertDescription>
+            {user.email} としてログイン済みです。
+            {autoRedirectEnabled ? (
+              <span> ダッシュボードに自動的にリダイレクトします...</span>
+            ) : (
+              <Button onClick={handleManualRedirect} variant="link" className="p-0 h-auto text-blue-600">
+                ダッシュボードに移動
+              </Button>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           {/* フォームフィールドを修正 */}
@@ -292,7 +375,7 @@ export function LoginForm() {
               </FormItem>
             )}
           />
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button type="submit" className="w-full" disabled={isLoading || (!!user && !!session)}>
             {isLoading ? "ログイン中..." : "ログイン"}
           </Button>
         </form>
@@ -329,6 +412,60 @@ export function LoginForm() {
                 size="sm"
               >
                 window.location
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="text-sm font-medium">リダイレクト遅延: {redirectDelay}ms</div>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setRedirectDelay(0)}
+                variant={redirectDelay === 0 ? "default" : "outline"}
+                size="sm"
+              >
+                0ms
+              </Button>
+              <Button
+                onClick={() => setRedirectDelay(300)}
+                variant={redirectDelay === 300 ? "default" : "outline"}
+                size="sm"
+              >
+                300ms
+              </Button>
+              <Button
+                onClick={() => setRedirectDelay(500)}
+                variant={redirectDelay === 500 ? "default" : "outline"}
+                size="sm"
+              >
+                500ms
+              </Button>
+              <Button
+                onClick={() => setRedirectDelay(1000)}
+                variant={redirectDelay === 1000 ? "default" : "outline"}
+                size="sm"
+              >
+                1000ms
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="text-sm font-medium">自動リダイレクト:</div>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setAutoRedirectEnabled(true)}
+                variant={autoRedirectEnabled ? "default" : "outline"}
+                size="sm"
+              >
+                有効
+              </Button>
+              <Button
+                onClick={() => setAutoRedirectEnabled(false)}
+                variant={!autoRedirectEnabled ? "default" : "outline"}
+                size="sm"
+              >
+                無効
               </Button>
             </div>
           </div>

@@ -1,4 +1,4 @@
-// 認証状態とページ遷移のタイミングをデバッグするためのユーティリティ
+// 認証状態のデバッグ用ヘルパー関数
 
 // タイムスタンプ付きのログ出力
 export function logWithTimestamp(message: string, data?: any) {
@@ -10,60 +10,124 @@ export function logWithTimestamp(message: string, data?: any) {
   }
 }
 
-// 認証イベントの詳細をログに記録
+// 認証イベントのログ
 export function logAuthEvent(event: string, session: any) {
   logWithTimestamp(`Auth Event: ${event}`)
 
   if (session) {
-    const { user, expires_at } = session
-    const expiresDate = expires_at ? new Date(expires_at * 1000).toISOString() : "unknown"
-
     logWithTimestamp("Session Details:", {
-      user_id: user?.id,
-      email: user?.email,
-      expires_at: expiresDate,
-      session_id: session.id?.substring(0, 8) + "...", // セキュリティのため一部のみ表示
+      user_id: session.user?.id,
+      email: session.user?.email,
+      session_id: session.access_token?.substring(0, 8) + "...",
+      expires_at: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : "unknown",
     })
   } else {
-    logWithTimestamp("Session: null")
+    logWithTimestamp("Session Details: No session")
   }
 }
 
-// ページ遷移のタイミングをログに記録
+// ナビゲーションのログ
 export function logNavigation(action: string, destination: string) {
   logWithTimestamp(`Navigation ${action}: ${destination}`)
 }
 
-// 認証状態のローカルストレージ/Cookieの状態をチェック
+// 認証ストレージの状態確認
 export function checkAuthStorage() {
-  logWithTimestamp("Checking auth storage:")
+  if (typeof window === "undefined") {
+    return { localStorageKeys: [], cookies: "" }
+  }
 
-  // ローカルストレージのキーを確認
-  const localStorageKeys = Object.keys(localStorage).filter(
-    (key) => key.includes("supabase") || key.includes("auth") || key.includes("session"),
-  )
+  try {
+    // ローカルストレージの認証関連キーを取得
+    const localStorageKeys = Object.keys(localStorage).filter(
+      (key) => key.includes("supabase") || key.includes("auth") || key.includes("habuken"),
+    )
 
-  logWithTimestamp("LocalStorage auth keys:", localStorageKeys)
+    // Cookieを取得
+    const cookies = document.cookie
 
-  // Cookieの確認
-  logWithTimestamp("Cookies:", document.cookie)
+    logWithTimestamp("Auth Storage Check:", {
+      localStorageKeys,
+      cookies: cookies.split(";").map((c) => c.trim()),
+    })
 
-  return {
-    localStorageKeys,
-    cookies: document.cookie,
+    return {
+      localStorageKeys,
+      cookies,
+    }
+  } catch (error) {
+    console.error("Error checking auth storage:", error)
+    return { localStorageKeys: [], cookies: "" }
   }
 }
 
-// 認証状態とページ遷移の詳細な診断情報を収集
+// 認証診断情報の収集
 export function collectAuthDiagnostics() {
-  const diagnostics = {
-    timestamp: new Date().toISOString(),
-    url: window.location.href,
-    storage: checkAuthStorage(),
-    userAgent: navigator.userAgent,
-    referrer: document.referrer || "none",
+  if (typeof window === "undefined") {
+    return { error: "Server-side execution" }
   }
 
-  logWithTimestamp("Auth Diagnostics Collected:", diagnostics)
-  return diagnostics
+  try {
+    const storage = checkAuthStorage()
+
+    // セッションストレージの認証関連キーを取得
+    const sessionStorageKeys = Object.keys(sessionStorage).filter(
+      (key) => key.includes("auth") || key.includes("supabase") || key.includes("habuken"),
+    )
+
+    // セッションストレージの値を取得
+    const sessionStorageValues = sessionStorageKeys.reduce(
+      (acc, key) => {
+        acc[key] = sessionStorage.getItem(key)
+        return acc
+      },
+      {} as Record<string, string | null>,
+    )
+
+    const diagnostics = {
+      url: window.location.href,
+      timestamp: new Date().toISOString(),
+      localStorage: storage.localStorageKeys,
+      sessionStorage: sessionStorageValues,
+      cookies: storage.cookies.split(";").map((c) => c.trim()),
+      userAgent: navigator.userAgent,
+    }
+
+    logWithTimestamp("Auth Diagnostics:", diagnostics)
+    return diagnostics
+  } catch (error) {
+    console.error("Error collecting auth diagnostics:", error)
+    return { error: String(error) }
+  }
+}
+
+// セッションの有効期限チェック
+export function checkSessionExpiry(expiresAt: number | null | undefined) {
+  if (!expiresAt) return { valid: false, message: "No expiry time" }
+
+  const now = Date.now() / 1000 // 現在のUNIXタイムスタンプ（秒）
+  const timeUntilExpiry = expiresAt - now
+
+  // 有効期限切れかどうかを確認
+  const isExpired = timeUntilExpiry <= 0
+
+  // 残り時間を計算
+  let remainingTime = ""
+  if (timeUntilExpiry > 0) {
+    if (timeUntilExpiry > 3600) {
+      remainingTime = `${Math.floor(timeUntilExpiry / 3600)}時間${Math.floor((timeUntilExpiry % 3600) / 60)}分`
+    } else {
+      remainingTime = `${Math.floor(timeUntilExpiry / 60)}分${Math.floor(timeUntilExpiry % 60)}秒`
+    }
+  }
+
+  const result = {
+    valid: !isExpired,
+    expiresAt: new Date(expiresAt * 1000).toISOString(),
+    timeUntilExpiry: isExpired ? "期限切れ" : remainingTime,
+    timestamp: new Date().toISOString(),
+  }
+
+  logWithTimestamp("Session Expiry Check:", result)
+  return result
 }

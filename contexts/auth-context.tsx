@@ -1,11 +1,11 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState } from "react"
-import type { SupabaseClient, User } from "@supabase/supabase-js"
+import { createContext, useContext, useEffect, useState, useCallback } from "react"
+import type { SupabaseClient, User, Session } from "@supabase/supabase-js"
 import type { Database } from "@/types/supabase"
 import type { ReactNode } from "react"
 import type { AuthError } from "@supabase/supabase-js"
-import { getClientSupabaseInstance } from "@/lib/supabase"
+import { getClientSupabaseInstance, checkSessionPersistence } from "@/lib/supabase/supabaseClient"
 import { logWithTimestamp, logAuthEvent, checkAuthStorage } from "@/lib/auth-debug"
 
 // パスワード強度チェック用の正規表現
@@ -21,6 +21,7 @@ export type PasswordStrength = {
 // AuthContextType型
 type AuthContextType = {
   user: User | null
+  session: Session | null
   supabase: SupabaseClient<Database>
   loading: boolean
   signOut: () => Promise<void>
@@ -35,13 +36,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const supabase = getClientSupabaseInstance()
-  const [redirectInProgress, setRedirectInProgress] = useState(false)
   const [lastAuthEvent, setLastAuthEvent] = useState<{ event: string; timestamp: number } | null>(null)
 
   // 認証診断情報を収集する関数
-  const authDiagnostics = () => {
+  const authDiagnostics = useCallback(() => {
     logWithTimestamp("認証診断情報の収集開始")
 
     const diagnostics = {
@@ -50,6 +51,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             id: user.id,
             email: user.email,
             lastSignInAt: user.last_sign_in_at,
+          }
+        : null,
+      session: session
+        ? {
+            expires_at: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
+            refresh_token: session.refresh_token ? "存在します" : "存在しません",
           }
         : null,
       loading,
@@ -61,10 +68,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     logWithTimestamp("認証診断情報:", diagnostics)
     return diagnostics
-  }
+  }, [user, session, loading, lastAuthEvent])
 
   // セッションを更新する関数
-  const refreshSession = async () => {
+  const refreshSession = useCallback(async () => {
     try {
       logWithTimestamp("セッション更新開始")
       const { data, error } = await supabase.auth.getSession()
@@ -74,36 +81,79 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      logWithTimestamp("セッション更新成功:", data.session?.user?.email || "セッションなし")
-      setUser(data.session?.user ?? null)
+      if (data.session) {
+        logWithTimestamp("セッション更新成功:", data.session.user.email)
+        setUser(data.session.user)
+        setSession(data.session)
+      } else {
+        logWithTimestamp("セッション更新: セッションなし")
+        setUser(null)
+        setSession(null)
+      }
     } catch (err) {
       console.error("セッション更新中の例外:", err)
     }
-  }
+  }, [supabase.auth])
+
+  // セッションの有効期限をチェックし、必要に応じて更新する
+  const checkSessionExpiry = useCallback(() => {
+    if (!session) return
+
+    const expiresAt = session.expires_at ? session.expires_at * 1000 : 0
+    const now = Date.now()
+    const timeUntilExpiry = expiresAt - now
+
+    // セッションの有効期限が1時間未満の場合、更新を試みる
+    if (timeUntilExpiry < 60 * 60 * 1000) {
+      logWithTimestamp("セッションの有効期限が近いため更新を試みます", {
+        expiresAt: new Date(expiresAt).toISOString(),
+        timeUntilExpiry: Math.floor(timeUntilExpiry / 1000 / 60) + "分",
+      })
+      refreshSession()
+    }
+  }, [session, refreshSession])
+
+  // 定期的にセッションの有効期限をチェック
+  useEffect(() => {
+    const interval = setInterval(checkSessionExpiry, 15 * 60 * 1000) // 15分ごとにチェック
+    return () => clearInterval(interval)
+  }, [checkSessionExpiry])
 
   useEffect(() => {
     const getUser = async () => {
       try {
         logWithTimestamp("AuthProvider: セッション取得開始")
+
+        // まず永続化されたセッションの状態を確認
+        const persistenceCheck = await checkSessionPersistence()
+        logWithTimestamp("永続化されたセッション状態:", {
+          hasSession: persistenceCheck.hasSession,
+          user: persistenceCheck.user?.email || null,
+        })
+
         const {
-          data: { session },
+          data: { session: currentSession },
           error,
         } = await supabase.auth.getSession()
 
         if (error) {
           console.error("Error getting session:", error)
+        } else if (currentSession) {
+          logWithTimestamp("AuthProvider: セッション取得成功", currentSession.user.email)
+          logAuthEvent("INITIAL_SESSION", currentSession)
+
+          setUser(currentSession.user)
+          setSession(currentSession)
         } else {
-          logWithTimestamp("AuthProvider: セッション取得成功", session?.user?.email || "未ログイン")
-          logAuthEvent("INITIAL_SESSION", session)
+          logWithTimestamp("AuthProvider: セッションなし")
         }
 
-        setUser(session?.user ?? null)
         setLoading(false)
 
         // セッション変更を監視
-        const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-          logWithTimestamp(`Auth state changed: ${event}`, session?.user?.email)
-          logAuthEvent(event, session)
+        const { data: authListener } = supabase.auth.onAuthStateChange((event, newSession) => {
+          logWithTimestamp(`Auth state changed: ${event}`, newSession?.user?.email)
+          logAuthEvent(event, newSession)
 
           // 最後の認証イベントを記録
           setLastAuthEvent({
@@ -111,16 +161,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             timestamp: Date.now(),
           })
 
-          // ユーザー状態を更新
-          setUser(session?.user ?? null)
+          // ユーザー状態とセッション状態を更新
+          if (newSession) {
+            setUser(newSession.user)
+            setSession(newSession)
+          } else if (event === "SIGNED_OUT") {
+            setUser(null)
+            setSession(null)
+          }
 
           // セッション変更イベントをより詳細にログ
           if (event === "SIGNED_IN") {
             logWithTimestamp("ユーザーがサインインしました - セッション詳細:", {
-              user_id: session?.user?.id,
-              email: session?.user?.email,
-              session_id: session?.access_token?.substring(0, 8) + "...",
-              expires_at: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : "unknown",
+              user_id: newSession?.user?.id,
+              email: newSession?.user?.email,
+              session_id: newSession?.access_token?.substring(0, 8) + "...",
+              expires_at: newSession?.expires_at ? new Date(newSession.expires_at * 1000).toISOString() : "unknown",
             })
 
             // サインイン後にストレージの状態を確認
@@ -130,7 +186,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } else if (event === "SIGNED_OUT") {
             logWithTimestamp("ユーザーがサインアウトしました")
           } else if (event === "TOKEN_REFRESHED") {
-            logWithTimestamp("トークンが更新されました")
+            logWithTimestamp("トークンが更新されました", {
+              expires_at: newSession?.expires_at ? new Date(newSession.expires_at * 1000).toISOString() : "unknown",
+            })
           }
         })
 
@@ -283,6 +341,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // セッションが存在する場合はユーザー状態を更新
       if (result.data.session) {
         setUser(result.data.user)
+        setSession(result.data.session)
+
         // セッションが正しく設定されたことをログに出力
         logWithTimestamp("Session set successfully:", {
           user: result.data.user?.email,
@@ -302,8 +362,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       logWithTimestamp("ログアウト開始")
-      await supabase.auth.signOut()
-      logWithTimestamp("ログアウト完了")
+
+      // ログアウト前のストレージ状態を確認
+      checkAuthStorage()
+
+      const result = await supabase.auth.signOut()
+
+      // ログアウト後のストレージ状態を確認
+      setTimeout(() => {
+        checkAuthStorage()
+      }, 100)
+
+      logWithTimestamp("ログアウト完了", result)
+
+      // 明示的にユーザーとセッションをクリア
+      setUser(null)
+      setSession(null)
     } catch (error) {
       console.error("ログアウトエラー:", error)
     }
@@ -332,6 +406,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // AuthProviderのvalueオブジェクト
   const value = {
     user,
+    session,
     supabase,
     loading,
     signOut,
