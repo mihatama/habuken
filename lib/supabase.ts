@@ -73,10 +73,14 @@ export const getClientSupabaseInstance = () => {
       throw new Error("Supabase環境変数が設定されていません")
     }
 
+    // セッション永続化の設定を明示的に行う
     clientSupabaseInstance = createClient<Database>(supabaseUrl, supabaseKey, {
       auth: {
         persistSession: true,
         storageKey: "habuken_auth_token",
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        flowType: "pkce",
       },
     })
 

@@ -7,7 +7,7 @@ import type { ReactNode } from "react"
 import type { AuthError } from "@supabase/supabase-js"
 import { getClientSupabaseInstance } from "@/lib/supabase"
 
-// パスワード強度チェック用の正規表現を修正
+// パスワード強度チェック用の正規表現
 const PASSWORD_REGEX = {
   minLength: /.{6,}/,
 }
@@ -17,7 +17,7 @@ export type PasswordStrength = {
   errors: string[]
 }
 
-// AuthContextType型を修正して、signInとsignUpを追加
+// AuthContextType型
 type AuthContextType = {
   user: User | null
   supabase: SupabaseClient<Database>
@@ -53,9 +53,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null)
         setLoading(false)
 
+        // セッション変更を監視
         const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
           console.log("Auth state changed:", event, session?.user?.email)
+
+          // ユーザー状態を更新
           setUser(session?.user ?? null)
+
+          // SIGNED_INイベントの場合、ダッシュボードにリダイレクト
+          if (event === "SIGNED_IN" && window.location.pathname === "/login") {
+            console.log("サインインイベント検出: ダッシュボードにリダイレクトします")
+            setTimeout(() => {
+              window.location.href = "/dashboard"
+            }, 1000)
+          }
+
+          // SIGNED_OUTイベントの場合、ログインページにリダイレクト
+          if (event === "SIGNED_OUT") {
+            console.log("サインアウトイベント検出: ログインページにリダイレクトします")
+            window.location.href = "/login"
+          }
         })
 
         return () => {
@@ -70,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     getUser()
   }, [supabase.auth])
 
-  // パスワード強度チェック関数を修正
+  // パスワード強度チェック関数
   const checkPasswordStrength = (password: string): PasswordStrength => {
     const errors: string[] = []
 
@@ -123,7 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // signIn関数を修正してIDによるログインをサポート
+  // signIn関数
   const signIn = async (emailOrId: string, password: string) => {
     try {
       console.log("Signing in with:", emailOrId)
@@ -230,7 +247,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // AuthProviderのvalueオブジェクトを修正
+  // AuthProviderのvalueオブジェクト
   const value = {
     user,
     supabase,

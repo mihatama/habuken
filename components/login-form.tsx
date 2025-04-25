@@ -35,6 +35,7 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = React.useState<boolean>(false)
   const [loginError, setLoginError] = React.useState<string | null>(null)
   const [supabaseStatus, setSupabaseStatus] = React.useState<"checking" | "ok" | "error">("checking")
+  const [redirectHistory, setRedirectHistory] = React.useState<string[]>([])
 
   // Supabase接続テスト
   React.useEffect(() => {
@@ -51,9 +52,11 @@ export function LoginForm() {
           setSupabaseStatus("ok")
 
           // すでにログイン済みの場合はダッシュボードにリダイレクト
-          // ただし、リダイレクトループを防ぐためにミドルウェアに任せる
           if (data.session) {
             console.log("既存のセッションが見つかりました。ミドルウェアによるリダイレクトを待機します。")
+
+            // リダイレクト履歴を記録
+            setRedirectHistory((prev) => [...prev, "セッション検出: ミドルウェアによるリダイレクトを待機中"])
           }
         }
       } catch (err) {
@@ -89,12 +92,14 @@ export function LoginForm() {
       }
 
       console.log("Attempting login with:", values.emailOrId)
+      setRedirectHistory((prev) => [...prev, `ログイン試行: ${values.emailOrId}`])
 
       // Supabase認証を使用
       const { error, data } = await signIn(values.emailOrId, values.password)
 
       if (error) {
         console.error("Login error:", error)
+        setRedirectHistory((prev) => [...prev, `ログインエラー: ${error.message}`])
 
         // エラーメッセージをより具体的に
         let errorMessage = "認証に失敗しました。"
@@ -120,25 +125,22 @@ export function LoginForm() {
       } else {
         // ログイン成功
         console.log("Login successful:", data)
+        setRedirectHistory((prev) => [...prev, "ログイン成功: セッション設定完了"])
+
         toast({
           title: "ログイン成功",
           description: "ログインに成功しました。",
         })
 
-        // セッションが確実に設定されるようにする
-        // リダイレクトはミドルウェアに任せる
-        console.log("ログイン成功。ミドルウェアによるリダイレクトを待機します。")
-
-        // 念のため、3秒後にリダイレクトを試みる（ミドルウェアが機能しない場合のフォールバック）
-        setTimeout(() => {
-          console.log("フォールバック: 手動でダッシュボードにリダイレクトします")
-          window.location.href = redirect
-        }, 3000)
+        // ミドルウェアによるリダイレクトを待機
+        setRedirectHistory((prev) => [...prev, `リダイレクト待機中: ${redirect}`])
       }
     } catch (error) {
       console.error("Login error:", error)
       const errorMessage = error instanceof Error ? error.message : "不明なエラーが発生しました"
       setLoginError(errorMessage)
+      setRedirectHistory((prev) => [...prev, `例外発生: ${errorMessage}`])
+
       toast({
         variant: "destructive",
         title: "エラー",
@@ -147,6 +149,23 @@ export function LoginForm() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // 手動リダイレクト
+  const handleManualRedirect = () => {
+    setRedirectHistory((prev) => [...prev, `手動リダイレクト実行: ${redirect}`])
+    window.location.href = redirect
+  }
+
+  // ストレージクリア
+  const handleClearStorage = () => {
+    localStorage.clear()
+    sessionStorage.clear()
+    setRedirectHistory((prev) => [...prev, "ローカルストレージとセッションストレージをクリア"])
+    toast({
+      title: "ストレージクリア",
+      description: "ブラウザのストレージをクリアしました。",
+    })
   }
 
   return (
@@ -242,6 +261,31 @@ export function LoginForm() {
         <Link href="/debug/supabase" className="text-muted-foreground hover:text-primary">
           Supabase接続状態を詳細に確認する
         </Link>
+      </div>
+
+      {/* デバッグ情報とツール */}
+      <div className="mt-6 border-t pt-4">
+        <h3 className="text-sm font-medium mb-2">デバッグツール</h3>
+
+        <div className="flex gap-2 mb-4">
+          <Button onClick={handleManualRedirect} variant="outline" size="sm">
+            手動リダイレクト
+          </Button>
+          <Button onClick={handleClearStorage} variant="outline" size="sm">
+            ストレージクリア
+          </Button>
+        </div>
+
+        {redirectHistory.length > 0 && (
+          <div className="text-xs text-muted-foreground mt-2 border p-2 rounded bg-gray-50">
+            <p className="font-medium mb-1">リダイレクト履歴:</p>
+            <ul className="list-disc pl-4 space-y-1">
+              {redirectHistory.map((entry, index) => (
+                <li key={index}>{entry}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   )

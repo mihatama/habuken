@@ -26,6 +26,9 @@ const publicPaths = ["/", "/login", "/signup", "/forgot-password", "/reset-passw
 // デバッグパス（常にアクセス可能）
 const debugPaths = ["/debug", "/supabase-debug"]
 
+// 静的アセットパス（ミドルウェアをスキップ）
+const staticPaths = ["/_next", "/api", "/static", "/favicon.ico"]
+
 export async function middleware(req: NextRequest) {
   try {
     // リクエストURLを取得
@@ -33,16 +36,10 @@ export async function middleware(req: NextRequest) {
     const path = url.pathname
 
     // デバッグ用ログ
-    console.log(`Middleware: Path=${path}`)
+    console.log(`Middleware実行: Path=${path}`)
 
     // 静的アセットやAPIルートはスキップ
-    if (
-      path.startsWith("/_next") ||
-      path.startsWith("/api/") ||
-      path.startsWith("/static/") ||
-      path.includes(".") ||
-      path === "/favicon.ico"
-    ) {
+    if (staticPaths.some((staticPath) => path.startsWith(staticPath)) || path.includes(".")) {
       return NextResponse.next()
     }
 
@@ -52,7 +49,19 @@ export async function middleware(req: NextRequest) {
       return NextResponse.next()
     }
 
+    // リダイレクトループを防止するためのチェック
+    // リダイレクト元のURLを確認
+    const referer = req.headers.get("referer") || ""
+    const isRedirectLoop = referer.includes(path)
+
+    if (isRedirectLoop) {
+      console.log(`Middleware: リダイレクトループを検出しました。スキップします: ${path} <- ${referer}`)
+      return NextResponse.next()
+    }
+
     const res = NextResponse.next()
+
+    // Supabaseクライアントを作成
     const supabase = createMiddlewareClient({ req, res })
 
     // セッションを取得
@@ -74,20 +83,18 @@ export async function middleware(req: NextRequest) {
     )
 
     if (isProtectedPath && !session) {
-      console.log(`Redirecting to login: Protected path=${path}, no session`)
+      console.log(`Middleware: リダイレクト実行 - 保護されたパス(${path})にセッションなしでアクセス -> /login`)
       const redirectUrl = new URL("/login", req.url)
       redirectUrl.searchParams.set("redirect", path)
       return NextResponse.redirect(redirectUrl)
     }
 
     // 認証済みユーザーがログインページなどにアクセスした場合はダッシュボードにリダイレクト
-    // ただし、リダイレクトループを防ぐために、リダイレクト元がダッシュボードの場合はスキップ
+    // ただし、ルートパス（/）へのアクセスはリダイレクトしない
     const isAuthPath = publicPaths.includes(path)
-    const referer = req.headers.get("referer") || ""
-    const isFromDashboard = referer.includes("/dashboard")
 
-    if (isAuthPath && session && !isFromDashboard) {
-      console.log(`Redirecting to dashboard: Auth path=${path}, has session, not from dashboard`)
+    if (isAuthPath && session && path !== "/") {
+      console.log(`Middleware: リダイレクト実行 - 認証パス(${path})にセッションありでアクセス -> /dashboard`)
       return NextResponse.redirect(new URL("/dashboard", req.url))
     }
 
@@ -100,6 +107,7 @@ export async function middleware(req: NextRequest) {
   }
 }
 
+// matcherを修正して、静的アセットを除外
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|public).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 }
