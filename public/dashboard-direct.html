@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ダッシュボード直接アクセス</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      color: #2563eb;
+    }
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .button {
+      display: inline-block;
+      background: #2563eb;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 4px;
+      text-decoration: none;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    .button.secondary {
+      background: #fff;
+      color: #2563eb;
+      border: 1px solid #2563eb;
+    }
+    .alert {
+      background: #fee2e2;
+      border: 1px solid #ef4444;
+      color: #b91c1c;
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    .success {
+      background: #dcfce7;
+      border: 1px solid #22c55e;
+      color: #15803d;
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    pre {
+      background: #f1f5f9;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>ダッシュボード直接アクセス</h1>
+    <p>このページはダッシュボードに直接アクセスするための緊急ページです。</p>
+    
+    <div id="status" class="alert">
+      認証状態を確認中...
+    </div>
+    
+    <div>
+      <a href="/dashboard" class="button">ダッシュボードに移動</a>
+      <a href="/login" class="button secondary">ログインページに移動</a>
+    </div>
+    
+    <div id="auth-info" style="margin-top: 20px;">
+      <h3>認証情報</h3>
+      <pre id="auth-data">読み込み中...</pre>
+    </div>
+  </div>
+
+  <script>
+    // ページ読み込み時に認証状態を確認
+    window.addEventListener('DOMContentLoaded', async () => {
+      const statusEl = document.getElementById('status');
+      const authDataEl = document.getElementById('auth-data');
+      
+      try {
+        // 認証APIを呼び出し
+        const response = await fetch('/api/dashboard-access');
+        const data = await response.json();
+        
+        if (data.authenticated) {
+          statusEl.className = 'success';
+          statusEl.innerHTML = `<strong>認証済み:</strong> ${data.user.email} としてログイン中`;
+        } else {
+          statusEl.className = 'alert';
+          statusEl.innerHTML = `<strong>未認証:</strong> ${data.error || 'ログインしていません'}`;
+        }
+        
+        // 認証データを表示
+        authDataEl.textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        statusEl.className = 'alert';
+        statusEl.innerHTML = `<strong>エラー:</strong> APIの呼び出しに失敗しました`;
+        authDataEl.textContent = error.toString();
+      }
+    });
+  </script>
+</body>
+</html>
