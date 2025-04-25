@@ -2,74 +2,128 @@
 
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, CheckCircle, Info } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/contexts/auth-context"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 export default function SupabaseDebugPage() {
-  const { supabase, user } = useAuth()
-  const [sessionData, setSessionData] = useState<any>(null)
-  const [sessionError, setSessionError] = useState<string | null>(null)
-  const [connectionStatus, setConnectionStatus] = useState<"checking" | "ok" | "error">("checking")
+  const { user, supabase } = useAuth()
+  const [session, setSession] = useState<any>(null)
   const [envVars, setEnvVars] = useState<{ [key: string]: boolean }>({})
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [connectionStatus, setConnectionStatus] = useState<"checking" | "connected" | "error">("checking")
+  const [redirectTest, setRedirectTest] = useState<"not_tested" | "success" | "failed">("not_tested")
 
+  // 環境変数のチェック
   useEffect(() => {
-    // 環境変数のチェック
-    const checkEnvVars = () => {
-      const vars = {
-        NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      }
-      setEnvVars(vars)
-    }
-
-    // Supabase接続テスト
-    const checkSupabaseConnection = async () => {
+    const checkEnvVars = async () => {
       try {
-        setConnectionStatus("checking")
-        const { data, error } = await supabase.auth.getSession()
-
-        if (error) {
-          console.error("Supabase connection error:", error)
-          setSessionError(error.message)
-          setConnectionStatus("error")
-        } else {
-          console.log("Supabase connection successful:", data)
-          setSessionData(data)
-          setConnectionStatus("ok")
-        }
+        const response = await fetch("/api/debug/env-check")
+        const data = await response.json()
+        setEnvVars(data)
       } catch (err) {
-        console.error("Supabase check error:", err)
-        setSessionError(err instanceof Error ? err.message : "Unknown error")
-        setConnectionStatus("error")
+        console.error("環境変数チェックエラー:", err)
+        setEnvVars({
+          NEXT_PUBLIC_SUPABASE_URL: false,
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: false,
+        })
       }
     }
 
     checkEnvVars()
-    checkSupabaseConnection()
+  }, [])
+
+  // セッション情報の取得
+  useEffect(() => {
+    const getSessionInfo = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        console.log("デバッグページ: セッション情報取得開始")
+        const { data, error } = await supabase.auth.getSession()
+
+        if (error) {
+          console.error("セッション取得エラー:", error)
+          setError(error.message)
+          setConnectionStatus("error")
+        } else {
+          console.log("セッション取得成功:", data)
+          setSession(data.session)
+          setConnectionStatus("connected")
+        }
+      } catch (err) {
+        console.error("セッション取得中の例外:", err)
+        setError(err instanceof Error ? err.message : "不明なエラー")
+        setConnectionStatus("error")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    getSessionInfo()
   }, [supabase])
 
-  const handleSignOut = async () => {
-    try {
-      await supabase.auth.signOut()
-      window.location.href = "/login"
-    } catch (error) {
-      console.error("Sign out error:", error)
-    }
-  }
-
-  const handleRefreshSession = async () => {
+  // 手動でセッション情報を更新
+  const refreshSession = async () => {
+    setLoading(true)
     try {
       const { data, error } = await supabase.auth.getSession()
       if (error) {
-        setSessionError(error.message)
+        setError(error.message)
       } else {
-        setSessionData(data)
-        setSessionError(null)
+        setSession(data.session)
+        setError(null)
       }
     } catch (err) {
-      setSessionError(err instanceof Error ? err.message : "Unknown error")
+      setError(err instanceof Error ? err.message : "不明なエラー")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // リダイレクトテスト
+  const testRedirect = () => {
+    try {
+      // 現在のURLを保存
+      const currentUrl = window.location.href
+
+      // ダッシュボードへリダイレクト
+      window.location.href = "/dashboard"
+
+      // 3秒後にチェック（リダイレクトが成功していれば実行されない）
+      setTimeout(() => {
+        if (window.location.href === currentUrl) {
+          setRedirectTest("failed")
+        }
+      }, 3000)
+
+      // 念のため成功状態に設定（リダイレクトが成功すれば見えない）
+      setRedirectTest("success")
+    } catch (error) {
+      console.error("リダイレクトテストエラー:", error)
+      setRedirectTest("failed")
+    }
+  }
+
+  // 新しいSupabaseクライアントを作成してテスト
+  const testNewClient = async () => {
+    try {
+      setLoading(true)
+      const newClient = createClientComponentClient()
+      const { data, error } = await newClient.auth.getSession()
+
+      if (error) {
+        setError(`新しいクライアントでのエラー: ${error.message}`)
+      } else {
+        alert(`新しいクライアントでのセッション: ${data.session ? "あり" : "なし"}`)
+      }
+    } catch (err) {
+      setError(`新しいクライアントでの例外: ${err instanceof Error ? err.message : "不明なエラー"}`)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -78,110 +132,148 @@ export default function SupabaseDebugPage() {
       <h1 className="text-2xl font-bold mb-6">Supabase接続診断</h1>
 
       <div className="grid gap-6">
+        {/* 接続ステータス */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              接続ステータス
+              <Badge variant={connectionStatus === "connected" ? "success" : "destructive"}>
+                {connectionStatus === "checking"
+                  ? "確認中..."
+                  : connectionStatus === "connected"
+                    ? "接続済み"
+                    : "エラー"}
+              </Badge>
+            </CardTitle>
+            <CardDescription>Supabaseサービスとの接続状態</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <p>読み込み中...</p>
+            ) : error ? (
+              <Alert variant="destructive">
+                <AlertTitle>接続エラー</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            ) : (
+              <div>
+                <p>Supabaseサービスに正常に接続されています。</p>
+                {session && (
+                  <div className="mt-4">
+                    <h3 className="font-semibold">セッション情報:</h3>
+                    <pre className="bg-muted p-4 rounded-md mt-2 overflow-auto max-h-60 text-xs">
+                      {JSON.stringify(session, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            <Button onClick={refreshSession} disabled={loading}>
+              {loading ? "更新中..." : "セッション情報を更新"}
+            </Button>
+            <Button onClick={testNewClient} variant="outline" disabled={loading}>
+              新しいクライアントでテスト
+            </Button>
+          </CardFooter>
+        </Card>
+
         {/* 環境変数ステータス */}
         <Card>
           <CardHeader>
             <CardTitle>環境変数ステータス</CardTitle>
-            <CardDescription>Supabase接続に必要な環境変数の状態</CardDescription>
+            <CardDescription>必要な環境変数が設定されているか確認します</CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">
-              {Object.entries(envVars).map(([key, exists]) => (
-                <li key={key} className="flex items-center">
-                  {exists ? (
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                  ) : (
-                    <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
-                  )}
-                  <span>
-                    {key}: {exists ? "設定済み" : "未設定"}
-                  </span>
-                </li>
-              ))}
+              {Object.entries(envVars).length > 0 ? (
+                Object.entries(envVars).map(([key, isSet]) => (
+                  <li key={key} className="flex items-center justify-between">
+                    <span>{key}</span>
+                    <Badge variant={isSet ? "success" : "destructive"}>{isSet ? "設定済み" : "未設定"}</Badge>
+                  </li>
+                ))
+              ) : (
+                <li>環境変数情報を取得中...</li>
+              )}
             </ul>
           </CardContent>
         </Card>
 
-        {/* 接続ステータス */}
+        {/* ユーザー情報 */}
         <Card>
           <CardHeader>
-            <CardTitle>Supabase接続ステータス</CardTitle>
-            <CardDescription>Supabaseサービスとの接続状態</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {connectionStatus === "checking" && (
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertTitle>確認中</AlertTitle>
-                <AlertDescription>Supabase接続を確認しています...</AlertDescription>
-              </Alert>
-            )}
-
-            {connectionStatus === "ok" && (
-              <Alert className="bg-green-50 border-green-200">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <AlertTitle className="text-green-600">接続成功</AlertTitle>
-                <AlertDescription>Supabaseサービスに正常に接続されています。</AlertDescription>
-              </Alert>
-            )}
-
-            {connectionStatus === "error" && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>接続エラー</AlertTitle>
-                <AlertDescription>Supabaseサービスとの接続に問題があります: {sessionError}</AlertDescription>
-              </Alert>
-            )}
-
-            <div className="mt-4">
-              <Button onClick={handleRefreshSession}>接続を再確認</Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* セッション情報 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>セッション情報</CardTitle>
-            <CardDescription>現在のSupabaseセッションの詳細</CardDescription>
+            <CardTitle>ユーザー情報</CardTitle>
+            <CardDescription>現在のユーザー情報</CardDescription>
           </CardHeader>
           <CardContent>
             {user ? (
               <div>
-                <Alert className="bg-green-50 border-green-200 mb-4">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <AlertTitle className="text-green-600">ログイン済み</AlertTitle>
-                  <AlertDescription>
-                    ユーザー: {user.email} (ID: {user.id})
-                  </AlertDescription>
-                </Alert>
-
-                <div className="mt-4 space-y-2">
-                  <h3 className="font-medium">ユーザー情報:</h3>
-                  <pre className="bg-gray-100 p-3 rounded text-sm overflow-auto">{JSON.stringify(user, null, 2)}</pre>
-
-                  <h3 className="font-medium mt-4">セッション情報:</h3>
-                  <pre className="bg-gray-100 p-3 rounded text-sm overflow-auto">
-                    {JSON.stringify(sessionData, null, 2)}
-                  </pre>
-                </div>
-
-                <Button onClick={handleSignOut} variant="destructive" className="mt-4">
-                  ログアウト
-                </Button>
+                <p>
+                  <strong>メールアドレス:</strong> {user.email}
+                </p>
+                <p>
+                  <strong>ユーザーID:</strong> {user.id}
+                </p>
+                <p>
+                  <strong>最終ログイン:</strong> {new Date(user.last_sign_in_at || "").toLocaleString()}
+                </p>
               </div>
             ) : (
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertTitle>未ログイン</AlertTitle>
-                <AlertDescription>
-                  現在ログインしていません。
-                  <a href="/login" className="underline ml-1">
-                    ログインページへ
-                  </a>
-                </AlertDescription>
-              </Alert>
+              <p>ログインしていません</p>
             )}
+          </CardContent>
+        </Card>
+
+        {/* リダイレクトテスト */}
+        <Card>
+          <CardHeader>
+            <CardTitle>リダイレクトテスト</CardTitle>
+            <CardDescription>ダッシュボードへのリダイレクトをテストします</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p>
+              ステータス:{" "}
+              <Badge
+                variant={
+                  redirectTest === "not_tested" ? "outline" : redirectTest === "success" ? "success" : "destructive"
+                }
+              >
+                {redirectTest === "not_tested" ? "未テスト" : redirectTest === "success" ? "成功" : "失敗"}
+              </Badge>
+            </p>
+            <div className="mt-4">
+              <Button onClick={testRedirect}>リダイレクトをテスト</Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 手動リダイレクトオプション */}
+        <Card>
+          <CardHeader>
+            <CardTitle>手動リダイレクト</CardTitle>
+            <CardDescription>各種リダイレクト方法を試します</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <h3 className="font-semibold mb-2">window.location.href</h3>
+              <Button onClick={() => (window.location.href = "/dashboard")} className="w-full">
+                window.location.href でリダイレクト
+              </Button>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-2">window.location.replace</h3>
+              <Button onClick={() => window.location.replace("/dashboard")} className="w-full">
+                window.location.replace でリダイレクト
+              </Button>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-2">直接リンク</h3>
+              <a href="/dashboard" className="block w-full">
+                <Button className="w-full">通常のリンクでリダイレクト</Button>
+              </a>
+            </div>
           </CardContent>
         </Card>
       </div>

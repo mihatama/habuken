@@ -35,6 +35,7 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = React.useState<boolean>(false)
   const [loginError, setLoginError] = React.useState<string | null>(null)
   const [supabaseStatus, setSupabaseStatus] = React.useState<"checking" | "ok" | "error">("checking")
+  const [redirecting, setRedirecting] = React.useState<boolean>(false)
 
   // Supabase接続テスト
   React.useEffect(() => {
@@ -53,7 +54,7 @@ export function LoginForm() {
           // すでにログイン済みの場合はダッシュボードにリダイレクト
           if (data.session) {
             console.log("既存のセッションが見つかりました。ダッシュボードにリダイレクトします。")
-            router.push("/dashboard")
+            handleRedirect("/dashboard")
           }
         }
       } catch (err) {
@@ -63,7 +64,39 @@ export function LoginForm() {
     }
 
     checkSupabase()
-  }, [supabase, router])
+  }, [supabase])
+
+  // リダイレクト処理を関数化
+  const handleRedirect = React.useCallback(
+    (path: string) => {
+      if (redirecting) return // 既にリダイレクト中なら処理しない
+
+      setRedirecting(true)
+      console.log(`リダイレクト処理開始: ${path}`)
+
+      try {
+        // 1. window.location.hrefを使用した直接リダイレクト
+        window.location.href = path
+
+        // 2. 念のためNext.jsのルーターも使用（上記が機能しない場合のフォールバック）
+        setTimeout(() => {
+          console.log("Next.jsルーターでのリダイレクトを試行")
+          router.push(path)
+
+          // 3. 最終手段として、さらに遅延してリロード
+          setTimeout(() => {
+            console.log("リダイレクトが機能していないようです。ページをリロードします。")
+            window.location.reload()
+          }, 2000)
+        }, 1000)
+      } catch (error) {
+        console.error("リダイレクト中にエラーが発生しました:", error)
+        // エラーが発生した場合は直接リロード
+        window.location.reload()
+      }
+    },
+    [router, redirecting],
+  )
 
   // フォームのデフォルト値を修正
   const form = useForm<z.infer<typeof formSchema>>({
@@ -132,7 +165,7 @@ export function LoginForm() {
           supabase.auth.getSession().then(({ data: { session } }) => {
             if (session) {
               console.log("セッションが確認されました。リダイレクトします。", session.user.email)
-              router.push(redirect)
+              handleRedirect(redirect)
             } else {
               console.error("セッションが設定されていません。リダイレクトできません。")
               setLoginError(
@@ -154,6 +187,11 @@ export function LoginForm() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // 手動リダイレクトボタン（デバッグ用）
+  const handleManualRedirect = () => {
+    handleRedirect("/dashboard")
   }
 
   return (
@@ -235,8 +273,8 @@ export function LoginForm() {
               </FormItem>
             )}
           />
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "ログイン中..." : "ログイン"}
+          <Button type="submit" className="w-full" disabled={isLoading || redirecting}>
+            {isLoading ? "ログイン中..." : redirecting ? "リダイレクト中..." : "ログイン"}
           </Button>
         </form>
       </Form>
@@ -250,6 +288,13 @@ export function LoginForm() {
           Supabase接続状態を詳細に確認する
         </Link>
       </div>
+
+      {/* デバッグ用の手動リダイレクトボタン */}
+      {loginError && loginError.includes("セッションの設定に問題があります") && (
+        <Button onClick={handleManualRedirect} className="mt-4">
+          ダッシュボードに手動でリダイレクト
+        </Button>
+      )}
     </div>
   )
 }

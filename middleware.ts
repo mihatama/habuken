@@ -25,6 +25,25 @@ const publicPaths = ["/", "/login", "/signup", "/forgot-password", "/reset-passw
 
 export async function middleware(req: NextRequest) {
   try {
+    // リクエストURLを取得
+    const url = req.nextUrl.clone()
+    const path = url.pathname
+
+    // デバッグ用ログ
+    console.log(`Middleware: Path=${path}`)
+
+    // 静的アセットやAPIルートはスキップ
+    if (
+      path.startsWith("/_next") ||
+      path.startsWith("/api/") ||
+      path.startsWith("/static/") ||
+      path.includes(".") ||
+      path === "/favicon.ico"
+    ) {
+      console.log(`Middleware: Skipping static asset or API route: ${path}`)
+      return NextResponse.next()
+    }
+
     const res = NextResponse.next()
     const supabase = createMiddlewareClient({ req, res })
 
@@ -33,10 +52,8 @@ export async function middleware(req: NextRequest) {
       data: { session },
     } = await supabase.auth.getSession()
 
-    const path = req.nextUrl.pathname
-
     // デバッグ用ログ
-    console.log(`Middleware: Path=${path}, Session=${session ? "exists" : "null"}`)
+    console.log(`Middleware: Session=${session ? "exists" : "null"}`)
     if (session) {
       console.log(`User authenticated in middleware: ${session.user.email}, User ID: ${session.user.id}`)
     } else {
@@ -73,14 +90,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public (public files)
-     */
-    "/((?!_next/static|_next/image|favicon.ico|public).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|public).*)"],
 }
