@@ -1,205 +1,187 @@
 "use client"
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { checkTableStructure, checkRLSPolicies, checkTableRecordCount } from "@/lib/supabase/debug-helper"
-import { getClientSupabaseInstance } from "@/lib/supabase/supabaseClient"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
+import { getClientSupabaseInstance } from "@/lib/supabase"
+import { AlertCircle, CheckCircle, Info } from "lucide-react"
 
 export default function SupabaseDebugPage() {
-  const [tableName, setTableName] = useState("staff")
-  const [tableStructure, setTableStructure] = useState<any>(null)
-  const [rlsPolicies, setRlsPolicies] = useState<any>(null)
-  const [recordCount, setRecordCount] = useState<any>(null)
-  const [queryResult, setQueryResult] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [supabaseStatus, setSupabaseStatus] = useState<"checking" | "ok" | "error">("checking")
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [envVars, setEnvVars] = useState<{ [key: string]: string | undefined }>({})
+  const [sessionInfo, setSessionInfo] = useState<any>(null)
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
 
-  // テーブル構造を確認
-  const handleCheckStructure = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const result = await checkTableStructure(tableName)
-      setTableStructure(result)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "不明なエラーが発生しました")
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    // 環境変数の確認
+    const checkEnvironmentVars = () => {
+      const vars = {
+        NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.substring(0, 5) + "...",
+      }
+      setEnvVars(vars)
     }
-  }
 
-  // RLSポリシーを確認
-  const handleCheckRLS = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const result = await checkRLSPolicies(tableName)
-      setRlsPolicies(result)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "不明なエラーが発生しました")
-    } finally {
-      setLoading(false)
+    // Supabase接続テスト
+    const checkSupabase = async () => {
+      try {
+        const supabase = getClientSupabaseInstance()
+
+        // セッション取得テスト
+        const { data, error } = await supabase.auth.getSession()
+
+        if (error) {
+          console.error("Supabase connection error:", error)
+          setSupabaseStatus("error")
+          setErrorMessage(error.message)
+        } else {
+          console.log("Supabase connection successful")
+          setSupabaseStatus("ok")
+          setSessionInfo(data)
+        }
+      } catch (err) {
+        console.error("Supabase check error:", err)
+        setSupabaseStatus("error")
+        setErrorMessage(err instanceof Error ? err.message : "不明なエラーが発生しました")
+      }
     }
-  }
 
-  // レコード数を確認
-  const handleCheckCount = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const result = await checkTableRecordCount(tableName)
-      setRecordCount(result)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "不明なエラーが発生しました")
-    } finally {
-      setLoading(false)
-    }
-  }
+    checkEnvironmentVars()
+    checkSupabase()
+  }, [])
 
-  // 直接クエリを実行
-  const handleDirectQuery = async () => {
-    setLoading(true)
-    setError(null)
+  const runConnectionTest = async () => {
     try {
+      setTestResult(null)
       const supabase = getClientSupabaseInstance()
-      const { data, error } = await supabase.from(tableName).select("*").limit(10)
 
-      if (error) throw error
+      // 簡単なクエリテスト
+      const { data, error } = await supabase.from("profiles").select("count(*)", { count: "exact" }).limit(1)
 
-      setQueryResult({ data, count: data?.length || 0 })
+      if (error) {
+        setTestResult({
+          success: false,
+          message: `テスト失敗: ${error.message}`,
+        })
+      } else {
+        setTestResult({
+          success: true,
+          message: `テスト成功: プロフィールテーブルに接続できました`,
+        })
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "不明なエラーが発生しました")
-      setQueryResult(null)
-    } finally {
-      setLoading(false)
+      setTestResult({
+        success: false,
+        message: `テスト失敗: ${err instanceof Error ? err.message : "不明なエラー"}`,
+      })
     }
   }
 
   return (
     <div className="container mx-auto py-10">
-      <h1 className="text-2xl font-bold mb-6">Supabaseデバッグツール</h1>
+      <h1 className="text-2xl font-bold mb-6">Supabase接続診断</h1>
 
-      <div className="mb-6">
-        <div className="flex items-end gap-4">
-          <div className="flex-1">
-            <Label htmlFor="table-name" className="mb-2 block">
-              テーブル名
-            </Label>
-            <Input
-              id="table-name"
-              value={tableName}
-              onChange={(e) => setTableName(e.target.value)}
-              placeholder="テーブル名を入力"
-            />
-          </div>
-          <Button onClick={handleDirectQuery} disabled={loading}>
-            {loading ? "読み込み中..." : "クエリ実行"}
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <Button onClick={handleCheckStructure} disabled={loading} variant="outline">
-          テーブル構造を確認
-        </Button>
-        <Button onClick={handleCheckRLS} disabled={loading} variant="outline">
-          RLSポリシーを確認
-        </Button>
-        <Button onClick={handleCheckCount} disabled={loading} variant="outline">
-          レコード数を確認
-        </Button>
-      </div>
-
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">{error}</div>}
-
-      <Tabs defaultValue="query">
-        <TabsList className="mb-4">
-          <TabsTrigger value="query">クエリ結果</TabsTrigger>
-          <TabsTrigger value="structure">テーブル構造</TabsTrigger>
-          <TabsTrigger value="rls">RLSポリシー</TabsTrigger>
-          <TabsTrigger value="count">レコード数</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="query">
-          <Card>
-            <CardHeader>
-              <CardTitle>クエリ結果</CardTitle>
-              <CardDescription>テーブル「{tableName}」の最初の10件のデータ</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {queryResult ? (
-                <div>
-                  <p className="mb-2">取得件数: {queryResult.count}</p>
-                  <pre className="bg-gray-100 p-4 rounded overflow-auto max-h-96">
-                    {JSON.stringify(queryResult.data, null, 2)}
-                  </pre>
+      <div className="grid gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>環境変数</CardTitle>
+            <CardDescription>Supabase接続に必要な環境変数の状態</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {Object.entries(envVars).map(([key, value]) => (
+                <div key={key} className="flex justify-between items-center border-b pb-2">
+                  <span className="font-medium">{key}</span>
+                  <span className={value ? "text-green-600" : "text-red-600"}>{value ? value : "未設定"}</span>
                 </div>
-              ) : (
-                <p>クエリを実行してください</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
-        <TabsContent value="structure">
-          <Card>
-            <CardHeader>
-              <CardTitle>テーブル構造</CardTitle>
-              <CardDescription>テーブル「{tableName}」のカラム情報</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {tableStructure ? (
-                <pre className="bg-gray-100 p-4 rounded overflow-auto max-h-96">
-                  {JSON.stringify(tableStructure, null, 2)}
-                </pre>
-              ) : (
-                <p>テーブル構造を確認してください</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+        <Card>
+          <CardHeader>
+            <CardTitle>接続状態</CardTitle>
+            <CardDescription>Supabaseサービスへの接続状態</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {supabaseStatus === "checking" && (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>確認中</AlertTitle>
+                <AlertDescription>Supabase接続を確認しています...</AlertDescription>
+              </Alert>
+            )}
 
-        <TabsContent value="rls">
-          <Card>
-            <CardHeader>
-              <CardTitle>RLSポリシー</CardTitle>
-              <CardDescription>テーブル「{tableName}」のRLSポリシー設定</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {rlsPolicies ? (
-                <pre className="bg-gray-100 p-4 rounded overflow-auto max-h-96">
-                  {JSON.stringify(rlsPolicies, null, 2)}
-                </pre>
-              ) : (
-                <p>RLSポリシーを確認してください</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+            {supabaseStatus === "ok" && (
+              <Alert className="bg-green-50 border-green-200">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertTitle className="text-green-600">接続成功</AlertTitle>
+                <AlertDescription>Supabaseサービスに正常に接続されています。</AlertDescription>
+              </Alert>
+            )}
 
-        <TabsContent value="count">
-          <Card>
-            <CardHeader>
-              <CardTitle>レコード数</CardTitle>
-              <CardDescription>テーブル「{tableName}」の総レコード数</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {recordCount ? (
-                <div>
-                  <p className="text-xl font-bold">{recordCount.error ? "エラー" : `${recordCount.count || 0} 件`}</p>
-                  {recordCount.error && <p className="text-red-500 mt-2">{recordCount.error}</p>}
-                </div>
-              ) : (
-                <p>レコード数を確認してください</p>
+            {supabaseStatus === "error" && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>接続エラー</AlertTitle>
+                <AlertDescription>{errorMessage || "Supabaseサービスとの接続に問題があります。"}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="mt-4">
+              <Button onClick={runConnectionTest}>接続テストを実行</Button>
+
+              {testResult && (
+                <Alert
+                  className={`mt-4 ${testResult.success ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}
+                >
+                  {testResult.success ? (
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                  )}
+                  <AlertTitle className={testResult.success ? "text-green-600" : "text-red-600"}>テスト結果</AlertTitle>
+                  <AlertDescription>{testResult.message}</AlertDescription>
+                </Alert>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>セッション情報</CardTitle>
+            <CardDescription>現在のセッション状態</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {sessionInfo ? (
+              <div>
+                <p className="mb-2">
+                  <strong>セッション状態:</strong> {sessionInfo.session ? "アクティブ" : "なし"}
+                </p>
+                {sessionInfo.session && (
+                  <div className="space-y-2">
+                    <p>
+                      <strong>ユーザーID:</strong> {sessionInfo.session.user.id}
+                    </p>
+                    <p>
+                      <strong>メール:</strong> {sessionInfo.session.user.email}
+                    </p>
+                    <p>
+                      <strong>最終更新:</strong> {new Date(sessionInfo.session.updated_at).toLocaleString()}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p>セッション情報を取得中...</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

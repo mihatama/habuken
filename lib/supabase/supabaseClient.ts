@@ -1,40 +1,28 @@
-// クライアント側のSupabaseインスタンス作成を改善
-console.log("supabaseClient.ts が読み込まれました")
+// クライアント側のSupabaseインスタンス取得を一元化
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { Database } from "@/types/supabase"
 
-// createClientSupabaseInstance関数を修正
-import { createClient } from "@supabase/supabase-js"
-
-let supabaseInstance = null
-
+// lib/supabase.tsからのインポートを避け、直接createClientComponentClientを使用
+// これにより、Supabaseクライアントの重複初期化を防ぎます
 export function getClientSupabaseInstance() {
   try {
     console.log("クライアントSupabaseインスタンス取得開始 (supabaseClient.ts)")
 
-    if (supabaseInstance) {
-      console.log("既存のクライアントSupabaseインスタンスを返します (supabaseClient.ts)")
-      return supabaseInstance
-    }
-
-    // 環境変数の存在確認
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-    console.log("Supabase環境変数チェック (supabaseClient.ts):", {
-      urlExists: !!supabaseUrl,
-      keyExists: !!supabaseKey,
-      url: supabaseUrl?.substring(0, 10) + "...",
-      key: supabaseKey ? supabaseKey.substring(0, 5) + "..." : null,
+    // createClientComponentClientを使用して新しいクライアントを作成
+    // これはシングルトンパターンを内部で実装しているため、複数回呼び出しても安全です
+    const supabase = createClientComponentClient<Database>({
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      options: {
+        auth: {
+          persistSession: true,
+          storageKey: "habuken-auth-state",
+        },
+      },
     })
 
-    if (!supabaseUrl || !supabaseKey) {
-      console.error("Supabase環境変数が設定されていません (supabaseClient.ts)")
-      throw new Error("Supabase環境変数が設定されていません")
-    }
-
-    supabaseInstance = createClient(supabaseUrl, supabaseKey)
-
-    console.log("新しいクライアントSupabaseインスタンスを作成しました (supabaseClient.ts)")
-    return supabaseInstance
+    console.log("クライアントSupabaseインスタンスを返します (supabaseClient.ts)")
+    return supabase
   } catch (error) {
     console.error("クライアントSupabaseインスタンス取得エラー (supabaseClient.ts):", error)
     throw error

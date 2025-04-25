@@ -4,10 +4,20 @@ console.log("supabase.ts が読み込まれました")
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/supabase"
 
+// シングルトンインスタンスを保持する変数
+let serverSupabaseInstance: SupabaseClient<Database> | null = null
+let clientSupabaseInstance: SupabaseClient<Database> | null = null
+
 // createServerSupabaseClient関数を修正
 export const createServerSupabaseClient = () => {
   try {
     console.log("サーバーSupabaseクライアント作成開始")
+
+    // 既存のインスタンスがあれば再利用
+    if (serverSupabaseInstance) {
+      console.log("既存のサーバーSupabaseインスタンスを返します")
+      return serverSupabaseInstance
+    }
 
     // 環境変数の存在確認
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -23,14 +33,14 @@ export const createServerSupabaseClient = () => {
       throw new Error("Supabase環境変数が設定されていません")
     }
 
-    const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
+    serverSupabaseInstance = createClient<Database>(supabaseUrl, supabaseKey, {
       auth: {
         persistSession: false,
       },
     })
 
     console.log("サーバーSupabaseクライアント作成成功")
-    return supabase
+    return serverSupabaseInstance
   } catch (error) {
     console.error("サーバーSupabaseクライアント作成エラー:", error)
     throw error
@@ -38,8 +48,6 @@ export const createServerSupabaseClient = () => {
 }
 
 // getClientSupabaseInstance関数を修正
-let clientSupabaseInstance: SupabaseClient<Database> | null = null
-
 export const getClientSupabaseInstance = () => {
   try {
     console.log("クライアントSupabaseインスタンス取得開始")
@@ -56,6 +64,8 @@ export const getClientSupabaseInstance = () => {
     console.log("Supabase環境変数チェック (クライアント):", {
       urlExists: !!supabaseUrl,
       keyExists: !!supabaseKey,
+      url: supabaseUrl?.substring(0, 10) + "...",
+      key: supabaseKey ? supabaseKey.substring(0, 5) + "..." : null,
     })
 
     if (!supabaseUrl || !supabaseKey) {
@@ -63,7 +73,12 @@ export const getClientSupabaseInstance = () => {
       throw new Error("Supabase環境変数が設定されていません")
     }
 
-    clientSupabaseInstance = createClient<Database>(supabaseUrl, supabaseKey)
+    clientSupabaseInstance = createClient<Database>(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: true,
+        storageKey: "habuken_auth_token",
+      },
+    })
 
     console.log("新しいクライアントSupabaseインスタンスを作成しました")
     return clientSupabaseInstance

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
@@ -29,6 +29,8 @@ const formSchema = z.object({
 export function LoginForm() {
   const { toast } = useToast()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirect = searchParams.get("redirect") || "/dashboard"
   const { signIn, supabase } = useAuth()
   const [isLoading, setIsLoading] = React.useState<boolean>(false)
   const [loginError, setLoginError] = React.useState<string | null>(null)
@@ -38,13 +40,14 @@ export function LoginForm() {
   React.useEffect(() => {
     const checkSupabase = async () => {
       try {
+        console.log("Supabase接続テスト開始")
         // 簡単な接続テスト - 匿名セッションを取得
         const { data, error } = await supabase.auth.getSession()
         if (error) {
           console.error("Supabase connection error:", error)
           setSupabaseStatus("error")
         } else {
-          console.log("Supabase connection successful")
+          console.log("Supabase connection successful", data)
           setSupabaseStatus("ok")
         }
       } catch (err) {
@@ -117,7 +120,7 @@ export function LoginForm() {
 
         // セッションが確実に設定されるようにする
         setTimeout(() => {
-          router.push("/dashboard")
+          router.push(redirect)
         }, 500)
       }
     } catch (error) {
@@ -142,7 +145,7 @@ export function LoginForm() {
           <AlertTitle>接続エラー</AlertTitle>
           <AlertDescription>
             Supabaseサービスとの接続に問題があります。
-            <Link href="/supabase-debug" className="underline ml-1">
+            <Link href="/debug/supabase" className="underline ml-1">
               詳細を確認する
             </Link>
           </AlertDescription>
@@ -224,7 +227,7 @@ export function LoginForm() {
       </div>
 
       <div className="text-center text-sm">
-        <Link href="/supabase-debug" className="text-muted-foreground hover:text-primary">
+        <Link href="/debug/supabase" className="text-muted-foreground hover:text-primary">
           Supabase接続状態を詳細に確認する
         </Link>
       </div>

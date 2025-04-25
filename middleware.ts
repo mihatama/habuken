@@ -21,7 +21,7 @@ const protectedPaths = [
 ]
 
 // 認証が不要なパス
-const publicPaths = ["/", "/login", "/signup", "/forgot-password", "/reset-password"]
+const publicPaths = ["/", "/login", "/signup", "/forgot-password", "/reset-password", "/supabase-debug", "/debug"]
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
@@ -50,13 +50,14 @@ export async function middleware(req: NextRequest) {
   if (isProtectedPath && !session) {
     console.log(`Redirecting to login: Protected path=${path}, no session`)
     const redirectUrl = new URL("/login", req.url)
+    redirectUrl.searchParams.set("redirect", path)
     return NextResponse.redirect(redirectUrl)
   }
 
   // 認証済みユーザーがログインページなどにアクセスした場合はダッシュボードにリダイレクト
   const isAuthPath = publicPaths.includes(path)
 
-  if (isAuthPath && session && path !== "/") {
+  if (isAuthPath && session && path !== "/" && !path.startsWith("/debug") && !path.startsWith("/supabase-debug")) {
     console.log(`Redirecting to dashboard: Auth path=${path}, has session`)
     return NextResponse.redirect(new URL("/dashboard", req.url))
   }

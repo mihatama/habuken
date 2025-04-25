@@ -38,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const getUser = async () => {
       try {
+        console.log("AuthProvider: セッション取得開始")
         const {
           data: { session },
           error,
@@ -45,6 +46,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (error) {
           console.error("Error getting session:", error)
+        } else {
+          console.log("AuthProvider: セッション取得成功", session?.user?.email || "未ログイン")
         }
 
         setUser(session?.user ?? null)
@@ -143,12 +146,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (isEmail) {
         // メールアドレスでログイン
+        console.log("メールアドレスでログイン試行:", emailOrId)
         result = await supabase.auth.signInWithPassword({
           email: emailOrId,
           password,
         })
       } else {
         // IDでログイン - まずプロフィールからメールアドレスを取得
+        console.log("ユーザーIDでログイン試行:", emailOrId)
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select("email")
@@ -156,6 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .single()
 
         if (profileError || !profileData) {
+          console.error("ユーザーID検索エラー:", profileError)
           return {
             error: {
               message: "ユーザーIDが見つかりません",
@@ -163,6 +169,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             data: null,
           }
         }
+
+        console.log("ユーザーIDからメールアドレスを取得:", profileData.email)
 
         // 取得したメールアドレスでログイン
         result = await supabase.auth.signInWithPassword({
@@ -193,7 +201,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    try {
+      console.log("ログアウト開始")
+      await supabase.auth.signOut()
+      console.log("ログアウト完了")
+    } catch (error) {
+      console.error("ログアウトエラー:", error)
+    }
   }
 
   const resetPassword = async (email: string) => {
