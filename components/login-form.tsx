@@ -31,25 +31,11 @@ export function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams.get("redirect") || "/dashboard"
-  const { signIn, supabase, user } = useAuth()
+  const { signIn, supabase } = useAuth()
   const [isLoading, setIsLoading] = React.useState<boolean>(false)
   const [loginError, setLoginError] = React.useState<string | null>(null)
   const [supabaseStatus, setSupabaseStatus] = React.useState<"checking" | "ok" | "error">("checking")
   const [redirectHistory, setRedirectHistory] = React.useState<string[]>([])
-  const [redirectAttempted, setRedirectAttempted] = React.useState<boolean>(false)
-
-  // ユーザーが認証済みの場合、ダッシュボードにリダイレクト
-  React.useEffect(() => {
-    if (user && !redirectAttempted) {
-      setRedirectAttempted(true)
-      setRedirectHistory((prev) => [...prev, `ユーザー検出: ${user.email} - リダイレクト実行`])
-
-      console.log("認証済みユーザーを検出しました。ダッシュボードにリダイレクトします。", user.email)
-
-      // 直接リダイレクト
-      window.location.href = redirect
-    }
-  }, [user, redirect, redirectAttempted])
 
   // Supabase接続テスト
   React.useEffect(() => {
@@ -64,16 +50,6 @@ export function LoginForm() {
         } else {
           console.log("Supabase connection successful", data)
           setSupabaseStatus("ok")
-
-          // すでにログイン済みの場合はダッシュボードにリダイレクト
-          if (data.session && !redirectAttempted) {
-            setRedirectAttempted(true)
-            console.log("既存のセッションが見つかりました。リダイレクトを実行します。")
-            setRedirectHistory((prev) => [...prev, "セッション検出: リダイレクト実行"])
-
-            // 直接リダイレクト
-            window.location.href = redirect
-          }
         }
       } catch (err) {
         console.error("Supabase check error:", err)
@@ -81,10 +57,8 @@ export function LoginForm() {
       }
     }
 
-    if (!redirectAttempted) {
-      checkSupabase()
-    }
-  }, [supabase, redirect, redirectAttempted])
+    checkSupabase()
+  }, [supabase])
 
   // フォームのデフォルト値を修正
   const form = useForm<z.infer<typeof formSchema>>({
@@ -147,16 +121,11 @@ export function LoginForm() {
 
         toast({
           title: "ログイン成功",
-          description: "ログインに成功しました。ダッシュボードにリダイレクトします。",
+          description: "ログインに成功しました。",
         })
 
-        // 明示的にリダイレクトを実行
-        setRedirectHistory((prev) => [...prev, `リダイレクト実行: ${redirect}`])
-
-        // 少し遅延させてからリダイレクト
-        setTimeout(() => {
-          window.location.href = redirect
-        }, 1000)
+        // リダイレクトはミドルウェアに任せる
+        // クライアント側でのリダイレクトは行わない
       }
     } catch (error) {
       console.error("Login error:", error)
@@ -190,32 +159,6 @@ export function LoginForm() {
       description: "ブラウザのストレージをクリアしました。",
     })
   }
-
-  // セッション情報表示
-  const [sessionInfo, setSessionInfo] = React.useState<string>("取得中...")
-
-  React.useEffect(() => {
-    const getSessionInfo = async () => {
-      try {
-        const { data } = await supabase.auth.getSession()
-        if (data.session) {
-          setSessionInfo(
-            `ユーザー: ${data.session.user.email || "不明"}, 有効期限: ${new Date(data.session.expires_at! * 1000).toLocaleString()}`,
-          )
-        } else {
-          setSessionInfo("セッションなし")
-        }
-      } catch (err) {
-        setSessionInfo("エラー: " + (err instanceof Error ? err.message : String(err)))
-      }
-    }
-
-    getSessionInfo()
-
-    // 5秒ごとに更新
-    const interval = setInterval(getSessionInfo, 5000)
-    return () => clearInterval(interval)
-  }, [supabase])
 
   return (
     <div className="grid gap-6">
@@ -325,12 +268,6 @@ export function LoginForm() {
           </Button>
         </div>
 
-        {/* セッション情報 */}
-        <div className="text-xs text-muted-foreground mt-2 border p-2 rounded bg-gray-50">
-          <p className="font-medium mb-1">現在のセッション情報:</p>
-          <p>{sessionInfo}</p>
-        </div>
-
         {redirectHistory.length > 0 && (
           <div className="text-xs text-muted-foreground mt-2 border p-2 rounded bg-gray-50">
             <p className="font-medium mb-1">リダイレクト履歴:</p>
@@ -341,22 +278,6 @@ export function LoginForm() {
             </ul>
           </div>
         )}
-
-        {/* ナビゲーションリンク */}
-        <div className="mt-4 text-xs">
-          <p className="font-medium mb-1">手動ナビゲーション:</p>
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => (window.location.href = "/dashboard")} variant="link" size="sm">
-              ダッシュボード
-            </Button>
-            <Button onClick={() => (window.location.href = "/login")} variant="link" size="sm">
-              ログイン
-            </Button>
-            <Button onClick={() => (window.location.href = "/debug/supabase")} variant="link" size="sm">
-              デバッグ
-            </Button>
-          </div>
-        </div>
       </div>
     </div>
   )

@@ -24,10 +24,10 @@ const protectedPaths = [
 const publicPaths = ["/", "/login", "/signup", "/forgot-password", "/reset-password"]
 
 // デバッグパス（常にアクセス可能）
-const debugPaths = ["/debug", "/supabase-debug"]
+const debugPaths = ["/debug", "/api/debug"]
 
 // 静的アセットパス（ミドルウェアをスキップ）
-const staticPaths = ["/_next", "/api", "/static", "/favicon.ico"]
+const staticPaths = ["/_next", "/api", "/static", "/favicon.ico", "/images"]
 
 export async function middleware(req: NextRequest) {
   try {
@@ -47,6 +47,14 @@ export async function middleware(req: NextRequest) {
     if (debugPaths.some((debugPath) => path === debugPath || path.startsWith(`${debugPath}/`))) {
       console.log(`Middleware: Debug path, skipping auth check: ${path}`)
       return NextResponse.next()
+    }
+
+    // リダイレクトループ検出
+    const redirectCount = Number.parseInt(req.headers.get("x-redirect-count") || "0")
+    if (redirectCount > 5) {
+      console.error(`リダイレクトループを検出しました: ${path}, カウント: ${redirectCount}`)
+      // デバッグページにリダイレクト
+      return NextResponse.redirect(new URL("/debug/supabase", req.url))
     }
 
     const res = NextResponse.next()
@@ -76,7 +84,10 @@ export async function middleware(req: NextRequest) {
       console.log(`Middleware: リダイレクト実行 - 保護されたパス(${path})にセッションなしでアクセス -> /login`)
       const redirectUrl = new URL("/login", req.url)
       redirectUrl.searchParams.set("redirect", path)
-      return NextResponse.redirect(redirectUrl)
+      const redirectRes = NextResponse.redirect(redirectUrl)
+      // リダイレクトカウントを増やす
+      redirectRes.headers.set("x-redirect-count", (redirectCount + 1).toString())
+      return redirectRes
     }
 
     // 認証済みユーザーがログインページなどにアクセスした場合はダッシュボードにリダイレクト
@@ -88,7 +99,10 @@ export async function middleware(req: NextRequest) {
       // リダイレクトURLを設定
       const redirectUrl = new URL("/dashboard", req.url)
       // リダイレクトを実行
-      return NextResponse.redirect(redirectUrl)
+      const redirectRes = NextResponse.redirect(redirectUrl)
+      // リダイレクトカウントを増やす
+      redirectRes.headers.set("x-redirect-count", (redirectCount + 1).toString())
+      return redirectRes
     }
 
     // Cookieを確実に設定するためにレスポンスを返す

@@ -35,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const supabase = getClientSupabaseInstance()
+  const [redirectInProgress, setRedirectInProgress] = useState(false)
 
   // セッションを更新する関数
   const refreshSession = async () => {
@@ -79,19 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // ユーザー状態を更新
           setUser(session?.user ?? null)
 
-          // SIGNED_INイベントの場合、ダッシュボードにリダイレクト
-          if (event === "SIGNED_IN" && window.location.pathname === "/login") {
-            console.log("サインインイベント検出: ダッシュボードにリダイレクトします")
-            setTimeout(() => {
-              window.location.href = "/dashboard"
-            }, 500)
-          }
-
-          // SIGNED_OUTイベントの場合、ログインページにリダイレクト
-          if (event === "SIGNED_OUT") {
-            console.log("サインアウトイベント検出: ログインページにリダイレクトします")
-            window.location.href = "/login"
-          }
+          // リダイレクト処理はミドルウェアに任せる
+          // クライアント側でのリダイレクトは行わない
         })
 
         return () => {
