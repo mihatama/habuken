@@ -124,8 +124,10 @@ export function LoginForm() {
           description: "ログインに成功しました。",
         })
 
-        // リダイレクトはミドルウェアに任せる
-        // クライアント側でのリダイレクトは行わない
+        // 明示的にリダイレクトを実行
+        console.log(`リダイレクト先: ${redirect}`)
+        setRedirectHistory((prev) => [...prev, `リダイレクト実行: ${redirect}`])
+        router.push(redirect)
       }
     } catch (error) {
       console.error("Login error:", error)

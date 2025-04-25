@@ -36,7 +36,8 @@ export async function middleware(req: NextRequest) {
     const path = url.pathname
 
     // デバッグ用ログ
-    console.log(`Middleware実行: Path=${path}`)
+    console.log(`Middleware実行: Path=${path}, Headers=${JSON.stringify(Object.fromEntries(req.headers))}`)
+    console.log(`Cookies: ${req.cookies.toString()}`)
 
     // 静的アセットやAPIルートはスキップ
     if (staticPaths.some((staticPath) => path.startsWith(staticPath)) || path.includes(".")) {
