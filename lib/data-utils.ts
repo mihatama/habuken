@@ -1,4 +1,5 @@
-import { getClientSupabaseInstance } from "@/lib/supabase/supabaseClient"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { Staff } from "@/types/supabase"
 
 export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3, delay = 1000): Promise<T> {
   let lastError: Error | null = null
@@ -19,87 +20,115 @@ export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3, 
   throw lastError || new Error("不明なエラーが発生しました")
 }
 
-// スタッフデータを取得する関数
-export async function getStaff() {
-  return withRetry(async () => {
-    const supabase = getClientSupabaseInstance()
+/**
+ * スタッフデータを取得する関数
+ * @param options 取得オプション（ページネーション、フィルタリングなど）
+ * @returns スタッフデータと関連メタデータ
+ */
+export async function getStaff(
+  options: {
+    page?: number
+    limit?: number
+    status?: string
+    department?: string
+    searchTerm?: string
+  } = {},
+) {
+  const startTime = performance.now()
+  const supabase = createClientComponentClient()
 
-    // スタッフデータを取得
-    const { data, error } = await supabase.from("staff").select("*").order("full_name", { ascending: true })
+  try {
+    console.log("スタッフデータを取得中...", options)
+
+    // デフォルト値の設定
+    const { page = 1, limit = 10, status, department, searchTerm } = options
+
+    const offset = (page - 1) * limit
+
+    // クエリの構築
+    let query = supabase.from("staff").select("*", { count: "exact" })
+
+    // フィルタの適用
+    if (status) {
+      query = query.eq("status", status)
+    }
+
+    if (department) {
+      query = query.eq("department", department)
+    }
+
+    if (searchTerm) {
+      query = query.or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
+    }
+
+    // ページネーションの適用
+    const { data, error, count } = await query.order("full_name").range(offset, offset + limit - 1)
+
+    const endTime = performance.now()
+    const executionTime = endTime - startTime
 
     if (error) {
-      console.error("スタッフデータ取得エラー:", error)
+      console.error("スタッフデータの取得に失敗しました:", error)
       throw error
     }
 
-    return data || []
-  })
+    console.log(`スタッフデータを正常に取得しました (${executionTime.toFixed(2)}ms):`, {
+      count,
+      page,
+      limit,
+      data: data?.length,
+    })
+
+    return {
+      data: data as Staff[],
+      metadata: {
+        count: count || 0,
+        page,
+        limit,
+        executionTime,
+      },
+    }
+  } catch (error) {
+    console.error("スタッフデータの取得中にエラーが発生しました:", error)
+    throw error
+  }
 }
 
-// スタッフを削除する関数
+/**
+ * スタッフデータを削除する関数
+ * @param id 削除するスタッフのID
+ * @returns 削除の結果
+ */
 export async function deleteStaff(id: string) {
+  const startTime = performance.now()
+  const supabase = createClientComponentClient()
+
   return withRetry(async () => {
-    const supabase = getClientSupabaseInstance()
+    try {
+      console.log(`スタッフデータを削除中... ID: ${id}`)
 
-    // スタッフを削除
-    const { error } = await supabase.from("staff").delete().eq("id", id)
+      const { error } = await supabase.from("staff").delete().eq("id", id)
 
-    if (error) {
-      console.error("スタッフ削除エラー:", error)
+      const endTime = performance.now()
+      const executionTime = endTime - startTime
+
+      if (error) {
+        console.error(`スタッフ削除に失敗しました (ID: ${id}):`, error)
+        throw error
+      }
+
+      console.log(`スタッフを正常に削除しました (ID: ${id}, ${executionTime.toFixed(2)}ms)`)
+
+      return {
+        success: true,
+        metadata: {
+          executionTime,
+          id,
+        },
+      }
+    } catch (error) {
+      console.error(`スタッフの削除中にエラーが発生しました (ID: ${id}):`, error)
       throw error
     }
-
-    return { success: true }
-  })
-}
-
-// スタッフを追加する関数
-export async function addStaff(staffData: any) {
-  return withRetry(async () => {
-    const supabase = getClientSupabaseInstance()
-
-    // スタッフを追加
-    const { data, error } = await supabase.from("staff").insert(staffData).select()
-
-    if (error) {
-      console.error("スタッフ追加エラー:", error)
-      throw error
-    }
-
-    return data?.[0] || null
-  })
-}
-
-// スタッフを更新する関数
-export async function updateStaff(id: string, staffData: any) {
-  return withRetry(async () => {
-    const supabase = getClientSupabaseInstance()
-
-    // スタッフを更新
-    const { data, error } = await supabase.from("staff").update(staffData).eq("id", id).select()
-
-    if (error) {
-      console.error("スタッフ更新エラー:", error)
-      throw error
-    }
-
-    return data?.[0] || null
-  })
-}
-
-// スタッフの詳細を取得する関数
-export async function getStaffById(id: string) {
-  return withRetry(async () => {
-    const supabase = getClientSupabaseInstance()
-
-    // スタッフの詳細を取得
-    const { data, error } = await supabase.from("staff").select("*").eq("id", id).single()
-
-    if (error) {
-      console.error("スタッフ詳細取得エラー:", error)
-      throw error
-    }
-
-    return data
   })
 }

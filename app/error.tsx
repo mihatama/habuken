@@ -14,24 +14,21 @@ export default function Error({
   const router = useRouter()
 
   useEffect(() => {
-    // エラーをログに記録（リダイレクトエラーは除く）
-    if (!isRedirectError(error)) {
-      console.error("Application error:", error)
+    // リダイレクトエラーの場合は処理しない
+    if (error.message === "NEXT_REDIRECT" || error.message.includes("Redirect")) {
+      console.log("Redirect detected, not treating as error")
+      return
     }
+
+    // その他のエラーをログに記録
+    console.error("Application error:", error)
   }, [error])
 
-  // リダイレクトエラーかどうかを判定する関数
-  function isRedirectError(error: Error): boolean {
-    return error.message === "NEXT_REDIRECT" || error.message.includes("Redirect") || error.message.includes("redirect")
-  }
-
   // リダイレクトエラーの場合は何も表示しない
-  if (isRedirectError(error)) {
-    // リダイレクトエラーの場合は空のフラグメントを返す
-    return <></>
+  if (error.message === "NEXT_REDIRECT" || error.message.includes("Redirect")) {
+    return null
   }
 
-  // 通常のエラー表示
   return (
     <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
       <h2 className="mb-4 text-2xl font-bold">エラーが発生しました</h2>

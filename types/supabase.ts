@@ -88,6 +88,7 @@ export interface Database {
           status: string
           created_at: string
           updated_at: string
+          skills?: string[] | null
         }
         Insert: {
           id?: string
@@ -100,6 +101,7 @@ export interface Database {
           status?: string
           created_at?: string
           updated_at?: string
+          skills?: string[] | null
         }
         Update: {
           id?: string
@@ -112,6 +114,7 @@ export interface Database {
           status?: string
           created_at?: string
           updated_at?: string
+          skills?: string[] | null
         }
       }
       resources: {
@@ -192,7 +195,7 @@ export interface Database {
           end_date: string
           reason: string | null
           status: string
-          approved_by: string | null
+          rejectReason: string | null
           created_at: string
           updated_at: string
         }
@@ -203,7 +206,7 @@ export interface Database {
           end_date: string
           reason?: string | null
           status?: string
-          approved_by?: string | null
+          rejectReason?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -214,7 +217,7 @@ export interface Database {
           end_date?: string
           reason?: string | null
           status?: string
-          approved_by?: string | null
+          rejectReason?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -318,152 +321,6 @@ export interface Database {
           updated_at?: string
         }
       }
-      project_assignments: {
-        Row: {
-          id: string
-          project_id: string
-          staff_id: string | null
-          heavy_machinery_id: string | null
-          vehicle_id: string | null
-          tool_id: string | null
-          start_date: string
-          end_date: string | null
-          notes: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          project_id: string
-          staff_id?: string | null
-          heavy_machinery_id?: string | null
-          vehicle_id?: string | null
-          tool_id?: string | null
-          start_date: string
-          end_date?: string | null
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          project_id?: string
-          staff_id?: string | null
-          heavy_machinery_id?: string | null
-          vehicle_id?: string | null
-          tool_id?: string | null
-          start_date?: string
-          end_date?: string | null
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      heavy_machinery: {
-        Row: {
-          id: string
-          name: string
-          type: string
-          model: string | null
-          status: string
-          maintenance_date: string | null
-          notes: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          type: string
-          model?: string | null
-          status?: string
-          maintenance_date?: string | null
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string
-          type?: string
-          model?: string | null
-          status?: string
-          maintenance_date?: string | null
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      vehicles: {
-        Row: {
-          id: string
-          name: string
-          type: string
-          license_plate: string | null
-          status: string
-          maintenance_date: string | null
-          notes: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          type: string
-          license_plate?: string | null
-          status?: string
-          maintenance_date?: string | null
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string
-          type?: string
-          license_plate?: string | null
-          status?: string
-          maintenance_date?: string | null
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      tools: {
-        Row: {
-          id: string
-          name: string
-          type: string
-          storage_location: string | null
-          status: string
-          maintenance_date: string | null
-          notes: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          type: string
-          storage_location?: string | null
-          status?: string
-          maintenance_date?: string | null
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string
-          type?: string
-          storage_location?: string | null
-          status?: string
-          maintenance_date?: string | null
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
     }
     Views: {
       [_ in never]: never
@@ -476,3 +333,5 @@ export interface Database {
     }
   }
 }
+
+export type Staff = Database["public"]["Tables"]["staff"]["Row"]

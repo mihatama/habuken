@@ -2,39 +2,77 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs"
 
-// 静的アセットパス（ミドルウェアをスキップ）
-const staticPaths = ["/_next", "/api", "/static", "/favicon.ico", "/images"]
+// 認証が必要なパス
+const protectedPaths = [
+  "/dashboard",
+  "/projects",
+  "/tasks",
+  "/staff",
+  "/reports",
+  "/tools",
+  "/shifts",
+  "/leave",
+  "/profile",
+  "/settings",
+  "/admin",
+  "/master",
+  "/inspection",
+  "/report",
+]
+
+// 認証が不要なパス
+const publicPaths = ["/", "/login", "/signup", "/forgot-password", "/reset-password"]
 
 export async function middleware(req: NextRequest) {
-  try {
-    // リクエストURLを取得
-    const url = req.nextUrl.clone()
-    const path = url.pathname
+  const res = NextResponse.next()
+  const supabase = createMiddlewareClient({ req, res })
 
-    // 静的アセットやAPIルートはスキップ
-    if (staticPaths.some((staticPath) => path.startsWith(staticPath)) || path.includes(".")) {
-      return NextResponse.next()
-    }
+  // セッションを取得
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
 
-    // ミドルウェアの処理を最小限に
-    const res = NextResponse.next()
+  const path = req.nextUrl.pathname
 
-    // Supabaseクライアントを作成
-    const supabase = createMiddlewareClient({ req, res })
-
-    // セッションを取得するだけ（リダイレクトなし）
-    await supabase.auth.getSession()
-
-    // レスポンスを返す
-    return res
-  } catch (error) {
-    console.error("Middleware error:", error)
-    // エラーが発生した場合でもアプリケーションを継続させる
-    return NextResponse.next()
+  // デバッグ用ログ
+  console.log(`Middleware: Path=${path}, Session=${session ? "exists" : "null"}`)
+  if (session) {
+    console.log(`User authenticated: ${session.user.email}, User ID: ${session.user.id}`)
+  } else {
+    console.log("No active session found")
   }
+
+  // 保護されたパスへのアクセスで認証されていない場合はログインページにリダイレクト
+  const isProtectedPath = protectedPaths.some(
+    (protectedPath) => path === protectedPath || path.startsWith(`${protectedPath}/`),
+  )
+
+  if (isProtectedPath && !session) {
+    console.log(`Redirecting to login: Protected path=${path}, no session`)
+    const redirectUrl = new URL("/login", req.url)
+    return NextResponse.redirect(redirectUrl)
+  }
+
+  // 認証済みユーザーがログインページなどにアクセスした場合はダッシュボードにリダイレクト
+  const isAuthPath = publicPaths.includes(path)
+
+  if (isAuthPath && session && path !== "/") {
+    console.log(`Redirecting to dashboard: Auth path=${path}, has session`)
+    return NextResponse.redirect(new URL("/dashboard", req.url))
+  }
+
+  return res
 }
 
-// matcherを修正して、静的アセットを除外
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public (public files)
+     */
+    "/((?!_next/static|_next/image|favicon.ico|public).*)",
+  ],
 }

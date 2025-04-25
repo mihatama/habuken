@@ -1,69 +1,30 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { useAuth } from "@/contexts/auth-context"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, CheckCircle, Info, RefreshCw } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { checkTableStructure, checkRLSPolicies, checkTableRecordCount } from "@/lib/supabase/debug-helper"
+import { getClientSupabaseInstance } from "@/lib/supabase/supabaseClient"
 
 export default function SupabaseDebugPage() {
-  const { supabase, user, refreshSession } = useAuth()
-  const [sessionData, setSessionData] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const [tableName, setTableName] = useState("staff")
+  const [tableStructure, setTableStructure] = useState<any>(null)
+  const [rlsPolicies, setRlsPolicies] = useState<any>(null)
+  const [recordCount, setRecordCount] = useState<any>(null)
+  const [queryResult, setQueryResult] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [connectionStatus, setConnectionStatus] = useState<"checking" | "ok" | "error">("checking")
-  const [redirectHistory, setRedirectHistory] = useState<string[]>([])
 
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-
-        // セッション情報を取得
-        const { data, error } = await supabase.auth.getSession()
-
-        if (error) {
-          setError(error.message)
-          setConnectionStatus("error")
-        } else {
-          setSessionData(data)
-          setConnectionStatus("ok")
-
-          // リダイレクト履歴に追加
-          if (data.session) {
-            setRedirectHistory((prev) => [...prev, `セッション検出: ${data.session.user.email}`])
-          } else {
-            setRedirectHistory((prev) => [...prev, "セッションなし"])
-          }
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "不明なエラーが発生しました")
-        setConnectionStatus("error")
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    checkSession()
-  }, [supabase])
-
-  // セッション更新
-  const handleRefreshSession = async () => {
+  // テーブル構造を確認
+  const handleCheckStructure = async () => {
+    setLoading(true)
+    setError(null)
     try {
-      setLoading(true)
-      await refreshSession()
-
-      // セッション情報を再取得
-      const { data, error } = await supabase.auth.getSession()
-
-      if (error) {
-        setError(error.message)
-      } else {
-        setSessionData(data)
-        setRedirectHistory((prev) => [...prev, "セッション更新: " + (data.session ? "成功" : "セッションなし")])
-      }
+      const result = await checkTableStructure(tableName)
+      setTableStructure(result)
     } catch (err) {
       setError(err instanceof Error ? err.message : "不明なエラーが発生しました")
     } finally {
@@ -71,189 +32,174 @@ export default function SupabaseDebugPage() {
     }
   }
 
-  // ストレージクリア
-  const handleClearStorage = () => {
-    localStorage.clear()
-    sessionStorage.clear()
-    setRedirectHistory((prev) => [...prev, "ストレージクリア実行"])
+  // RLSポリシーを確認
+  const handleCheckRLS = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await checkRLSPolicies(tableName)
+      setRlsPolicies(result)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "不明なエラーが発生しました")
+    } finally {
+      setLoading(false)
+    }
   }
 
-  // 手動リダイレクト
-  const handleRedirect = (path: string) => {
-    setRedirectHistory((prev) => [...prev, `リダイレクト実行: ${path}`])
-    window.location.href = path
+  // レコード数を確認
+  const handleCheckCount = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await checkTableRecordCount(tableName)
+      setRecordCount(result)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "不明なエラーが発生しました")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 直接クエリを実行
+  const handleDirectQuery = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const supabase = getClientSupabaseInstance()
+      const { data, error } = await supabase.from(tableName).select("*").limit(10)
+
+      if (error) throw error
+
+      setQueryResult({ data, count: data?.length || 0 })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "不明なエラーが発生しました")
+      setQueryResult(null)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-6">Supabaseデバッグページ</h1>
+    <div className="container mx-auto py-10">
+      <h1 className="text-2xl font-bold mb-6">Supabaseデバッグツール</h1>
 
-      {/* 接続状態 */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>接続状態</CardTitle>
-          <CardDescription>Supabaseとの接続状態を表示します</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {connectionStatus === "checking" && (
-            <Alert>
-              <RefreshCw className="h-4 w-4 animate-spin" />
-              <AlertTitle>確認中</AlertTitle>
-              <AlertDescription>Supabaseとの接続を確認しています...</AlertDescription>
-            </Alert>
-          )}
-
-          {connectionStatus === "ok" && (
-            <Alert className="bg-green-50 border-green-200">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertTitle className="text-green-600">接続成功</AlertTitle>
-              <AlertDescription>Supabaseサービスに正常に接続されています。</AlertDescription>
-            </Alert>
-          )}
-
-          {connectionStatus === "error" && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>接続エラー</AlertTitle>
-              <AlertDescription>{error || "Supabaseとの接続に問題があります。"}</AlertDescription>
-            </Alert>
-          )}
-
-          <div className="mt-4 flex gap-2">
-            <Button onClick={handleRefreshSession} disabled={loading} size="sm">
-              {loading ? "更新中..." : "接続を再確認"}
-            </Button>
-            <Button onClick={handleClearStorage} variant="outline" size="sm">
-              ストレージクリア
-            </Button>
+      <div className="mb-6">
+        <div className="flex items-end gap-4">
+          <div className="flex-1">
+            <Label htmlFor="table-name" className="mb-2 block">
+              テーブル名
+            </Label>
+            <Input
+              id="table-name"
+              value={tableName}
+              onChange={(e) => setTableName(e.target.value)}
+              placeholder="テーブル名を入力"
+            />
           </div>
-        </CardContent>
-      </Card>
+          <Button onClick={handleDirectQuery} disabled={loading}>
+            {loading ? "読み込み中..." : "クエリ実行"}
+          </Button>
+        </div>
+      </div>
 
-      {/* セッション情報 */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>セッション情報</CardTitle>
-          <CardDescription>現在のセッション情報を表示します</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="text-center py-4">
-              <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
-              <p>セッション情報を取得中...</p>
-            </div>
-          ) : sessionData?.session ? (
-            <div className="space-y-4">
-              <Alert className="bg-blue-50 border-blue-200">
-                <Info className="h-4 w-4 text-blue-600" />
-                <AlertTitle className="text-blue-600">セッション有効</AlertTitle>
-                <AlertDescription>ユーザー: {sessionData.session.user.email}</AlertDescription>
-              </Alert>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <Button onClick={handleCheckStructure} disabled={loading} variant="outline">
+          テーブル構造を確認
+        </Button>
+        <Button onClick={handleCheckRLS} disabled={loading} variant="outline">
+          RLSポリシーを確認
+        </Button>
+        <Button onClick={handleCheckCount} disabled={loading} variant="outline">
+          レコード数を確認
+        </Button>
+      </div>
 
-              <div className="border rounded-md p-4 bg-gray-50">
-                <h3 className="font-medium mb-2">セッション詳細</h3>
-                <ul className="space-y-1 text-sm">
-                  <li>
-                    <span className="font-medium">ユーザーID:</span> {sessionData.session.user.id}
-                  </li>
-                  <li>
-                    <span className="font-medium">メールアドレス:</span> {sessionData.session.user.email}
-                  </li>
-                  <li>
-                    <span className="font-medium">有効期限:</span>{" "}
-                    {new Date(sessionData.session.expires_at * 1000).toLocaleString()}
-                  </li>
-                </ul>
-              </div>
-            </div>
-          ) : (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>セッションなし</AlertTitle>
-              <AlertDescription>現在アクティブなセッションがありません。ログインしてください。</AlertDescription>
-            </Alert>
-          )}
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">{error}</div>}
 
-          <div className="mt-4 flex gap-2">
-            <Button onClick={handleRefreshSession} size="sm">
-              セッション更新
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="query">
+        <TabsList className="mb-4">
+          <TabsTrigger value="query">クエリ結果</TabsTrigger>
+          <TabsTrigger value="structure">テーブル構造</TabsTrigger>
+          <TabsTrigger value="rls">RLSポリシー</TabsTrigger>
+          <TabsTrigger value="count">レコード数</TabsTrigger>
+        </TabsList>
 
-      {/* ユーザー情報 */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>ユーザー情報</CardTitle>
-          <CardDescription>現在のユーザー情報を表示します</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {user ? (
-            <div className="border rounded-md p-4 bg-gray-50">
-              <h3 className="font-medium mb-2">ユーザー詳細</h3>
-              <ul className="space-y-1 text-sm">
-                <li>
-                  <span className="font-medium">ユーザーID:</span> {user.id}
-                </li>
-                <li>
-                  <span className="font-medium">メールアドレス:</span> {user.email}
-                </li>
-                <li>
-                  <span className="font-medium">最終更新日時:</span> {new Date(user.updated_at || "").toLocaleString()}
-                </li>
-              </ul>
-            </div>
-          ) : (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>ユーザーなし</AlertTitle>
-              <AlertDescription>現在ログインしているユーザーはいません。</AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
+        <TabsContent value="query">
+          <Card>
+            <CardHeader>
+              <CardTitle>クエリ結果</CardTitle>
+              <CardDescription>テーブル「{tableName}」の最初の10件のデータ</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {queryResult ? (
+                <div>
+                  <p className="mb-2">取得件数: {queryResult.count}</p>
+                  <pre className="bg-gray-100 p-4 rounded overflow-auto max-h-96">
+                    {JSON.stringify(queryResult.data, null, 2)}
+                  </pre>
+                </div>
+              ) : (
+                <p>クエリを実行してください</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {/* リダイレクト履歴 */}
-      {redirectHistory.length > 0 && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>リダイレクト履歴</CardTitle>
-            <CardDescription>このページでのリダイレクト履歴を表示します</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="list-disc pl-4 space-y-1 text-sm">
-              {redirectHistory.map((entry, index) => (
-                <li key={index}>{entry}</li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
+        <TabsContent value="structure">
+          <Card>
+            <CardHeader>
+              <CardTitle>テーブル構造</CardTitle>
+              <CardDescription>テーブル「{tableName}」のカラム情報</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {tableStructure ? (
+                <pre className="bg-gray-100 p-4 rounded overflow-auto max-h-96">
+                  {JSON.stringify(tableStructure, null, 2)}
+                </pre>
+              ) : (
+                <p>テーブル構造を確認してください</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {/* ナビゲーション */}
-      <Card>
-        <CardHeader>
-          <CardTitle>ナビゲーション</CardTitle>
-          <CardDescription>各ページに手動でナビゲートします</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => handleRedirect("/dashboard")} variant="outline" size="sm">
-              ダッシュボード
-            </Button>
-            <Button onClick={() => handleRedirect("/login")} variant="outline" size="sm">
-              ログイン
-            </Button>
-            <Button onClick={() => handleRedirect("/")} variant="outline" size="sm">
-              ホーム
-            </Button>
-            <Button onClick={() => handleRedirect("/profile")} variant="outline" size="sm">
-              プロフィール
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        <TabsContent value="rls">
+          <Card>
+            <CardHeader>
+              <CardTitle>RLSポリシー</CardTitle>
+              <CardDescription>テーブル「{tableName}」のRLSポリシー設定</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {rlsPolicies ? (
+                <pre className="bg-gray-100 p-4 rounded overflow-auto max-h-96">
+                  {JSON.stringify(rlsPolicies, null, 2)}
+                </pre>
+              ) : (
+                <p>RLSポリシーを確認してください</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="count">
+          <Card>
+            <CardHeader>
+              <CardTitle>レコード数</CardTitle>
+              <CardDescription>テーブル「{tableName}」の総レコード数</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {recordCount ? (
+                <div>
+                  <p className="text-xl font-bold">{recordCount.error ? "エラー" : `${recordCount.count || 0} 件`}</p>
+                  {recordCount.error && <p className="text-red-500 mt-2">{recordCount.error}</p>}
+                </div>
+              ) : (
+                <p>レコード数を確認してください</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
