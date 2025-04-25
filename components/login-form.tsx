@@ -124,10 +124,14 @@ export function LoginForm() {
           description: "ログインに成功しました。",
         })
 
-        // 明示的にリダイレクトを実行
+        // 明示的にリダイレクトを実行 - window.location.hrefを使用
         console.log(`リダイレクト先: ${redirect}`)
-        setRedirectHistory((prev) => [...prev, `リダイレクト実行: ${redirect}`])
-        router.push(redirect)
+        setRedirectHistory((prev) => [...prev, `リダイレクト実行: ${redirect} (window.location使用)`])
+
+        // 少し遅延を入れてからリダイレクト
+        setTimeout(() => {
+          window.location.href = redirect
+        }, 500)
       }
     } catch (error) {
       console.error("Login error:", error)

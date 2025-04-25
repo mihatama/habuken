@@ -80,6 +80,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // ユーザー状態を更新
           setUser(session?.user ?? null)
 
+          // セッション変更イベントをより詳細にログ
+          if (event === "SIGNED_IN") {
+            console.log("ユーザーがサインインしました - セッション詳細:", session)
+          } else if (event === "SIGNED_OUT") {
+            console.log("ユーザーがサインアウトしました")
+          } else if (event === "TOKEN_REFRESHED") {
+            console.log("トークンが更新されました")
+          }
+
           // リダイレクト処理はミドルウェアに任せる
           // クライアント側でのリダイレクトは行わない
         })
