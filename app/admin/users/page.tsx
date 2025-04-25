@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { UserManagement } from "@/components/user-management"
-import { getUsers } from "@/actions/user-management"
 import { createServerSupabaseClient } from "@/lib/supabase"
 import { redirect } from "next/navigation"
 
@@ -11,33 +10,58 @@ export const metadata: Metadata = {
 }
 
 export default async function UsersPage() {
-  // 管理者権限チェック
   const supabase = createServerSupabaseClient()
+
+  // セッションを取得
   const {
     data: { session },
   } = await supabase.auth.getSession()
 
   if (!session) {
-    redirect("/login?callbackUrl=/admin/users")
+    redirect("/login")
   }
 
   // 管理者権限チェック
-  const { data: userRoles } = await supabase
+  const { data: roleData, error } = await supabase
     .from("user_roles")
-    .select("*")
+    .select("role")
     .eq("user_id", session.user.id)
     .eq("role", "admin")
 
-  if (!userRoles || userRoles.length === 0) {
-    redirect("/dashboard?error=unauthorized")
+  if (error || !roleData || roleData.length === 0) {
+    // 管理者でない場合はダッシュボードにリダイレクト
+    redirect("/dashboard")
   }
 
   // ユーザー一覧を取得
-  const users = await getUsers()
+  const { data: users } = await supabase
+    .from("profiles")
+    .select(`
+      id,
+      email,
+      full_name,
+      position,
+      department,
+      created_at,
+      user_id,
+      user_roles(role)
+    `)
+    .order("created_at", { ascending: false })
+
+  // ロールデータを整形
+  const formattedUsers =
+    users?.map((user) => {
+      const roles = user.user_roles ? user.user_roles.map((r: any) => r.role) : []
+      return {
+        ...user,
+        roles,
+        user_roles: undefined, // 元のネストされたデータを削除
+      }
+    }) || []
 
   return (
     <DashboardLayout title="ユーザー管理" isAdmin={true}>
-      <UserManagement initialUsers={users} />
+      <UserManagement initialUsers={formattedUsers} />
     </DashboardLayout>
   )
 }

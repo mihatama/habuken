@@ -1,233 +1,164 @@
 "use client"
 
-import * as React from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { useToast } from "@/components/ui/use-toast"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Loader2, AlertCircle } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
-import Link from "next/link"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, Info } from "lucide-react"
 
-// フォームスキーマを修正
-const formSchema = z.object({
-  emailOrId: z.string().min(1, {
-    message: "メールアドレスまたはユーザーIDを入力してください。",
-  }),
-  password: z.string().min(6, {
-    message: "パスワードは6文字以上である必要があります。",
-  }),
-  rememberMe: z.boolean().default(false),
+// ログインフォームのバリデーションスキーマ
+const loginSchema = z.object({
+  identifier: z.string().min(1, { message: "メールアドレスまたはIDを入力してください" }),
+  password: z.string().min(1, { message: "パスワードを入力してください" }),
 })
 
+type LoginFormValues = z.infer<typeof loginSchema>
+
 export function LoginForm() {
-  const { toast } = useToast()
+  const { signIn } = useAuth()
   const router = useRouter()
-  const { signIn, supabase } = useAuth()
-  const [isLoading, setIsLoading] = React.useState<boolean>(false)
-  const [loginError, setLoginError] = React.useState<string | null>(null)
-  const [supabaseStatus, setSupabaseStatus] = React.useState<"checking" | "ok" | "error">("checking")
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<"admin" | "user">("admin")
 
-  // Supabase接続テスト
-  React.useEffect(() => {
-    const checkSupabase = async () => {
-      try {
-        // 簡単な接続テスト - 匿名セッションを取得
-        const { data, error } = await supabase.auth.getSession()
-        if (error) {
-          console.error("Supabase connection error:", error)
-          setSupabaseStatus("error")
-        } else {
-          console.log("Supabase connection successful")
-          setSupabaseStatus("ok")
-        }
-      } catch (err) {
-        console.error("Supabase check error:", err)
-        setSupabaseStatus("error")
-      }
-    }
-
-    checkSupabase()
-  }, [supabase])
-
-  // フォームのデフォルト値を修正
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
     defaultValues: {
-      emailOrId: "",
+      identifier: "",
       password: "",
-      rememberMe: false,
     },
   })
 
-  // onSubmit関数を修正
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true)
-    setLoginError(null)
+    setError(null)
 
     try {
-      // Supabase接続状態を確認
-      if (supabaseStatus === "error") {
-        setLoginError("Supabaseとの接続に問題があります。管理者にお問い合わせください。")
-        return
-      }
+      const result = await signIn(data.identifier, data.password)
 
-      console.log("Attempting login with:", values.emailOrId)
-
-      // Supabase認証を使用
-      const { error, data } = await signIn(values.emailOrId, values.password)
-
-      if (error) {
-        console.error("Login error:", error)
-
-        // エラーメッセージをより具体的に
-        let errorMessage = "認証に失敗しました。"
-
-        if (error.message.includes("Invalid login credentials")) {
-          errorMessage = "ユーザーIDまたはパスワードが正しくありません。"
-        } else if (error.message.includes("Email not confirmed")) {
-          errorMessage = "メールアドレスが確認されていません。メールボックスを確認してください。"
-        } else if (error.message.includes("Too many requests")) {
-          errorMessage = "ログイン試行回数が多すぎます。しばらく待ってから再試行してください。"
-        } else if (error.message.includes("ユーザーIDが見つかりません")) {
-          errorMessage = "ユーザーIDが見つかりません。"
-        } else {
-          errorMessage = `エラー: ${error.message}`
-        }
-
-        setLoginError(errorMessage)
-        toast({
-          variant: "destructive",
-          title: "ログイン失敗",
-          description: errorMessage,
-        })
+      if (result.success) {
+        router.push("/dashboard")
+        router.refresh()
       } else {
-        // ログイン成功
-        console.log("Login successful:", data)
-        toast({
-          title: "ログイン成功",
-          description: "ログインに成功しました。",
-        })
-
-        // セッションが確実に設定されるようにする
-        setTimeout(() => {
-          router.push("/dashboard")
-        }, 500)
+        setError(result.error || "ログインに失敗しました。認証情報を確認してください。")
       }
-    } catch (error) {
-      console.error("Login error:", error)
-      const errorMessage = error instanceof Error ? error.message : "不明なエラーが発生しました"
-      setLoginError(errorMessage)
-      toast({
-        variant: "destructive",
-        title: "エラー",
-        description: "ログイン処理中にエラーが発生しました。" + errorMessage,
-      })
+    } catch (err) {
+      setError("ログイン処理中にエラーが発生しました。")
+      console.error("ログインエラー:", err)
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="grid gap-6">
-      {supabaseStatus === "error" && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>接続エラー</AlertTitle>
-          <AlertDescription>
-            Supabaseサービスとの接続に問題があります。
-            <Link href="/supabase-debug" className="underline ml-1">
-              詳細を確認する
-            </Link>
-          </AlertDescription>
-        </Alert>
-      )}
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader>
+        <CardTitle className="text-2xl text-center">現助 - ログイン</CardTitle>
+        <CardDescription className="text-center">プロジェクト管理システムにログインしてください</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "admin" | "user")}>
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="admin">管理者</TabsTrigger>
+            <TabsTrigger value="user">一般ユーザー</TabsTrigger>
+          </TabsList>
 
-      {supabaseStatus === "ok" && (
-        <Alert className="bg-green-50 border-green-200">
-          <Info className="h-4 w-4 text-green-600" />
-          <AlertTitle className="text-green-600">接続状態</AlertTitle>
-          <AlertDescription>Supabaseサービスに正常に接続されています。</AlertDescription>
-        </Alert>
-      )}
-
-      {loginError && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>ログインエラー</AlertTitle>
-          <AlertDescription>{loginError}</AlertDescription>
-        </Alert>
-      )}
-
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          {/* フォームフィールドを修正 */}
-          <FormField
-            control={form.control}
-            name="emailOrId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>メールアドレスまたはユーザーID</FormLabel>
-                <FormControl>
-                  <Input placeholder="user@example.com または user123" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>パスワード</FormLabel>
-                <FormControl>
-                  <Input type="password" {...field} />
-                </FormControl>
-                <div className="flex justify-end">
-                  <Link href="/forgot-password" className="text-sm text-muted-foreground hover:text-primary">
-                    パスワードをお忘れですか？
-                  </Link>
+          <TabsContent value="admin">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="admin-email">メールアドレス</Label>
+                <Input
+                  id="admin-email"
+                  type="email"
+                  placeholder="info@mihatama.com"
+                  {...form.register("identifier")}
+                  disabled={isLoading}
+                />
+                {form.formState.errors.identifier && (
+                  <p className="text-sm text-red-500">{form.formState.errors.identifier.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="admin-password">パスワード</Label>
                 </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="rememberMe"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                <FormControl>
-                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                </FormControl>
-                <div className="space-y-1 leading-none">
-                  <FormLabel>ログイン状態を保持する</FormLabel>
+                <Input id="admin-password" type="password" {...form.register("password")} disabled={isLoading} />
+                {form.formState.errors.password && (
+                  <p className="text-sm text-red-500">{form.formState.errors.password.message}</p>
+                )}
+              </div>
+
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ログイン中...
+                  </>
+                ) : (
+                  "ログイン"
+                )}
+              </Button>
+            </form>
+          </TabsContent>
+
+          <TabsContent value="user">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="user-id">ユーザーID</Label>
+                <Input id="user-id" placeholder="ユーザーID" {...form.register("identifier")} disabled={isLoading} />
+                {form.formState.errors.identifier && (
+                  <p className="text-sm text-red-500">{form.formState.errors.identifier.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="user-password">パスワード</Label>
                 </div>
-              </FormItem>
-            )}
-          />
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "ログイン中..." : "ログイン"}
-          </Button>
-        </form>
-      </Form>
+                <Input id="user-password" type="password" {...form.register("password")} disabled={isLoading} />
+                {form.formState.errors.password && (
+                  <p className="text-sm text-red-500">{form.formState.errors.password.message}</p>
+                )}
+              </div>
 
-      <div className="text-center text-sm">
-        <p>アカウントをお持ちでない場合は、管理者にお問い合わせください。</p>
-      </div>
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
 
-      <div className="text-center text-sm">
-        <Link href="/supabase-debug" className="text-muted-foreground hover:text-primary">
-          Supabase接続状態を詳細に確認する
-        </Link>
-      </div>
-    </div>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ログイン中...
+                  </>
+                ) : (
+                  "ログイン"
+                )}
+              </Button>
+            </form>
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+      <CardFooter className="flex flex-col space-y-2">
+        <div className="text-sm text-center text-muted-foreground">※管理者アカウント: info@mihatama.com / 123456!</div>
+      </CardFooter>
+    </Card>
   )
 }

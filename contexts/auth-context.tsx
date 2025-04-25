@@ -4,227 +4,160 @@ import { createContext, useContext, useEffect, useState } from "react"
 import type { SupabaseClient, User } from "@supabase/supabase-js"
 import type { Database } from "@/types/supabase"
 import type { ReactNode } from "react"
-import type { AuthError } from "@supabase/supabase-js"
 import { getClientSupabaseInstance } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
 
-// パスワード強度チェック用の正規表現を修正
-const PASSWORD_REGEX = {
-  minLength: /.{6,}/,
-}
+type UserRole = "admin" | "manager" | "staff" | "user"
 
-export type PasswordStrength = {
-  isValid: boolean
-  errors: string[]
-}
-
-// AuthContextType型を修正して、signInとsignUpを追加
 type AuthContextType = {
-  user: User | null
   supabase: SupabaseClient<Database>
+  user: User | null
+  userRoles: UserRole[]
+  isAdmin: boolean
   loading: boolean
+  signIn: (idOrEmail: string, password: string) => Promise<{ success: boolean; error?: string }>
   signOut: () => Promise<void>
-  signIn: (emailOrId: string, password: string) => Promise<any>
-  signUp: (email: string, password: string, metadata?: { full_name?: string }) => Promise<any>
-  resetPassword: (email: string) => Promise<any>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
   const supabase = getClientSupabaseInstance()
+  const [user, setUser] = useState<User | null>(null)
+  const [userRoles, setUserRoles] = useState<UserRole[]>([])
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
+  // ユーザーのロールを取得する関数
+  const fetchUserRoles = async (userId: string) => {
+    try {
+      const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", userId)
+
+      if (error) {
+        console.error("ロール取得エラー:", error)
+        return []
+      }
+
+      return data.map((item) => item.role as UserRole)
+    } catch (error) {
+      console.error("ロール取得中のエラー:", error)
+      return []
+    }
+  }
+
+  // 初期化時にセッションをチェック
   useEffect(() => {
-    const getUser = async () => {
+    const initAuth = async () => {
+      setLoading(true)
       try {
+        // 現在のセッションを取得
         const {
           data: { session },
-          error,
         } = await supabase.auth.getSession()
 
-        if (error) {
-          console.error("Error getting session:", error)
+        if (session?.user) {
+          setUser(session.user)
+          const roles = await fetchUserRoles(session.user.id)
+          setUserRoles(roles)
+        } else {
+          setUser(null)
+          setUserRoles([])
         }
-
-        setUser(session?.user ?? null)
-        setLoading(false)
-
-        const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-          console.log("Auth state changed:", event, session?.user?.email)
-          setUser(session?.user ?? null)
-        })
-
-        return () => {
-          authListener.subscription.unsubscribe()
-        }
-      } catch (err) {
-        console.error("Error in getUser:", err)
+      } catch (error) {
+        console.error("認証初期化エラー:", error)
+        setUser(null)
+        setUserRoles([])
+      } finally {
         setLoading(false)
       }
     }
 
-    getUser()
-  }, [supabase.auth])
+    initAuth()
 
-  // パスワード強度チェック関数を修正
-  const checkPasswordStrength = (password: string): PasswordStrength => {
-    const errors: string[] = []
+    // 認証状態の変更を監視
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        setUser(session.user)
+        const roles = await fetchUserRoles(session.user.id)
+        setUserRoles(roles)
+      } else {
+        setUser(null)
+        setUserRoles([])
+      }
+      setLoading(false)
+    })
 
-    if (!PASSWORD_REGEX.minLength.test(password)) {
-      errors.push("パスワードは6文字以上である必要があります")
+    return () => {
+      subscription.unsubscribe()
     }
+  }, [supabase])
 
-    return {
-      isValid: errors.length === 0,
-      errors,
-    }
-  }
-
-  const signUp = async (email: string, password: string, metadata?: { full_name?: string }) => {
+  // ログイン関数
+  const signIn = async (idOrEmail: string, password: string) => {
     try {
-      if (!supabase) {
-        return {
-          error: {
-            message: "Supabase環境変数が設定されていないため、サインアップできません。",
-          } as AuthError,
-          data: null,
-        }
-      }
-
-      // パスワード強度チェック
-      const passwordCheck = checkPasswordStrength(password)
-      if (!passwordCheck.isValid) {
-        return {
-          error: {
-            message: `パスワードが要件を満たしていません: ${passwordCheck.errors.join(", ")}`,
-          } as AuthError,
-          data: null,
-        }
-      }
-
-      console.log("Signing up with:", email)
-      const result = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: metadata,
-          emailRedirectTo: `${window.location.origin}/login`,
-        },
-      })
-      console.log("Sign up result:", result)
-      return result
-    } catch (err) {
-      console.error("Sign up error:", err)
-      return { error: err as AuthError, data: null }
-    }
-  }
-
-  // signIn関数を修正してIDによるログインをサポート
-  const signIn = async (emailOrId: string, password: string) => {
-    try {
-      console.log("Signing in with:", emailOrId)
-
-      // Supabaseクライアントが存在しない場合はエラーを返す
-      if (!supabase) {
-        console.error("Supabaseクライアントが初期化されていません")
-        return {
-          error: {
-            message: "Supabase環境変数が設定されていないため、認証できません。",
-          } as AuthError,
-          data: null,
-        }
-      }
-
-      // メールアドレスかIDかを判断
-      const isEmail = emailOrId.includes("@")
-
-      let result
+      // メールアドレスかどうかをチェック
+      const isEmail = idOrEmail.includes("@")
 
       if (isEmail) {
-        // メールアドレスでログイン
-        result = await supabase.auth.signInWithPassword({
-          email: emailOrId,
+        // メールアドレスでログイン（管理者用）
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: idOrEmail,
           password,
         })
+
+        if (error) throw error
+        return { success: true }
       } else {
-        // IDでログイン - まずプロフィールからメールアドレスを取得
+        // ユーザーIDでログイン（一般ユーザー用）
+        // まずユーザーIDからメールアドレスを取得
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select("email")
-          .eq("user_id", emailOrId)
+          .eq("user_id", idOrEmail)
           .single()
 
-        if (profileError || !profileData) {
-          return {
-            error: {
-              message: "ユーザーIDが見つかりません",
-            } as AuthError,
-            data: null,
-          }
+        if (profileError) {
+          return { success: false, error: "ユーザーIDが見つかりません" }
         }
 
         // 取得したメールアドレスでログイン
-        result = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: profileData.email,
           password,
         })
+
+        if (error) throw error
+        return { success: true }
       }
-
-      console.log("Sign in result:", result)
-
-      // エラーがある場合は詳細をログに出力
-      if (result.error) {
-        console.error("Supabase auth error:", result.error)
+    } catch (error) {
+      console.error("ログインエラー:", error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "ログインに失敗しました",
       }
-
-      // セッションが存在する場合はユーザー状態を更新
-      if (result.data.session) {
-        setUser(result.data.user)
-        // セッションが正しく設定されたことをログに出力
-        console.log("Session set successfully:", result.data.session)
-      }
-
-      return result
-    } catch (err) {
-      console.error("Sign in error:", err)
-      return { error: err as AuthError, data: null }
     }
   }
 
+  // ログアウト関数
   const signOut = async () => {
-    await supabase.auth.signOut()
-  }
-
-  const resetPassword = async (email: string) => {
     try {
-      if (!supabase) {
-        return {
-          error: {
-            message: "Supabase環境変数が設定されていないため、パスワードリセットできません。",
-          } as AuthError,
-          data: null,
-        }
-      }
-
-      return await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      })
-    } catch (err) {
-      console.error("Reset password error:", err)
-      return { error: err as AuthError, data: null }
+      await supabase.auth.signOut()
+      router.push("/login")
+    } catch (error) {
+      console.error("ログアウトエラー:", error)
     }
   }
 
-  // AuthProviderのvalueオブジェクトを修正
   const value = {
-    user,
     supabase,
+    user,
+    userRoles,
+    isAdmin: userRoles.includes("admin"),
     loading,
-    signOut,
     signIn,
-    signUp,
-    resetPassword,
+    signOut,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

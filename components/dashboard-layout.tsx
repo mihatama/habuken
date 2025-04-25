@@ -6,6 +6,7 @@ import { Header } from "@/components/header"
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
+import { Loader2 } from "lucide-react"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -14,19 +15,27 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children, title, isAdmin = false }: DashboardLayoutProps) {
-  const { user, loading } = useAuth()
+  const { user, loading, isAdmin: userIsAdmin } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
     if (!loading && !user) {
       router.push("/login")
     }
-  }, [user, loading, router])
+
+    // 管理者権限が必要なページで、ユーザーが管理者でない場合
+    if (!loading && isAdmin && !userIsAdmin) {
+      router.push("/dashboard")
+    }
+  }, [user, loading, router, isAdmin, userIsAdmin])
 
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="h-16 w-16 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600"></div>
+        <div className="flex flex-col items-center">
+          <Loader2 className="h-16 w-16 animate-spin text-primary" />
+          <p className="mt-4 text-lg text-muted-foreground">読み込み中...</p>
+        </div>
       </div>
     )
   }

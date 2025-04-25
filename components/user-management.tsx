@@ -18,7 +18,6 @@ import { useToast } from "@/components/ui/use-toast"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
-import { createUser, deleteUser, updateUserRole } from "@/actions/user-management"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   AlertDialog,
@@ -35,12 +34,12 @@ import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
 import { Loader2, PlusCircle, Trash2, UserCog } from "lucide-react"
+import { createUser, deleteUser, updateUserRole } from "@/actions/user-management"
 
-// ユーザー作成フォームのバリデーションスキーマを修正
-// パスワード強度の検証を6文字以上に簡略化
+// ユーザー作成フォームのバリデーションスキーマ
 const userFormSchema = z.object({
   email: z.string().email({ message: "有効なメールアドレスを入力してください" }),
-  password: z.string().min(6, { message: "パスワードは6文字以上である必要があります" }),
+  password: z.string().min(8, { message: "パスワードは8文字以上である必要があります" }),
   userId: z
     .string()
     .min(3, { message: "ユーザーIDは3文字以上である必要があります" })
@@ -94,11 +93,17 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
   async function onSubmit(values: UserFormValues) {
     setIsCreating(true)
     try {
+      // FormDataオブジェクトを作成
       const formData = new FormData()
-      Object.entries(values).forEach(([key, value]) => {
-        if (value) formData.append(key, value)
-      })
+      formData.append("email", values.email)
+      formData.append("password", values.password)
+      formData.append("userId", values.userId)
+      formData.append("fullName", values.fullName)
+      formData.append("role", values.role)
+      if (values.department) formData.append("department", values.department)
+      if (values.position) formData.append("position", values.position)
 
+      // サーバーアクションを呼び出し
       const result = await createUser(formData)
 
       if (result.success) {
@@ -106,10 +111,22 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
           title: "ユーザーを作成しました",
           description: "新しいユーザーが正常に作成されました",
         })
+
+        // ユーザーリストを更新（実際のアプリではAPIから再取得するか、返されたデータを使用）
+        const newUser: User = {
+          id: result.userId || `temp-${Date.now()}`,
+          email: values.email,
+          full_name: values.fullName,
+          position: values.position || null,
+          department: values.department || null,
+          created_at: new Date().toISOString(),
+          roles: [values.role],
+          user_id: values.userId,
+        }
+        setUsers([newUser, ...users])
+
         form.reset()
         setOpenDialog(false)
-        // ユーザーリストを更新（実際のアプリでは再フェッチするか、新しいユーザーを追加）
-        window.location.reload() // 簡易的な更新方法
       } else {
         toast({
           variant: "destructive",
@@ -137,12 +154,13 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
       const result = await deleteUser(selectedUserId)
 
       if (result.success) {
+        // ユーザーリストから削除
+        setUsers(users.filter((user) => user.id !== selectedUserId))
+
         toast({
           title: "ユーザーを削除しました",
           description: "ユーザーが正常に削除されました",
         })
-        // ユーザーリストを更新
-        setUsers(users.filter((user) => user.id !== selectedUserId))
       } else {
         toast({
           variant: "destructive",
@@ -171,10 +189,6 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
       const result = await updateUserRole(selectedUserForRole.id, role)
 
       if (result.success) {
-        toast({
-          title: "ロールを更新しました",
-          description: "ユーザーのロールが正常に更新されました",
-        })
         // ユーザーリストを更新
         setUsers(
           users.map((user) => {
@@ -184,6 +198,12 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
             return user
           }),
         )
+
+        toast({
+          title: "ロールを更新しました",
+          description: "ユーザーのロールが正常に更新されました",
+        })
+
         setRoleDialogOpen(false)
       } else {
         toast({
@@ -251,6 +271,19 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
                 />
                 <FormField
                   control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>パスワード</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="********" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="userId"
                   render={({ field }) => (
                     <FormItem>
@@ -259,20 +292,6 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
                         <Input placeholder="user123" {...field} />
                       </FormControl>
                       <FormDescription>ログインに使用するIDです。英数字3文字以上で設定してください</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>パスワード</FormLabel>
-                      <FormControl>
-                        <Input type="password" {...field} />
-                      </FormControl>
-                      <FormDescription>6文字以上で設定してください</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
