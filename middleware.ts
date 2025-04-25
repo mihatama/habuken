@@ -64,7 +64,7 @@ export async function middleware(req: NextRequest) {
 
     // リダイレクトループ検出
     const redirectCount = Number.parseInt(req.headers.get("x-redirect-count") || "0")
-    if (redirectCount > 5) {
+    if (redirectCount > 3) {
       console.error(`[${timestamp}] リダイレクトループを検出しました: ${path}, カウント: ${redirectCount}`)
       // デバッグページにリダイレクト
       return NextResponse.redirect(new URL("/debug/supabase", req.url))
@@ -111,7 +111,7 @@ export async function middleware(req: NextRequest) {
     // ただし、ルートパス（/）へのアクセスはリダイレクトしない
     const isAuthPath = publicPaths.includes(path)
 
-    if (isAuthPath && session && path !== "/") {
+    if (isAuthPath && session && path !== "/" && path !== "/login") {
       console.log(
         `[${timestamp}] Middleware: リダイレクト実行 - 認証パス(${path})にセッションありでアクセス -> /dashboard`,
       )

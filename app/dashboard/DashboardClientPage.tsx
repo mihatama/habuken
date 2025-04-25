@@ -3,92 +3,60 @@
 import { useEffect, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { logWithTimestamp } from "@/lib/auth-debug"
+import DirectAccess from "./direct-access"
 
 export default function DashboardClientPage() {
-  const { user, session, authDiagnostics } = useAuth()
-  const [redirectInfo, setRedirectInfo] = useState<any>(null)
-  const [showDebug, setShowDebug] = useState(false)
+  const { user, session, loading } = useAuth()
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [showDirectAccess, setShowDirectAccess] = useState(false)
 
   useEffect(() => {
-    // ダッシュボードページがロードされたことをログに記録
-    logWithTimestamp("DashboardClientPage: クライアントサイドレンダリング完了", {
+    // クライアントサイドでのログ
+    logWithTimestamp("DashboardClientPage: マウント", {
       user: user?.email || "未ログイン",
       hasSession: !!session,
+      loading,
     })
 
-    // セッションストレージからリダイレクト情報を取得
-    try {
-      const timestamp = sessionStorage.getItem("auth_redirect_timestamp")
-      const redirectUser = sessionStorage.getItem("auth_redirect_user")
-      const sessionExists = sessionStorage.getItem("auth_redirect_session_exists")
+    // 認証状態を確認
+    if (!loading) {
+      if (user && session) {
+        setIsAuthenticated(true)
+        logWithTimestamp("DashboardClientPage: 認証済みユーザー", {
+          email: user.email,
+          id: user.id,
+        })
+      } else {
+        setIsAuthenticated(false)
+        logWithTimestamp("DashboardClientPage: 未認証ユーザー")
 
-      if (timestamp && redirectUser) {
-        const info = {
-          timestamp,
-          user: redirectUser,
-          sessionExists,
-          timeSinceRedirect: Date.now() - Number(timestamp),
-        }
-        setRedirectInfo(info)
-        logWithTimestamp("リダイレクト情報を取得:", info)
+        // 3秒後に直接アクセスコンポーネントを表示
+        const timer = setTimeout(() => {
+          setShowDirectAccess(true)
+        }, 3000)
+
+        return () => clearTimeout(timer)
       }
-    } catch (e) {
-      console.error("セッションストレージからの読み取りに失敗:", e)
     }
+  }, [user, session, loading])
 
-    // 認証診断情報を収集
-    const diagnostics = authDiagnostics()
-    logWithTimestamp("ダッシュボード: 認証診断情報", diagnostics)
-  }, [user, session, authDiagnostics])
+  if (loading) {
+    return <div className="p-8 text-center">認証状態を確認中...</div>
+  }
 
+  if (!isAuthenticated) {
+    if (showDirectAccess) {
+      return <DirectAccess />
+    }
+    return <div className="p-8 text-center">認証されていません。ログインページにリダイレクトします...</div>
+  }
+
+  // 以下は既存のダッシュボードコンテンツ
   return (
-    <div className="container mx-auto p-4">
+    <div className="p-8">
       <h1 className="text-2xl font-bold mb-4">ダッシュボード</h1>
-
-      {user ? (
-        <div className="bg-green-50 border border-green-200 rounded p-4 mb-4">
-          <p className="text-green-800">
-            <strong>{user.email}</strong> としてログインしています
-          </p>
-          {session && (
-            <p className="text-sm text-green-600">
-              セッション有効期限: {new Date(session.expires_at! * 1000).toLocaleString()}
-            </p>
-          )}
-        </div>
-      ) : (
-        <div className="bg-yellow-50 border border-yellow-200 rounded p-4 mb-4">
-          <p className="text-yellow-800">ログインしていません</p>
-        </div>
-      )}
-
-      {redirectInfo && (
-        <div className="bg-blue-50 border border-blue-200 rounded p-4 mb-4">
-          <p className="text-blue-800">
-            <strong>{redirectInfo.user}</strong> としてリダイレクトされました
-          </p>
-          <p className="text-sm text-blue-600">
-            リダイレクト時刻: {new Date(Number(redirectInfo.timestamp)).toLocaleString()} (
-            {Math.round(redirectInfo.timeSinceRedirect / 1000)}秒前)
-          </p>
-        </div>
-      )}
-
-      <button onClick={() => setShowDebug(!showDebug)} className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded mb-4">
-        {showDebug ? "デバッグ情報を隠す" : "デバッグ情報を表示"}
-      </button>
-
-      {showDebug && (
-        <div className="bg-gray-50 border border-gray-200 rounded p-4 overflow-auto max-h-96">
-          <h2 className="text-lg font-semibold mb-2">デバッグ情報</h2>
-          <pre className="text-xs">{JSON.stringify(authDiagnostics(), null, 2)}</pre>
-        </div>
-      )}
-
-      {/* ダッシュボードの内容 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-        {/* ダッシュボードの内容はそのまま */}
-      </div>
+      <p>ようこそ、{user?.email}さん！</p>
+      {/* ダッシュボードの残りのコンテンツ */}
     </div>
   )
 }

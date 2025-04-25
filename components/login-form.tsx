@@ -14,7 +14,7 @@ import { useAuth } from "@/contexts/auth-context"
 import Link from "next/link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, Info } from "lucide-react"
-import { logWithTimestamp, logNavigation, collectAuthDiagnostics } from "@/lib/auth-debug"
+import { logWithTimestamp, logNavigation } from "@/lib/auth-debug"
 import { cleanupAuthStorage } from "@/lib/supabase/supabaseClient"
 
 // フォームスキーマを修正
@@ -51,27 +51,16 @@ export function LoginForm() {
 
   // セッションが既に存在する場合は自動的にリダイレクト
   React.useEffect(() => {
-    if ((session && user && autoRedirectEnabled && !redirectAttemptedRef.current) || forceRedirect) {
-      redirectAttemptedRef.current = true
-
-      logWithTimestamp("既存のセッションを検出しました - 自動リダイレクト", {
+    if (session && user) {
+      logWithTimestamp("既存のセッションを検出しました - リダイレクト準備", {
         user: user?.email || "不明",
         redirect,
-        sessionExpiry: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : "unknown",
-        forceRedirect,
       })
 
-      setRedirectHistory((prev) => [...prev, `既存セッション検出: ${user?.email || "不明"} - 自動リダイレクト準備`])
-
-      // 少し遅延を入れてからリダイレクト
-      const timer = setTimeout(() => {
-        setRedirectHistory((prev) => [...prev, `自動リダイレクト実行: ${redirect}`])
-        executeRedirect(redirect, "location")
-      }, 300)
-
-      return () => clearTimeout(timer)
+      // 明示的なリダイレクトボタンを表示するためにリダイレクトを自動実行しない
+      setAutoRedirectEnabled(false)
     }
-  }, [session, user, redirect, autoRedirectEnabled, forceRedirect])
+  }, [session, user, redirect])
 
   // Supabase接続テスト
   React.useEffect(() => {
@@ -118,47 +107,29 @@ export function LoginForm() {
   const executeRedirect = (destination: string, method: "router" | "location") => {
     logNavigation("実行", `${destination} (方法: ${method})`)
 
-    if (method === "router") {
-      setRedirectHistory((prev) => [...prev, `Next.jsルーターでリダイレクト: ${destination}`])
-      router.push(destination)
-    } else {
-      setRedirectHistory((prev) => [...prev, `window.locationでリダイレクト: ${destination}`])
+    try {
+      // リダイレクト前の状態を記録
+      logWithTimestamp("リダイレクト直前の状態:", {
+        cookies: document.cookie,
+        localStorage: Object.keys(localStorage).filter(
+          (k) => k.includes("auth") || k.includes("supabase") || k.includes("habuken"),
+        ),
+      })
 
-      // リダイレクト前に診断情報を収集
-      const diagnostics = collectAuthDiagnostics()
-      console.log("リダイレクト前の診断情報:", diagnostics)
+      // 強制的にwindow.locationを使用してリダイレクト
+      logWithTimestamp("強制リダイレクト実行:", destination)
+      setRedirectHistory((prev) => [...prev, `強制リダイレクト実行: ${destination}`])
 
-      // 少し遅延を入れてからリダイレクト
-      setTimeout(() => {
-        // リダイレクト前に認証情報をセッションストレージに一時保存
-        // これにより、ページ遷移後も認証状態を維持できる
-        if (session && user) {
-          try {
-            sessionStorage.setItem("auth_redirect_timestamp", Date.now().toString())
-            sessionStorage.setItem("auth_redirect_user", user.email || user.id)
-            sessionStorage.setItem("auth_redirect_session_exists", "true")
-
-            // 認証情報の一時保存をログに記録
-            logWithTimestamp("認証情報を一時保存しました", {
-              user: user.email || user.id,
-              timestamp: Date.now(),
-            })
-          } catch (e) {
-            console.error("セッションストレージへの保存に失敗:", e)
-          }
-        }
-
-        // リダイレクト直前の状態を記録
-        logWithTimestamp("リダイレクト直前の状態:", {
-          cookies: document.cookie,
-          localStorage: Object.keys(localStorage).filter(
-            (k) => k.includes("auth") || k.includes("supabase") || k.includes("habuken"),
-          ),
-        })
-
-        // 強制的にリダイレクト
-        window.location.href = destination
-      }, redirectDelay)
+      // 直接リダイレクト - 最も確実な方法
+      window.location.href = destination
+    } catch (err) {
+      console.error("リダイレクト中にエラーが発生しました:", err)
+      // エラーが発生した場合はフォールバック
+      if (method === "router") {
+        router.push(destination)
+      } else {
+        window.location.replace(destination)
+      }
     }
   }
 
@@ -288,6 +259,21 @@ export function LoginForm() {
     })
   }
 
+  // 緊急リダイレクト関数を追加
+  const emergencyRedirect = () => {
+    try {
+      const destination = "/dashboard"
+      logWithTimestamp("緊急リダイレクト実行:", destination)
+      setRedirectHistory((prev) => [...prev, `緊急リダイレクト実行: ${destination}`])
+
+      // すべてのストレージを保持したままリダイレクト
+      window.location.href = destination
+    } catch (err) {
+      console.error("緊急リダイレクト中にエラーが発生しました:", err)
+      alert("リダイレクトに失敗しました。URLを直接入力してください: /dashboard")
+    }
+  }
+
   return (
     <div className="grid gap-6">
       {supabaseStatus === "error" && (
@@ -325,13 +311,11 @@ export function LoginForm() {
           <AlertTitle className="text-blue-600">既存のセッション</AlertTitle>
           <AlertDescription>
             {user.email} としてログイン済みです。
-            {autoRedirectEnabled ? (
-              <span> ダッシュボードに自動的にリダイレクトします...</span>
-            ) : (
-              <Button onClick={handleManualRedirect} variant="link" className="p-0 h-auto text-blue-600">
-                ダッシュボードに移動
+            <div className="mt-2">
+              <Button onClick={emergencyRedirect} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                ダッシュボードに移動する
               </Button>
-            )}
+            </div>
           </AlertDescription>
         </Alert>
       )}
@@ -384,15 +368,17 @@ export function LoginForm() {
               </FormItem>
             )}
           />
-          {/* ログイン状態の表示 */}
           {user && session ? (
             <div className="p-2 text-sm text-center bg-blue-50 rounded border border-blue-200">
               <p className="font-medium text-blue-700">{user.email} としてログイン済みです</p>
-              <p className="text-blue-600">ボタンをクリックして続行できます</p>
+              <p className="text-blue-600 mb-2">下のボタンをクリックしてダッシュボードに移動してください</p>
+              <Button onClick={emergencyRedirect} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                ダッシュボードに移動する
+              </Button>
             </div>
           ) : null}
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "ログイン中..." : user && session ? "既にログイン済み" : "ログイン"}
+            {isLoading ? "ログイン中..." : "ログイン"}
           </Button>
         </form>
       </Form>
