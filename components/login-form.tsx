@@ -35,7 +35,6 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = React.useState<boolean>(false)
   const [loginError, setLoginError] = React.useState<string | null>(null)
   const [supabaseStatus, setSupabaseStatus] = React.useState<"checking" | "ok" | "error">("checking")
-  const [redirecting, setRedirecting] = React.useState<boolean>(false)
 
   // Supabase接続テスト
   React.useEffect(() => {
@@ -52,9 +51,9 @@ export function LoginForm() {
           setSupabaseStatus("ok")
 
           // すでにログイン済みの場合はダッシュボードにリダイレクト
+          // ただし、リダイレクトループを防ぐためにミドルウェアに任せる
           if (data.session) {
-            console.log("既存のセッションが見つかりました。ダッシュボードにリダイレクトします。")
-            handleRedirect("/dashboard")
+            console.log("既存のセッションが見つかりました。ミドルウェアによるリダイレクトを待機します。")
           }
         }
       } catch (err) {
@@ -65,38 +64,6 @@ export function LoginForm() {
 
     checkSupabase()
   }, [supabase])
-
-  // リダイレクト処理を関数化
-  const handleRedirect = React.useCallback(
-    (path: string) => {
-      if (redirecting) return // 既にリダイレクト中なら処理しない
-
-      setRedirecting(true)
-      console.log(`リダイレクト処理開始: ${path}`)
-
-      try {
-        // 1. window.location.hrefを使用した直接リダイレクト
-        window.location.href = path
-
-        // 2. 念のためNext.jsのルーターも使用（上記が機能しない場合のフォールバック）
-        setTimeout(() => {
-          console.log("Next.jsルーターでのリダイレクトを試行")
-          router.push(path)
-
-          // 3. 最終手段として、さらに遅延してリロード
-          setTimeout(() => {
-            console.log("リダイレクトが機能していないようです。ページをリロードします。")
-            window.location.reload()
-          }, 2000)
-        }, 1000)
-      } catch (error) {
-        console.error("リダイレクト中にエラーが発生しました:", error)
-        // エラーが発生した場合は直接リロード
-        window.location.reload()
-      }
-    },
-    [router, redirecting],
-  )
 
   // フォームのデフォルト値を修正
   const form = useForm<z.infer<typeof formSchema>>({
@@ -159,21 +126,14 @@ export function LoginForm() {
         })
 
         // セッションが確実に設定されるようにする
-        // リダイレクト前に少し待機して、セッションが確実に設定されるようにする
+        // リダイレクトはミドルウェアに任せる
+        console.log("ログイン成功。ミドルウェアによるリダイレクトを待機します。")
+
+        // 念のため、3秒後にリダイレクトを試みる（ミドルウェアが機能しない場合のフォールバック）
         setTimeout(() => {
-          // セッションが設定されたことを再確認
-          supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session) {
-              console.log("セッションが確認されました。リダイレクトします。", session.user.email)
-              handleRedirect(redirect)
-            } else {
-              console.error("セッションが設定されていません。リダイレクトできません。")
-              setLoginError(
-                "ログインは成功しましたが、セッションの設定に問題があります。ページをリロードしてください。",
-              )
-            }
-          })
-        }, 1000)
+          console.log("フォールバック: 手動でダッシュボードにリダイレクトします")
+          window.location.href = redirect
+        }, 3000)
       }
     } catch (error) {
       console.error("Login error:", error)
@@ -187,11 +147,6 @@ export function LoginForm() {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  // 手動リダイレクトボタン（デバッグ用）
-  const handleManualRedirect = () => {
-    handleRedirect("/dashboard")
   }
 
   return (
@@ -273,8 +228,8 @@ export function LoginForm() {
               </FormItem>
             )}
           />
-          <Button type="submit" className="w-full" disabled={isLoading || redirecting}>
-            {isLoading ? "ログイン中..." : redirecting ? "リダイレクト中..." : "ログイン"}
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? "ログイン中..." : "ログイン"}
           </Button>
         </form>
       </Form>
@@ -288,13 +243,6 @@ export function LoginForm() {
           Supabase接続状態を詳細に確認する
         </Link>
       </div>
-
-      {/* デバッグ用の手動リダイレクトボタン */}
-      {loginError && loginError.includes("セッションの設定に問題があります") && (
-        <Button onClick={handleManualRedirect} className="mt-4">
-          ダッシュボードに手動でリダイレクト
-        </Button>
-      )}
     </div>
   )
 }

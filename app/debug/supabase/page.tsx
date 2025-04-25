@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/contexts/auth-context"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function SupabaseDebugPage() {
   const { user, supabase } = useAuth()
@@ -15,25 +15,39 @@ export default function SupabaseDebugPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [connectionStatus, setConnectionStatus] = useState<"checking" | "connected" | "error">("checking")
-  const [redirectTest, setRedirectTest] = useState<"not_tested" | "success" | "failed">("not_tested")
+  const [redirectHistory, setRedirectHistory] = useState<string[]>([])
+  const { toast } = useToast()
 
   // 環境変数のチェック
   useEffect(() => {
-    const checkEnvVars = async () => {
-      try {
-        const response = await fetch("/api/debug/env-check")
-        const data = await response.json()
-        setEnvVars(data)
-      } catch (err) {
-        console.error("環境変数チェックエラー:", err)
-        setEnvVars({
-          NEXT_PUBLIC_SUPABASE_URL: false,
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: false,
-        })
-      }
+    const checkEnvVars = () => {
+      setEnvVars({
+        NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      })
     }
 
     checkEnvVars()
+  }, [])
+
+  // リダイレクト履歴の記録
+  useEffect(() => {
+    // ローカルストレージからリダイレクト履歴を取得
+    const storedHistory = localStorage.getItem("redirectHistory")
+    if (storedHistory) {
+      setRedirectHistory(JSON.parse(storedHistory))
+    }
+
+    // 現在のURLを履歴に追加
+    const now = new Date().toISOString()
+    const currentUrl = window.location.href
+    const newEntry = `${now}: ${currentUrl}`
+
+    setRedirectHistory((prev) => {
+      const updated = [newEntry, ...prev].slice(0, 10) // 最新10件のみ保持
+      localStorage.setItem("redirectHistory", JSON.stringify(updated))
+      return updated
+    })
   }, [])
 
   // セッション情報の取得
@@ -84,46 +98,24 @@ export default function SupabaseDebugPage() {
     }
   }
 
-  // リダイレクトテスト
-  const testRedirect = () => {
-    try {
-      // 現在のURLを保存
-      const currentUrl = window.location.href
-
-      // ダッシュボードへリダイレクト
-      window.location.href = "/dashboard"
-
-      // 3秒後にチェック（リダイレクトが成功していれば実行されない）
-      setTimeout(() => {
-        if (window.location.href === currentUrl) {
-          setRedirectTest("failed")
-        }
-      }, 3000)
-
-      // 念のため成功状態に設定（リダイレクトが成功すれば見えない）
-      setRedirectTest("success")
-    } catch (error) {
-      console.error("リダイレクトテストエラー:", error)
-      setRedirectTest("failed")
-    }
+  // リダイレクト履歴をクリア
+  const clearRedirectHistory = () => {
+    localStorage.removeItem("redirectHistory")
+    setRedirectHistory([])
   }
 
-  // 新しいSupabaseクライアントを作成してテスト
-  const testNewClient = async () => {
+  // ログアウト処理
+  const handleLogout = async () => {
     try {
-      setLoading(true)
-      const newClient = createClientComponentClient()
-      const { data, error } = await newClient.auth.getSession()
-
-      if (error) {
-        setError(`新しいクライアントでのエラー: ${error.message}`)
-      } else {
-        alert(`新しいクライアントでのセッション: ${data.session ? "あり" : "なし"}`)
-      }
-    } catch (err) {
-      setError(`新しいクライアントでの例外: ${err instanceof Error ? err.message : "不明なエラー"}`)
-    } finally {
-      setLoading(false)
+      await supabase.auth.signOut()
+      toast({
+        title: "ログアウト成功",
+        description: "正常にログアウトしました。",
+      })
+      // ページをリロード
+      window.location.reload()
+    } catch (error) {
+      console.error("ログアウトエラー:", error)
     }
   }
 
@@ -173,8 +165,36 @@ export default function SupabaseDebugPage() {
             <Button onClick={refreshSession} disabled={loading}>
               {loading ? "更新中..." : "セッション情報を更新"}
             </Button>
-            <Button onClick={testNewClient} variant="outline" disabled={loading}>
-              新しいクライアントでテスト
+            {session && (
+              <Button onClick={handleLogout} variant="destructive">
+                ログアウト
+              </Button>
+            )}
+          </CardFooter>
+        </Card>
+
+        {/* リダイレクト履歴 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>リダイレクト履歴</CardTitle>
+            <CardDescription>最近のリダイレクト履歴を表示します</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {redirectHistory.length > 0 ? (
+              <ul className="space-y-2 text-sm">
+                {redirectHistory.map((entry, index) => (
+                  <li key={index} className="border-b pb-1">
+                    {entry}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>リダイレクト履歴はありません</p>
+            )}
+          </CardContent>
+          <CardFooter>
+            <Button onClick={clearRedirectHistory} variant="outline" size="sm">
+              履歴をクリア
             </Button>
           </CardFooter>
         </Card>
@@ -226,54 +246,48 @@ export default function SupabaseDebugPage() {
           </CardContent>
         </Card>
 
-        {/* リダイレクトテスト */}
+        {/* 手動ナビゲーション */}
         <Card>
           <CardHeader>
-            <CardTitle>リダイレクトテスト</CardTitle>
-            <CardDescription>ダッシュボードへのリダイレクトをテストします</CardDescription>
+            <CardTitle>手動ナビゲーション</CardTitle>
+            <CardDescription>各ページに手動で移動します</CardDescription>
           </CardHeader>
-          <CardContent>
-            <p>
-              ステータス:{" "}
-              <Badge
-                variant={
-                  redirectTest === "not_tested" ? "outline" : redirectTest === "success" ? "success" : "destructive"
-                }
-              >
-                {redirectTest === "not_tested" ? "未テスト" : redirectTest === "success" ? "成功" : "失敗"}
-              </Badge>
-            </p>
-            <div className="mt-4">
-              <Button onClick={testRedirect}>リダイレクトをテスト</Button>
-            </div>
+          <CardContent className="grid grid-cols-2 gap-4">
+            <Button onClick={() => (window.location.href = "/login")} className="w-full">
+              ログインページ
+            </Button>
+            <Button onClick={() => (window.location.href = "/dashboard")} className="w-full">
+              ダッシュボード
+            </Button>
+            <Button onClick={() => (window.location.href = "/")} className="w-full">
+              ホーム
+            </Button>
+            <Button onClick={() => (window.location.href = "/debug")} className="w-full">
+              デバッグページ
+            </Button>
           </CardContent>
         </Card>
 
-        {/* 手動リダイレクトオプション */}
+        {/* Cookieクリア */}
         <Card>
           <CardHeader>
-            <CardTitle>手動リダイレクト</CardTitle>
-            <CardDescription>各種リダイレクト方法を試します</CardDescription>
+            <CardTitle>Cookieとストレージ</CardTitle>
+            <CardDescription>ブラウザのストレージをクリアします</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <h3 className="font-semibold mb-2">window.location.href</h3>
-              <Button onClick={() => (window.location.href = "/dashboard")} className="w-full">
-                window.location.href でリダイレクト
-              </Button>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-2">window.location.replace</h3>
-              <Button onClick={() => window.location.replace("/dashboard")} className="w-full">
-                window.location.replace でリダイレクト
-              </Button>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-2">直接リンク</h3>
-              <a href="/dashboard" className="block w-full">
-                <Button className="w-full">通常のリンクでリダイレクト</Button>
-              </a>
-            </div>
+          <CardContent>
+            <Button
+              onClick={() => {
+                localStorage.clear()
+                sessionStorage.clear()
+                alert(
+                  "ローカルストレージとセッションストレージをクリアしました。Cookieはブラウザの設定から手動でクリアしてください。",
+                )
+              }}
+              variant="destructive"
+              className="w-full"
+            >
+              ストレージをクリア
+            </Button>
           </CardContent>
         </Card>
       </div>

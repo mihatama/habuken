@@ -21,7 +21,10 @@ const protectedPaths = [
 ]
 
 // 認証が不要なパス
-const publicPaths = ["/", "/login", "/signup", "/forgot-password", "/reset-password", "/supabase-debug", "/debug"]
+const publicPaths = ["/", "/login", "/signup", "/forgot-password", "/reset-password"]
+
+// デバッグパス（常にアクセス可能）
+const debugPaths = ["/debug", "/supabase-debug"]
 
 export async function middleware(req: NextRequest) {
   try {
@@ -40,7 +43,12 @@ export async function middleware(req: NextRequest) {
       path.includes(".") ||
       path === "/favicon.ico"
     ) {
-      console.log(`Middleware: Skipping static asset or API route: ${path}`)
+      return NextResponse.next()
+    }
+
+    // デバッグパスは常にアクセス可能
+    if (debugPaths.some((debugPath) => path === debugPath || path.startsWith(`${debugPath}/`))) {
+      console.log(`Middleware: Debug path, skipping auth check: ${path}`)
       return NextResponse.next()
     }
 
@@ -55,7 +63,7 @@ export async function middleware(req: NextRequest) {
     // デバッグ用ログ
     console.log(`Middleware: Session=${session ? "exists" : "null"}`)
     if (session) {
-      console.log(`User authenticated in middleware: ${session.user.email}, User ID: ${session.user.id}`)
+      console.log(`User authenticated in middleware: ${session.user.email}`)
     } else {
       console.log("No active session found in middleware")
     }
@@ -73,10 +81,13 @@ export async function middleware(req: NextRequest) {
     }
 
     // 認証済みユーザーがログインページなどにアクセスした場合はダッシュボードにリダイレクト
+    // ただし、リダイレクトループを防ぐために、リダイレクト元がダッシュボードの場合はスキップ
     const isAuthPath = publicPaths.includes(path)
+    const referer = req.headers.get("referer") || ""
+    const isFromDashboard = referer.includes("/dashboard")
 
-    if (isAuthPath && session && path !== "/" && !path.startsWith("/debug") && !path.startsWith("/supabase-debug")) {
-      console.log(`Redirecting to dashboard: Auth path=${path}, has session`)
+    if (isAuthPath && session && !isFromDashboard) {
+      console.log(`Redirecting to dashboard: Auth path=${path}, has session, not from dashboard`)
       return NextResponse.redirect(new URL("/dashboard", req.url))
     }
 
