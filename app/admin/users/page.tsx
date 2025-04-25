@@ -1,67 +1,50 @@
 import type { Metadata } from "next"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { UserManagement } from "@/components/user-management"
-import { createServerSupabaseClient } from "@/lib/supabase"
-import { redirect } from "next/navigation"
 
 export const metadata: Metadata = {
   title: "ユーザー管理 | プロジェクト管理システム",
   description: "ユーザーの追加、編集、削除を行います",
 }
 
+// サンプルユーザーデータ
+const sampleUsers = [
+  {
+    id: "1",
+    email: "admin@example.com",
+    full_name: "管理者 太郎",
+    position: "システム管理者",
+    department: "IT部",
+    created_at: "2023-01-01T00:00:00.000Z",
+    roles: ["admin"],
+    user_id: "admin",
+  },
+  {
+    id: "2",
+    email: "yamada@example.com",
+    full_name: "山田 花子",
+    position: "マネージャー",
+    department: "営業部",
+    created_at: "2023-01-02T00:00:00.000Z",
+    roles: ["manager"],
+    user_id: "yamada",
+  },
+  {
+    id: "3",
+    email: "tanaka@example.com",
+    full_name: "田中 一郎",
+    position: "スタッフ",
+    department: "工事部",
+    created_at: "2023-01-03T00:00:00.000Z",
+    roles: ["staff"],
+    user_id: "tanaka",
+  },
+]
+
 export default async function UsersPage() {
-  const supabase = createServerSupabaseClient()
-
-  // セッションを取得
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  if (!session) {
-    redirect("/login")
-  }
-
-  // 管理者権限チェック
-  const { data: roleData, error } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", session.user.id)
-    .eq("role", "admin")
-
-  if (error || !roleData || roleData.length === 0) {
-    // 管理者でない場合はダッシュボードにリダイレクト
-    redirect("/dashboard")
-  }
-
-  // ユーザー一覧を取得
-  const { data: users } = await supabase
-    .from("profiles")
-    .select(`
-      id,
-      email,
-      full_name,
-      position,
-      department,
-      created_at,
-      user_id,
-      user_roles(role)
-    `)
-    .order("created_at", { ascending: false })
-
-  // ロールデータを整形
-  const formattedUsers =
-    users?.map((user) => {
-      const roles = user.user_roles ? user.user_roles.map((r: any) => r.role) : []
-      return {
-        ...user,
-        roles,
-        user_roles: undefined, // 元のネストされたデータを削除
-      }
-    }) || []
-
   return (
     <DashboardLayout title="ユーザー管理" isAdmin={true}>
-      <UserManagement initialUsers={formattedUsers} />
+      <UserManagement initialUsers={sampleUsers} />
     </DashboardLayout>
   )
 }

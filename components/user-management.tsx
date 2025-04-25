@@ -34,12 +34,10 @@ import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
 import { Loader2, PlusCircle, Trash2, UserCog } from "lucide-react"
-import { createUser, deleteUser, updateUserRole } from "@/actions/user-management"
 
-// ユーザー作成フォームのバリデーションスキーマ
+// ユーザー作成フォームのバリデーションスキーマを修正
 const userFormSchema = z.object({
   email: z.string().email({ message: "有効なメールアドレスを入力してください" }),
-  password: z.string().min(8, { message: "パスワードは8文字以上である必要があります" }),
   userId: z
     .string()
     .min(3, { message: "ユーザーIDは3文字以上である必要があります" })
@@ -80,7 +78,6 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
     resolver: zodResolver(userFormSchema),
     defaultValues: {
       email: "",
-      password: "",
       userId: "",
       fullName: "",
       role: "",
@@ -89,51 +86,32 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
     },
   })
 
-  // ユーザー作成処理
+  // ユーザー作成処理（認証なしバージョン）
   async function onSubmit(values: UserFormValues) {
     setIsCreating(true)
     try {
-      // FormDataオブジェクトを作成
-      const formData = new FormData()
-      formData.append("email", values.email)
-      formData.append("password", values.password)
-      formData.append("userId", values.userId)
-      formData.append("fullName", values.fullName)
-      formData.append("role", values.role)
-      if (values.department) formData.append("department", values.department)
-      if (values.position) formData.append("position", values.position)
-
-      // サーバーアクションを呼び出し
-      const result = await createUser(formData)
-
-      if (result.success) {
-        toast({
-          title: "ユーザーを作成しました",
-          description: "新しいユーザーが正常に作成されました",
-        })
-
-        // ユーザーリストを更新（実際のアプリではAPIから再取得するか、返されたデータを使用）
-        const newUser: User = {
-          id: result.userId || `temp-${Date.now()}`,
-          email: values.email,
-          full_name: values.fullName,
-          position: values.position || null,
-          department: values.department || null,
-          created_at: new Date().toISOString(),
-          roles: [values.role],
-          user_id: values.userId,
-        }
-        setUsers([newUser, ...users])
-
-        form.reset()
-        setOpenDialog(false)
-      } else {
-        toast({
-          variant: "destructive",
-          title: "エラーが発生しました",
-          description: result.error || "ユーザーの作成に失敗しました",
-        })
+      // 新しいユーザーオブジェクトを作成
+      const newUser: User = {
+        id: `user-${Date.now()}`,
+        email: values.email,
+        full_name: values.fullName,
+        position: values.position || null,
+        department: values.department || null,
+        created_at: new Date().toISOString(),
+        roles: [values.role],
+        user_id: values.userId,
       }
+
+      // ユーザーリストに追加
+      setUsers([newUser, ...users])
+
+      toast({
+        title: "ユーザーを作成しました",
+        description: "新しいユーザーが正常に作成されました",
+      })
+
+      form.reset()
+      setOpenDialog(false)
     } catch (error) {
       toast({
         variant: "destructive",
@@ -145,29 +123,19 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
     }
   }
 
-  // ユーザー削除処理
+  // ユーザー削除処理（認証なしバージョン）
   async function handleDeleteUser() {
     if (!selectedUserId) return
 
     setIsDeleting(true)
     try {
-      const result = await deleteUser(selectedUserId)
+      // ユーザーリストから削除
+      setUsers(users.filter((user) => user.id !== selectedUserId))
 
-      if (result.success) {
-        // ユーザーリストから削除
-        setUsers(users.filter((user) => user.id !== selectedUserId))
-
-        toast({
-          title: "ユーザーを削除しました",
-          description: "ユーザーが正常に削除されました",
-        })
-      } else {
-        toast({
-          variant: "destructive",
-          title: "エラーが発生しました",
-          description: result.error || "ユーザーの削除に失敗しました",
-        })
-      }
+      toast({
+        title: "ユーザーを削除しました",
+        description: "ユーザーが正常に削除されました",
+      })
     } catch (error) {
       toast({
         variant: "destructive",
@@ -180,38 +148,28 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
     }
   }
 
-  // ロール更新処理
+  // ロール更新処理（認証なしバージョン）
   async function handleUpdateRole(role: string) {
     if (!selectedUserForRole) return
 
     setIsUpdatingRole(true)
     try {
-      const result = await updateUserRole(selectedUserForRole.id, role)
+      // ユーザーリストを更新
+      setUsers(
+        users.map((user) => {
+          if (user.id === selectedUserForRole.id) {
+            return { ...user, roles: [role] }
+          }
+          return user
+        }),
+      )
 
-      if (result.success) {
-        // ユーザーリストを更新
-        setUsers(
-          users.map((user) => {
-            if (user.id === selectedUserForRole.id) {
-              return { ...user, roles: [role] }
-            }
-            return user
-          }),
-        )
+      toast({
+        title: "ロールを更新しました",
+        description: "ユーザーのロールが正常に更新されました",
+      })
 
-        toast({
-          title: "ロールを更新しました",
-          description: "ユーザーのロールが正常に更新されました",
-        })
-
-        setRoleDialogOpen(false)
-      } else {
-        toast({
-          variant: "destructive",
-          title: "エラーが発生しました",
-          description: result.error || "ロールの更新に失敗しました",
-        })
-      }
+      setRoleDialogOpen(false)
     } catch (error) {
       toast({
         variant: "destructive",
@@ -264,19 +222,6 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
                       <FormLabel>メールアドレス</FormLabel>
                       <FormControl>
                         <Input placeholder="user@example.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>パスワード</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="********" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
