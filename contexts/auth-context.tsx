@@ -7,6 +7,7 @@ import type { ReactNode } from "react"
 import type { AuthError } from "@supabase/supabase-js"
 import { getClientSupabaseInstance, checkSessionPersistence } from "@/lib/supabase/supabaseClient"
 import { logWithTimestamp, logAuthEvent, checkAuthStorage } from "@/lib/auth-debug"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 // パスワード強度チェック用の正規表現
 const PASSWORD_REGEX = {
@@ -41,6 +42,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = getClientSupabaseInstance()
   const [lastAuthEvent, setLastAuthEvent] = useState<{ event: string; timestamp: number } | null>(null)
 
+  // 新しいSupabaseクライアント（auth-helpers-nextjsを使用）
+  const supabaseNew = createClientComponentClient()
+
   // 認証診断情報を収集する関数
   const authDiagnostics = useCallback(() => {
     logWithTimestamp("認証診断情報の収集開始")
@@ -74,7 +78,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshSession = useCallback(async () => {
     try {
       logWithTimestamp("セッション更新開始")
-      const { data, error } = await supabase.auth.getSession()
+
+      // 新しいSupabaseクライアントを使用してセッションを取得
+      const { data, error } = await supabaseNew.auth.getSession()
 
       if (error) {
         console.error("セッション更新エラー:", error)
@@ -93,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error("セッション更新中の例外:", err)
     }
-  }, [supabase.auth])
+  }, [supabaseNew.auth])
 
   // セッションの有効期限をチェックし、必要に応じて更新する
   const checkSessionExpiry = useCallback(() => {
@@ -131,10 +137,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           user: persistenceCheck.user?.email || null,
         })
 
+        // 新しいSupabaseクライアントを使用してセッションを取得
         const {
           data: { session: currentSession },
           error,
-        } = await supabase.auth.getSession()
+        } = await supabaseNew.auth.getSession()
 
         if (error) {
           console.error("Error getting session:", error)
@@ -151,7 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false)
 
         // セッション変更を監視
-        const { data: authListener } = supabase.auth.onAuthStateChange((event, newSession) => {
+        const { data: authListener } = supabaseNew.auth.onAuthStateChange((event, newSession) => {
           logWithTimestamp(`Auth state changed: ${event}`, newSession?.user?.email)
           logAuthEvent(event, newSession)
 
@@ -202,7 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     getUser()
-  }, [supabase.auth])
+  }, [supabaseNew.auth])
 
   // パスワード強度チェック関数
   const checkPasswordStrength = (password: string): PasswordStrength => {
@@ -220,7 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, metadata?: { full_name?: string }) => {
     try {
-      if (!supabase) {
+      if (!supabaseNew) {
         return {
           error: {
             message: "Supabase環境変数が設定されていないため、サインアップできません。",
@@ -241,7 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       logWithTimestamp("Signing up with:", email)
-      const result = await supabase.auth.signUp({
+      const result = await supabaseNew.auth.signUp({
         email,
         password,
         options: {
@@ -263,7 +270,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logWithTimestamp("Signing in with:", emailOrId)
 
       // Supabaseクライアントが存在しない場合はエラーを返す
-      if (!supabase) {
+      if (!supabaseNew) {
         console.error("Supabaseクライアントが初期化されていません")
         return {
           error: {
@@ -285,7 +292,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // メールアドレスでログイン
         logWithTimestamp("メールアドレスでログイン試行:", emailOrId)
         const startTime = Date.now()
-        result = await supabase.auth.signInWithPassword({
+        result = await supabaseNew.auth.signInWithPassword({
           email: emailOrId,
           password,
         })
@@ -294,7 +301,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         // IDでログイン - まずプロフィールからメールアドレスを取得
         logWithTimestamp("ユーザーIDでログイン試行:", emailOrId)
-        const { data: profileData, error: profileError } = await supabase
+        const { data: profileData, error: profileError } = await supabaseNew
           .from("profiles")
           .select("email")
           .eq("user_id", emailOrId)
@@ -314,7 +321,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // 取得したメールアドレスでログイン
         const startTime = Date.now()
-        result = await supabase.auth.signInWithPassword({
+        result = await supabaseNew.auth.signInWithPassword({
           email: profileData.email,
           password,
         })
@@ -366,7 +373,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ログアウト前のストレージ状態を確認
       checkAuthStorage()
 
-      const result = await supabase.auth.signOut()
+      // 新しいSupabaseクライアントを使用してログアウト
+      const result = await supabaseNew.auth.signOut()
 
       // ログアウト後のストレージ状態を確認
       setTimeout(() => {
@@ -378,6 +386,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 明示的にユーザーとセッションをクリア
       setUser(null)
       setSession(null)
+
+      // ログアウト後にログインページにリダイレクト
+      window.location.href = "/login"
     } catch (error) {
       console.error("ログアウトエラー:", error)
     }
@@ -385,7 +396,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = async (email: string) => {
     try {
-      if (!supabase) {
+      if (!supabaseNew) {
         return {
           error: {
             message: "Supabase環境変数が設定されていないため、パスワードリセットできません。",
@@ -394,7 +405,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      return await supabase.auth.resetPasswordForEmail(email, {
+      return await supabaseNew.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       })
     } catch (err) {
@@ -407,7 +418,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = {
     user,
     session,
-    supabase,
+    supabase: supabaseNew, // 新しいSupabaseクライアントを使用
     loading,
     signOut,
     signIn,

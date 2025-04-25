@@ -11,6 +11,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, Info } from "lucide-react"
 import Link from "next/link"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { useRouter } from "next/navigation"
+import { Checkbox } from "@/components/ui/checkbox"
 
 // フォームスキーマ
 const formSchema = z.object({
@@ -20,6 +22,7 @@ const formSchema = z.object({
   password: z.string().min(6, {
     message: "パスワードは6文字以上である必要があります。",
   }),
+  rememberMe: z.boolean().default(false),
 })
 
 export function SimpleLoginForm() {
@@ -27,6 +30,7 @@ export function SimpleLoginForm() {
   const [error, setError] = React.useState<string | null>(null)
   const [success, setSuccess] = React.useState<boolean>(false)
   const [user, setUser] = React.useState<any>(null)
+  const router = useRouter()
 
   // Supabaseクライアントを初期化
   const supabase = createClientComponentClient()
@@ -37,6 +41,7 @@ export function SimpleLoginForm() {
     defaultValues: {
       email: "",
       password: "",
+      rememberMe: false,
     },
   })
 
@@ -85,7 +90,7 @@ export function SimpleLoginForm() {
 
         // 成功メッセージを表示した後、ダッシュボードにリダイレクト
         setTimeout(() => {
-          window.location.href = "/dashboard"
+          router.push("/dashboard")
         }, 1000)
       }
     } catch (err) {
@@ -96,14 +101,14 @@ export function SimpleLoginForm() {
     }
   }
 
-  // 直接ダッシュボードに移動
+  // ダッシュボードに移動
   const goToDashboard = () => {
-    window.location.href = "/dashboard"
+    router.push("/dashboard")
   }
 
   return (
     <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
-      <h1 className="text-2xl font-bold text-center mb-6">シンプルログイン</h1>
+      <h1 className="text-2xl font-bold text-center mb-6">ログイン</h1>
 
       {error && (
         <Alert variant="destructive" className="mb-4">
@@ -141,9 +146,9 @@ export function SimpleLoginForm() {
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>メールアドレス</FormLabel>
+                <FormLabel>メールアドレスまたはユーザーID</FormLabel>
                 <FormControl>
-                  <Input placeholder="user@example.com" {...field} />
+                  <Input placeholder="user@example.com または user123" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -155,7 +160,12 @@ export function SimpleLoginForm() {
             name="password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>パスワード</FormLabel>
+                <div className="flex items-center justify-between">
+                  <FormLabel>パスワード</FormLabel>
+                  <Link href="/forgot-password" className="text-xs text-blue-600 hover:underline">
+                    パスワードをお忘れですか？
+                  </Link>
+                </div>
                 <FormControl>
                   <Input type="password" {...field} />
                 </FormControl>
@@ -164,24 +174,44 @@ export function SimpleLoginForm() {
             )}
           />
 
+          <FormField
+            control={form.control}
+            name="rememberMe"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                <FormControl>
+                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                  <FormLabel>ログイン状態を保持する</FormLabel>
+                </div>
+              </FormItem>
+            )}
+          />
+
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "ログイン中..." : "ログイン"}
+            {isLoading ? "ログイン中..." : user ? "再ログイン" : "ログイン"}
           </Button>
         </form>
       </Form>
 
-      <div className="mt-6 pt-4 border-t">
-        <h3 className="text-sm font-medium mb-2">直接アクセス</h3>
-        <div className="space-y-2">
-          <Button onClick={goToDashboard} variant="outline" className="w-full">
-            ダッシュボードに直接移動
-          </Button>
-
-          <Link href="/dashboard" className="block text-center text-sm text-blue-600 hover:underline">
-            ダッシュボードへのリンク
-          </Link>
-        </div>
+      <div className="mt-6 text-center text-sm">
+        <p>
+          {user ? (
+            <span className="text-blue-600">{user.email} としてログイン済みです</span>
+          ) : (
+            <span>アカウントをお持ちでない場合は、管理者にお問い合わせください。</span>
+          )}
+        </p>
       </div>
+
+      {user && (
+        <div className="mt-4 pt-4 border-t">
+          <Button onClick={goToDashboard} className="w-full">
+            ダッシュボードに移動
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
