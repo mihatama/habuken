@@ -2,295 +2,258 @@
 
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/contexts/auth-context"
-import { useToast } from "@/components/ui/use-toast"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertCircle, CheckCircle, Info, RefreshCw } from "lucide-react"
 
 export default function SupabaseDebugPage() {
-  const { user, supabase } = useAuth()
-  const [session, setSession] = useState<any>(null)
-  const [envVars, setEnvVars] = useState<{ [key: string]: boolean }>({})
+  const { supabase, user, refreshSession } = useAuth()
+  const [sessionData, setSessionData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [connectionStatus, setConnectionStatus] = useState<"checking" | "connected" | "error">("checking")
+  const [connectionStatus, setConnectionStatus] = useState<"checking" | "ok" | "error">("checking")
   const [redirectHistory, setRedirectHistory] = useState<string[]>([])
-  const { toast } = useToast()
 
-  // 環境変数のチェック
   useEffect(() => {
-    const checkEnvVars = () => {
-      setEnvVars({
-        NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      })
-    }
-
-    checkEnvVars()
-  }, [])
-
-  // リダイレクト履歴の記録
-  useEffect(() => {
-    // ローカルストレージからリダイレクト履歴を取得
-    const storedHistory = localStorage.getItem("redirectHistory")
-    if (storedHistory) {
-      setRedirectHistory(JSON.parse(storedHistory))
-    }
-
-    // 現在のURLを履歴に追加
-    const now = new Date().toISOString()
-    const currentUrl = window.location.href
-    const newEntry = `${now}: ${currentUrl}`
-
-    setRedirectHistory((prev) => {
-      const updated = [newEntry, ...prev].slice(0, 10) // 最新10件のみ保持
-      localStorage.setItem("redirectHistory", JSON.stringify(updated))
-      return updated
-    })
-  }, [])
-
-  // セッション情報の取得
-  useEffect(() => {
-    const getSessionInfo = async () => {
-      setLoading(true)
-      setError(null)
+    const checkSession = async () => {
       try {
-        console.log("デバッグページ: セッション情報取得開始")
+        setLoading(true)
+        setError(null)
+
+        // セッション情報を取得
         const { data, error } = await supabase.auth.getSession()
 
         if (error) {
-          console.error("セッション取得エラー:", error)
           setError(error.message)
           setConnectionStatus("error")
         } else {
-          console.log("セッション取得成功:", data)
-          setSession(data.session)
-          setConnectionStatus("connected")
+          setSessionData(data)
+          setConnectionStatus("ok")
+
+          // リダイレクト履歴に追加
+          if (data.session) {
+            setRedirectHistory((prev) => [...prev, `セッション検出: ${data.session.user.email}`])
+          } else {
+            setRedirectHistory((prev) => [...prev, "セッションなし"])
+          }
         }
       } catch (err) {
-        console.error("セッション取得中の例外:", err)
-        setError(err instanceof Error ? err.message : "不明なエラー")
+        setError(err instanceof Error ? err.message : "不明なエラーが発生しました")
         setConnectionStatus("error")
       } finally {
         setLoading(false)
       }
     }
 
-    getSessionInfo()
+    checkSession()
   }, [supabase])
 
-  // 手動でセッション情報を更新
-  const refreshSession = async () => {
-    setLoading(true)
+  // セッション更新
+  const handleRefreshSession = async () => {
     try {
+      setLoading(true)
+      await refreshSession()
+
+      // セッション情報を再取得
       const { data, error } = await supabase.auth.getSession()
+
       if (error) {
         setError(error.message)
       } else {
-        setSession(data.session)
-        setError(null)
+        setSessionData(data)
+        setRedirectHistory((prev) => [...prev, "セッション更新: " + (data.session ? "成功" : "セッションなし")])
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "不明なエラー")
+      setError(err instanceof Error ? err.message : "不明なエラーが発生しました")
     } finally {
       setLoading(false)
     }
   }
 
-  // リダイレクト履歴をクリア
-  const clearRedirectHistory = () => {
-    localStorage.removeItem("redirectHistory")
-    setRedirectHistory([])
+  // ストレージクリア
+  const handleClearStorage = () => {
+    localStorage.clear()
+    sessionStorage.clear()
+    setRedirectHistory((prev) => [...prev, "ストレージクリア実行"])
   }
 
-  // ログアウト処理
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut()
-      toast({
-        title: "ログアウト成功",
-        description: "正常にログアウトしました。",
-      })
-      // ページをリロード
-      window.location.reload()
-    } catch (error) {
-      console.error("ログアウトエラー:", error)
-    }
+  // 手動リダイレクト
+  const handleRedirect = (path: string) => {
+    setRedirectHistory((prev) => [...prev, `リダイレクト実行: ${path}`])
+    window.location.href = path
   }
 
   return (
-    <div className="container mx-auto py-10">
-      <h1 className="text-2xl font-bold mb-6">Supabase接続診断</h1>
+    <div className="container mx-auto py-8">
+      <h1 className="text-2xl font-bold mb-6">Supabaseデバッグページ</h1>
 
-      <div className="grid gap-6">
-        {/* 接続ステータス */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              接続ステータス
-              <Badge variant={connectionStatus === "connected" ? "success" : "destructive"}>
-                {connectionStatus === "checking"
-                  ? "確認中..."
-                  : connectionStatus === "connected"
-                    ? "接続済み"
-                    : "エラー"}
-              </Badge>
-            </CardTitle>
-            <CardDescription>Supabaseサービスとの接続状態</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <p>読み込み中...</p>
-            ) : error ? (
-              <Alert variant="destructive">
-                <AlertTitle>接続エラー</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            ) : (
-              <div>
-                <p>Supabaseサービスに正常に接続されています。</p>
-                {session && (
-                  <div className="mt-4">
-                    <h3 className="font-semibold">セッション情報:</h3>
-                    <pre className="bg-muted p-4 rounded-md mt-2 overflow-auto max-h-60 text-xs">
-                      {JSON.stringify(session, null, 2)}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-          <CardFooter className="flex justify-between">
-            <Button onClick={refreshSession} disabled={loading}>
-              {loading ? "更新中..." : "セッション情報を更新"}
+      {/* 接続状態 */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>接続状態</CardTitle>
+          <CardDescription>Supabaseとの接続状態を表示します</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {connectionStatus === "checking" && (
+            <Alert>
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              <AlertTitle>確認中</AlertTitle>
+              <AlertDescription>Supabaseとの接続を確認しています...</AlertDescription>
+            </Alert>
+          )}
+
+          {connectionStatus === "ok" && (
+            <Alert className="bg-green-50 border-green-200">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertTitle className="text-green-600">接続成功</AlertTitle>
+              <AlertDescription>Supabaseサービスに正常に接続されています。</AlertDescription>
+            </Alert>
+          )}
+
+          {connectionStatus === "error" && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>接続エラー</AlertTitle>
+              <AlertDescription>{error || "Supabaseとの接続に問題があります。"}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="mt-4 flex gap-2">
+            <Button onClick={handleRefreshSession} disabled={loading} size="sm">
+              {loading ? "更新中..." : "接続を再確認"}
             </Button>
-            {session && (
-              <Button onClick={handleLogout} variant="destructive">
-                ログアウト
-              </Button>
-            )}
-          </CardFooter>
-        </Card>
+            <Button onClick={handleClearStorage} variant="outline" size="sm">
+              ストレージクリア
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* リダイレクト履歴 */}
-        <Card>
+      {/* セッション情報 */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>セッション情報</CardTitle>
+          <CardDescription>現在のセッション情報を表示します</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="text-center py-4">
+              <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+              <p>セッション情報を取得中...</p>
+            </div>
+          ) : sessionData?.session ? (
+            <div className="space-y-4">
+              <Alert className="bg-blue-50 border-blue-200">
+                <Info className="h-4 w-4 text-blue-600" />
+                <AlertTitle className="text-blue-600">セッション有効</AlertTitle>
+                <AlertDescription>ユーザー: {sessionData.session.user.email}</AlertDescription>
+              </Alert>
+
+              <div className="border rounded-md p-4 bg-gray-50">
+                <h3 className="font-medium mb-2">セッション詳細</h3>
+                <ul className="space-y-1 text-sm">
+                  <li>
+                    <span className="font-medium">ユーザーID:</span> {sessionData.session.user.id}
+                  </li>
+                  <li>
+                    <span className="font-medium">メールアドレス:</span> {sessionData.session.user.email}
+                  </li>
+                  <li>
+                    <span className="font-medium">有効期限:</span>{" "}
+                    {new Date(sessionData.session.expires_at * 1000).toLocaleString()}
+                  </li>
+                </ul>
+              </div>
+            </div>
+          ) : (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>セッションなし</AlertTitle>
+              <AlertDescription>現在アクティブなセッションがありません。ログインしてください。</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="mt-4 flex gap-2">
+            <Button onClick={handleRefreshSession} size="sm">
+              セッション更新
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ユーザー情報 */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>ユーザー情報</CardTitle>
+          <CardDescription>現在のユーザー情報を表示します</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {user ? (
+            <div className="border rounded-md p-4 bg-gray-50">
+              <h3 className="font-medium mb-2">ユーザー詳細</h3>
+              <ul className="space-y-1 text-sm">
+                <li>
+                  <span className="font-medium">ユーザーID:</span> {user.id}
+                </li>
+                <li>
+                  <span className="font-medium">メールアドレス:</span> {user.email}
+                </li>
+                <li>
+                  <span className="font-medium">最終更新日時:</span> {new Date(user.updated_at || "").toLocaleString()}
+                </li>
+              </ul>
+            </div>
+          ) : (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>ユーザーなし</AlertTitle>
+              <AlertDescription>現在ログインしているユーザーはいません。</AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* リダイレクト履歴 */}
+      {redirectHistory.length > 0 && (
+        <Card className="mb-6">
           <CardHeader>
             <CardTitle>リダイレクト履歴</CardTitle>
-            <CardDescription>最近のリダイレクト履歴を表示します</CardDescription>
+            <CardDescription>このページでのリダイレクト履歴を表示します</CardDescription>
           </CardHeader>
           <CardContent>
-            {redirectHistory.length > 0 ? (
-              <ul className="space-y-2 text-sm">
-                {redirectHistory.map((entry, index) => (
-                  <li key={index} className="border-b pb-1">
-                    {entry}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>リダイレクト履歴はありません</p>
-            )}
-          </CardContent>
-          <CardFooter>
-            <Button onClick={clearRedirectHistory} variant="outline" size="sm">
-              履歴をクリア
-            </Button>
-          </CardFooter>
-        </Card>
-
-        {/* 環境変数ステータス */}
-        <Card>
-          <CardHeader>
-            <CardTitle>環境変数ステータス</CardTitle>
-            <CardDescription>必要な環境変数が設定されているか確認します</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {Object.entries(envVars).length > 0 ? (
-                Object.entries(envVars).map(([key, isSet]) => (
-                  <li key={key} className="flex items-center justify-between">
-                    <span>{key}</span>
-                    <Badge variant={isSet ? "success" : "destructive"}>{isSet ? "設定済み" : "未設定"}</Badge>
-                  </li>
-                ))
-              ) : (
-                <li>環境変数情報を取得中...</li>
-              )}
+            <ul className="list-disc pl-4 space-y-1 text-sm">
+              {redirectHistory.map((entry, index) => (
+                <li key={index}>{entry}</li>
+              ))}
             </ul>
           </CardContent>
         </Card>
+      )}
 
-        {/* ユーザー情報 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>ユーザー情報</CardTitle>
-            <CardDescription>現在のユーザー情報</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {user ? (
-              <div>
-                <p>
-                  <strong>メールアドレス:</strong> {user.email}
-                </p>
-                <p>
-                  <strong>ユーザーID:</strong> {user.id}
-                </p>
-                <p>
-                  <strong>最終ログイン:</strong> {new Date(user.last_sign_in_at || "").toLocaleString()}
-                </p>
-              </div>
-            ) : (
-              <p>ログインしていません</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* 手動ナビゲーション */}
-        <Card>
-          <CardHeader>
-            <CardTitle>手動ナビゲーション</CardTitle>
-            <CardDescription>各ページに手動で移動します</CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4">
-            <Button onClick={() => (window.location.href = "/login")} className="w-full">
-              ログインページ
-            </Button>
-            <Button onClick={() => (window.location.href = "/dashboard")} className="w-full">
+      {/* ナビゲーション */}
+      <Card>
+        <CardHeader>
+          <CardTitle>ナビゲーション</CardTitle>
+          <CardDescription>各ページに手動でナビゲートします</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => handleRedirect("/dashboard")} variant="outline" size="sm">
               ダッシュボード
             </Button>
-            <Button onClick={() => (window.location.href = "/")} className="w-full">
+            <Button onClick={() => handleRedirect("/login")} variant="outline" size="sm">
+              ログイン
+            </Button>
+            <Button onClick={() => handleRedirect("/")} variant="outline" size="sm">
               ホーム
             </Button>
-            <Button onClick={() => (window.location.href = "/debug")} className="w-full">
-              デバッグページ
+            <Button onClick={() => handleRedirect("/profile")} variant="outline" size="sm">
+              プロフィール
             </Button>
-          </CardContent>
-        </Card>
-
-        {/* Cookieクリア */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Cookieとストレージ</CardTitle>
-            <CardDescription>ブラウザのストレージをクリアします</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              onClick={() => {
-                localStorage.clear()
-                sessionStorage.clear()
-                alert(
-                  "ローカルストレージとセッションストレージをクリアしました。Cookieはブラウザの設定から手動でクリアしてください。",
-                )
-              }}
-              variant="destructive"
-              className="w-full"
-            >
-              ストレージをクリア
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

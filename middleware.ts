@@ -49,16 +49,6 @@ export async function middleware(req: NextRequest) {
       return NextResponse.next()
     }
 
-    // リダイレクトループを防止するためのチェック
-    // リダイレクト元のURLを確認
-    const referer = req.headers.get("referer") || ""
-    const isRedirectLoop = referer.includes(path)
-
-    if (isRedirectLoop) {
-      console.log(`Middleware: リダイレクトループを検出しました。スキップします: ${path} <- ${referer}`)
-      return NextResponse.next()
-    }
-
     const res = NextResponse.next()
 
     // Supabaseクライアントを作成
@@ -95,7 +85,10 @@ export async function middleware(req: NextRequest) {
 
     if (isAuthPath && session && path !== "/") {
       console.log(`Middleware: リダイレクト実行 - 認証パス(${path})にセッションありでアクセス -> /dashboard`)
-      return NextResponse.redirect(new URL("/dashboard", req.url))
+      // リダイレクトURLを設定
+      const redirectUrl = new URL("/dashboard", req.url)
+      // リダイレクトを実行
+      return NextResponse.redirect(redirectUrl)
     }
 
     // Cookieを確実に設定するためにレスポンスを返す

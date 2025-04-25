@@ -26,6 +26,7 @@ type AuthContextType = {
   signIn: (emailOrId: string, password: string) => Promise<any>
   signUp: (email: string, password: string, metadata?: { full_name?: string }) => Promise<any>
   resetPassword: (email: string) => Promise<any>
+  refreshSession: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -34,6 +35,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const supabase = getClientSupabaseInstance()
+
+  // セッションを更新する関数
+  const refreshSession = async () => {
+    try {
+      console.log("セッション更新開始")
+      const { data, error } = await supabase.auth.getSession()
+
+      if (error) {
+        console.error("セッション更新エラー:", error)
+        return
+      }
+
+      console.log("セッション更新成功:", data.session?.user?.email || "セッションなし")
+      setUser(data.session?.user ?? null)
+    } catch (err) {
+      console.error("セッション更新中の例外:", err)
+    }
+  }
 
   useEffect(() => {
     const getUser = async () => {
@@ -65,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.log("サインインイベント検出: ダッシュボードにリダイレクトします")
             setTimeout(() => {
               window.location.href = "/dashboard"
-            }, 1000)
+            }, 500)
           }
 
           // SIGNED_OUTイベントの場合、ログインページにリダイレクト
@@ -256,6 +275,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signIn,
     signUp,
     resetPassword,
+    refreshSession,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
