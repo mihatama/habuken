@@ -24,45 +24,52 @@ const protectedPaths = [
 const publicPaths = ["/", "/login", "/signup", "/forgot-password", "/reset-password", "/supabase-debug", "/debug"]
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ req, res })
+  try {
+    const res = NextResponse.next()
+    const supabase = createMiddlewareClient({ req, res })
 
-  // セッションを取得
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    // セッションを取得
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
 
-  const path = req.nextUrl.pathname
+    const path = req.nextUrl.pathname
 
-  // デバッグ用ログ
-  console.log(`Middleware: Path=${path}, Session=${session ? "exists" : "null"}`)
-  if (session) {
-    console.log(`User authenticated: ${session.user.email}, User ID: ${session.user.id}`)
-  } else {
-    console.log("No active session found")
+    // デバッグ用ログ
+    console.log(`Middleware: Path=${path}, Session=${session ? "exists" : "null"}`)
+    if (session) {
+      console.log(`User authenticated in middleware: ${session.user.email}, User ID: ${session.user.id}`)
+    } else {
+      console.log("No active session found in middleware")
+    }
+
+    // 保護されたパスへのアクセスで認証されていない場合はログインページにリダイレクト
+    const isProtectedPath = protectedPaths.some(
+      (protectedPath) => path === protectedPath || path.startsWith(`${protectedPath}/`),
+    )
+
+    if (isProtectedPath && !session) {
+      console.log(`Redirecting to login: Protected path=${path}, no session`)
+      const redirectUrl = new URL("/login", req.url)
+      redirectUrl.searchParams.set("redirect", path)
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    // 認証済みユーザーがログインページなどにアクセスした場合はダッシュボードにリダイレクト
+    const isAuthPath = publicPaths.includes(path)
+
+    if (isAuthPath && session && path !== "/" && !path.startsWith("/debug") && !path.startsWith("/supabase-debug")) {
+      console.log(`Redirecting to dashboard: Auth path=${path}, has session`)
+      return NextResponse.redirect(new URL("/dashboard", req.url))
+    }
+
+    // Cookieを確実に設定するためにレスポンスを返す
+    return res
+  } catch (error) {
+    console.error("Middleware error:", error)
+    // エラーが発生した場合でもアプリケーションを継続させる
+    return NextResponse.next()
   }
-
-  // 保護されたパスへのアクセスで認証されていない場合はログインページにリダイレクト
-  const isProtectedPath = protectedPaths.some(
-    (protectedPath) => path === protectedPath || path.startsWith(`${protectedPath}/`),
-  )
-
-  if (isProtectedPath && !session) {
-    console.log(`Redirecting to login: Protected path=${path}, no session`)
-    const redirectUrl = new URL("/login", req.url)
-    redirectUrl.searchParams.set("redirect", path)
-    return NextResponse.redirect(redirectUrl)
-  }
-
-  // 認証済みユーザーがログインページなどにアクセスした場合はダッシュボードにリダイレクト
-  const isAuthPath = publicPaths.includes(path)
-
-  if (isAuthPath && session && path !== "/" && !path.startsWith("/debug") && !path.startsWith("/supabase-debug")) {
-    console.log(`Redirecting to dashboard: Auth path=${path}, has session`)
-    return NextResponse.redirect(new URL("/dashboard", req.url))
-  }
-
-  return res
 }
 
 export const config = {

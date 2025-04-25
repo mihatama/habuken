@@ -1,81 +1,75 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
-import { getClientSupabaseInstance } from "@/lib/supabase"
 import { AlertCircle, CheckCircle, Info } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
 
 export default function SupabaseDebugPage() {
-  const [supabaseStatus, setSupabaseStatus] = useState<"checking" | "ok" | "error">("checking")
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [envVars, setEnvVars] = useState<{ [key: string]: string | undefined }>({})
-  const [sessionInfo, setSessionInfo] = useState<any>(null)
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
+  const { supabase, user } = useAuth()
+  const [sessionData, setSessionData] = useState<any>(null)
+  const [sessionError, setSessionError] = useState<string | null>(null)
+  const [connectionStatus, setConnectionStatus] = useState<"checking" | "ok" | "error">("checking")
+  const [envVars, setEnvVars] = useState<{ [key: string]: boolean }>({})
 
   useEffect(() => {
-    // 環境変数の確認
-    const checkEnvironmentVars = () => {
+    // 環境変数のチェック
+    const checkEnvVars = () => {
       const vars = {
-        NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.substring(0, 5) + "...",
+        NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       }
       setEnvVars(vars)
     }
 
     // Supabase接続テスト
-    const checkSupabase = async () => {
+    const checkSupabaseConnection = async () => {
       try {
-        const supabase = getClientSupabaseInstance()
-
-        // セッション取得テスト
+        setConnectionStatus("checking")
         const { data, error } = await supabase.auth.getSession()
 
         if (error) {
           console.error("Supabase connection error:", error)
-          setSupabaseStatus("error")
-          setErrorMessage(error.message)
+          setSessionError(error.message)
+          setConnectionStatus("error")
         } else {
-          console.log("Supabase connection successful")
-          setSupabaseStatus("ok")
-          setSessionInfo(data)
+          console.log("Supabase connection successful:", data)
+          setSessionData(data)
+          setConnectionStatus("ok")
         }
       } catch (err) {
         console.error("Supabase check error:", err)
-        setSupabaseStatus("error")
-        setErrorMessage(err instanceof Error ? err.message : "不明なエラーが発生しました")
+        setSessionError(err instanceof Error ? err.message : "Unknown error")
+        setConnectionStatus("error")
       }
     }
 
-    checkEnvironmentVars()
-    checkSupabase()
-  }, [])
+    checkEnvVars()
+    checkSupabaseConnection()
+  }, [supabase])
 
-  const runConnectionTest = async () => {
+  const handleSignOut = async () => {
     try {
-      setTestResult(null)
-      const supabase = getClientSupabaseInstance()
+      await supabase.auth.signOut()
+      window.location.href = "/login"
+    } catch (error) {
+      console.error("Sign out error:", error)
+    }
+  }
 
-      // 簡単なクエリテスト
-      const { data, error } = await supabase.from("profiles").select("count(*)", { count: "exact" }).limit(1)
-
+  const handleRefreshSession = async () => {
+    try {
+      const { data, error } = await supabase.auth.getSession()
       if (error) {
-        setTestResult({
-          success: false,
-          message: `テスト失敗: ${error.message}`,
-        })
+        setSessionError(error.message)
       } else {
-        setTestResult({
-          success: true,
-          message: `テスト成功: プロフィールテーブルに接続できました`,
-        })
+        setSessionData(data)
+        setSessionError(null)
       }
     } catch (err) {
-      setTestResult({
-        success: false,
-        message: `テスト失敗: ${err instanceof Error ? err.message : "不明なエラー"}`,
-      })
+      setSessionError(err instanceof Error ? err.message : "Unknown error")
     }
   }
 
@@ -84,30 +78,38 @@ export default function SupabaseDebugPage() {
       <h1 className="text-2xl font-bold mb-6">Supabase接続診断</h1>
 
       <div className="grid gap-6">
+        {/* 環境変数ステータス */}
         <Card>
           <CardHeader>
-            <CardTitle>環境変数</CardTitle>
+            <CardTitle>環境変数ステータス</CardTitle>
             <CardDescription>Supabase接続に必要な環境変数の状態</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {Object.entries(envVars).map(([key, value]) => (
-                <div key={key} className="flex justify-between items-center border-b pb-2">
-                  <span className="font-medium">{key}</span>
-                  <span className={value ? "text-green-600" : "text-red-600"}>{value ? value : "未設定"}</span>
-                </div>
+            <ul className="space-y-2">
+              {Object.entries(envVars).map(([key, exists]) => (
+                <li key={key} className="flex items-center">
+                  {exists ? (
+                    <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+                  ) : (
+                    <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+                  )}
+                  <span>
+                    {key}: {exists ? "設定済み" : "未設定"}
+                  </span>
+                </li>
               ))}
-            </div>
+            </ul>
           </CardContent>
         </Card>
 
+        {/* 接続ステータス */}
         <Card>
           <CardHeader>
-            <CardTitle>接続状態</CardTitle>
-            <CardDescription>Supabaseサービスへの接続状態</CardDescription>
+            <CardTitle>Supabase接続ステータス</CardTitle>
+            <CardDescription>Supabaseサービスとの接続状態</CardDescription>
           </CardHeader>
           <CardContent>
-            {supabaseStatus === "checking" && (
+            {connectionStatus === "checking" && (
               <Alert>
                 <Info className="h-4 w-4" />
                 <AlertTitle>確認中</AlertTitle>
@@ -115,7 +117,7 @@ export default function SupabaseDebugPage() {
               </Alert>
             )}
 
-            {supabaseStatus === "ok" && (
+            {connectionStatus === "ok" && (
               <Alert className="bg-green-50 border-green-200">
                 <CheckCircle className="h-4 w-4 text-green-600" />
                 <AlertTitle className="text-green-600">接続成功</AlertTitle>
@@ -123,61 +125,62 @@ export default function SupabaseDebugPage() {
               </Alert>
             )}
 
-            {supabaseStatus === "error" && (
+            {connectionStatus === "error" && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>接続エラー</AlertTitle>
-                <AlertDescription>{errorMessage || "Supabaseサービスとの接続に問題があります。"}</AlertDescription>
+                <AlertDescription>Supabaseサービスとの接続に問題があります: {sessionError}</AlertDescription>
               </Alert>
             )}
 
             <div className="mt-4">
-              <Button onClick={runConnectionTest}>接続テストを実行</Button>
-
-              {testResult && (
-                <Alert
-                  className={`mt-4 ${testResult.success ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}
-                >
-                  {testResult.success ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 text-red-600" />
-                  )}
-                  <AlertTitle className={testResult.success ? "text-green-600" : "text-red-600"}>テスト結果</AlertTitle>
-                  <AlertDescription>{testResult.message}</AlertDescription>
-                </Alert>
-              )}
+              <Button onClick={handleRefreshSession}>接続を再確認</Button>
             </div>
           </CardContent>
         </Card>
 
+        {/* セッション情報 */}
         <Card>
           <CardHeader>
             <CardTitle>セッション情報</CardTitle>
-            <CardDescription>現在のセッション状態</CardDescription>
+            <CardDescription>現在のSupabaseセッションの詳細</CardDescription>
           </CardHeader>
           <CardContent>
-            {sessionInfo ? (
+            {user ? (
               <div>
-                <p className="mb-2">
-                  <strong>セッション状態:</strong> {sessionInfo.session ? "アクティブ" : "なし"}
-                </p>
-                {sessionInfo.session && (
-                  <div className="space-y-2">
-                    <p>
-                      <strong>ユーザーID:</strong> {sessionInfo.session.user.id}
-                    </p>
-                    <p>
-                      <strong>メール:</strong> {sessionInfo.session.user.email}
-                    </p>
-                    <p>
-                      <strong>最終更新:</strong> {new Date(sessionInfo.session.updated_at).toLocaleString()}
-                    </p>
-                  </div>
-                )}
+                <Alert className="bg-green-50 border-green-200 mb-4">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertTitle className="text-green-600">ログイン済み</AlertTitle>
+                  <AlertDescription>
+                    ユーザー: {user.email} (ID: {user.id})
+                  </AlertDescription>
+                </Alert>
+
+                <div className="mt-4 space-y-2">
+                  <h3 className="font-medium">ユーザー情報:</h3>
+                  <pre className="bg-gray-100 p-3 rounded text-sm overflow-auto">{JSON.stringify(user, null, 2)}</pre>
+
+                  <h3 className="font-medium mt-4">セッション情報:</h3>
+                  <pre className="bg-gray-100 p-3 rounded text-sm overflow-auto">
+                    {JSON.stringify(sessionData, null, 2)}
+                  </pre>
+                </div>
+
+                <Button onClick={handleSignOut} variant="destructive" className="mt-4">
+                  ログアウト
+                </Button>
               </div>
             ) : (
-              <p>セッション情報を取得中...</p>
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>未ログイン</AlertTitle>
+                <AlertDescription>
+                  現在ログインしていません。
+                  <a href="/login" className="underline ml-1">
+                    ログインページへ
+                  </a>
+                </AlertDescription>
+              </Alert>
             )}
           </CardContent>
         </Card>

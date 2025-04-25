@@ -49,6 +49,12 @@ export function LoginForm() {
         } else {
           console.log("Supabase connection successful", data)
           setSupabaseStatus("ok")
+
+          // すでにログイン済みの場合はダッシュボードにリダイレクト
+          if (data.session) {
+            console.log("既存のセッションが見つかりました。ダッシュボードにリダイレクトします。")
+            router.push("/dashboard")
+          }
         }
       } catch (err) {
         console.error("Supabase check error:", err)
@@ -57,7 +63,7 @@ export function LoginForm() {
     }
 
     checkSupabase()
-  }, [supabase])
+  }, [supabase, router])
 
   // フォームのデフォルト値を修正
   const form = useForm<z.infer<typeof formSchema>>({
@@ -78,6 +84,7 @@ export function LoginForm() {
       // Supabase接続状態を確認
       if (supabaseStatus === "error") {
         setLoginError("Supabaseとの接続に問題があります。管理者にお問い合わせください。")
+        setIsLoading(false)
         return
       }
 
@@ -119,9 +126,21 @@ export function LoginForm() {
         })
 
         // セッションが確実に設定されるようにする
+        // リダイレクト前に少し待機して、セッションが確実に設定されるようにする
         setTimeout(() => {
-          router.push(redirect)
-        }, 500)
+          // セッションが設定されたことを再確認
+          supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session) {
+              console.log("セッションが確認されました。リダイレクトします。", session.user.email)
+              router.push(redirect)
+            } else {
+              console.error("セッションが設定されていません。リダイレクトできません。")
+              setLoginError(
+                "ログインは成功しましたが、セッションの設定に問題があります。ページをリロードしてください。",
+              )
+            }
+          })
+        }, 1000)
       }
     } catch (error) {
       console.error("Login error:", error)
