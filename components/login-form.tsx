@@ -384,8 +384,15 @@ export function LoginForm() {
               </FormItem>
             )}
           />
-          <Button type="submit" className="w-full" disabled={isLoading || (!!user && !!session)}>
-            {isLoading ? "ログイン中..." : "ログイン"}
+          {/* ログイン状態の表示 */}
+          {user && session ? (
+            <div className="p-2 text-sm text-center bg-blue-50 rounded border border-blue-200">
+              <p className="font-medium text-blue-700">{user.email} としてログイン済みです</p>
+              <p className="text-blue-600">ボタンをクリックして続行できます</p>
+            </div>
+          ) : null}
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? "ログイン中..." : user && session ? "既にログイン済み" : "ログイン"}
           </Button>
         </form>
       </Form>
@@ -402,6 +409,15 @@ export function LoginForm() {
 
       {/* デバッグ情報とツール */}
       <div className="mt-6 border-t pt-4">
+        <div className="text-xs p-2 bg-gray-50 rounded border mb-2">
+          <p>
+            <strong>現在の状態:</strong> {user ? "ユーザーあり" : "ユーザーなし"} /{" "}
+            {session ? "セッションあり" : "セッションなし"}
+          </p>
+          <p>
+            <strong>ボタン状態:</strong> {isLoading ? "読み込み中" : user && session ? "ログイン済み" : "クリック可能"}
+          </p>
+        </div>
         <h3 className="text-sm font-medium mb-2">デバッグツール</h3>
 
         <div className="space-y-4">
