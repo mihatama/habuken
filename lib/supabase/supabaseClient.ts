@@ -36,22 +36,6 @@ export const getClientSupabaseInstance = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-  // 現在のドメインを取得
-  const domain = typeof window !== "undefined" ? window.location.hostname : "localhost"
-
-  // 本番環境かどうかを判定
-  const isProduction = domain !== "localhost" && !domain.includes("vercel.app")
-
-  // Cookieのドメイン設定
-  // 本番環境では実際のドメイン、開発環境ではnullを使用
-  const cookieDomain = isProduction ? `.${domain.split(".").slice(-2).join(".")}` : undefined
-
-  logWithTimestamp("Cookie設定:", {
-    domain,
-    isProduction,
-    cookieDomain,
-  })
-
   // 永続化オプションを設定
   const persistSessionOptions = {
     // セッションを永続化する方法を指定
@@ -64,7 +48,7 @@ export const getClientSupabaseInstance = () => {
     // Cookieの設定
     cookieOptions: {
       // セキュアな接続でのみCookieを送信
-      secure: isProduction,
+      secure: false, // 開発環境でもCookieを設定できるようにfalseに設定
 
       // サイト全体でCookieを利用可能に
       sameSite: "lax" as const,
@@ -75,9 +59,6 @@ export const getClientSupabaseInstance = () => {
       // Cookieの有効期間（7日間）
       maxAge: 60 * 60 * 24 * 7,
 
-      // ドメイン設定
-      domain: cookieDomain,
-
       // パス設定
       path: "/",
     },
@@ -86,13 +67,13 @@ export const getClientSupabaseInstance = () => {
     autoRefreshToken: true,
 
     // デバッグモード
-    debug: process.env.NODE_ENV !== "production",
+    debug: true, // デバッグ情報を常に表示
   }
 
   // Supabaseクライアントを作成
   logWithTimestamp("新しいSupabaseクライアントを作成します", {
     url: supabaseUrl,
-    persistOptions: persistSessionOptions,
+    persistOptions: JSON.stringify(persistSessionOptions),
   })
 
   clientInstance = createClient<Database>(supabaseUrl, supabaseAnonKey, {

@@ -42,6 +42,7 @@ export function LoginForm() {
   const [redirectDelay, setRedirectDelay] = React.useState<number>(500)
   const [autoRedirectEnabled, setAutoRedirectEnabled] = React.useState<boolean>(true)
   const redirectAttemptedRef = React.useRef<boolean>(false)
+  const [forceRedirect, setForceRedirect] = React.useState<boolean>(false)
 
   // 初回マウント時に認証ストレージをクリーンアップ
   React.useEffect(() => {
@@ -50,16 +51,17 @@ export function LoginForm() {
 
   // セッションが既に存在する場合は自動的にリダイレクト
   React.useEffect(() => {
-    if (session && user && autoRedirectEnabled && !redirectAttemptedRef.current) {
+    if ((session && user && autoRedirectEnabled && !redirectAttemptedRef.current) || forceRedirect) {
       redirectAttemptedRef.current = true
 
       logWithTimestamp("既存のセッションを検出しました - 自動リダイレクト", {
-        user: user.email,
+        user: user?.email || "不明",
         redirect,
-        sessionExpiry: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : "unknown",
+        sessionExpiry: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : "unknown",
+        forceRedirect,
       })
 
-      setRedirectHistory((prev) => [...prev, `既存セッション検出: ${user.email} - 自動リダイレクト準備`])
+      setRedirectHistory((prev) => [...prev, `既存セッション検出: ${user?.email || "不明"} - 自動リダイレクト準備`])
 
       // 少し遅延を入れてからリダイレクト
       const timer = setTimeout(() => {
@@ -69,7 +71,7 @@ export function LoginForm() {
 
       return () => clearTimeout(timer)
     }
-  }, [session, user, redirect, autoRedirectEnabled])
+  }, [session, user, redirect, autoRedirectEnabled, forceRedirect])
 
   // Supabase接続テスト
   React.useEffect(() => {
@@ -154,6 +156,7 @@ export function LoginForm() {
           ),
         })
 
+        // 強制的にリダイレクト
         window.location.href = destination
       }, redirectDelay)
     }
@@ -256,6 +259,12 @@ export function LoginForm() {
   const handleManualRedirect = () => {
     setRedirectHistory((prev) => [...prev, `手動リダイレクト実行: ${redirect}`])
     executeRedirect(redirect, redirectMethod)
+  }
+
+  // 強制リダイレクト
+  const handleForceRedirect = () => {
+    setRedirectHistory((prev) => [...prev, `強制リダイレクト実行: ${redirect}`])
+    setForceRedirect(true)
   }
 
   // ストレージクリア
@@ -470,9 +479,12 @@ export function LoginForm() {
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button onClick={handleManualRedirect} variant="outline" size="sm">
               手動リダイレクト
+            </Button>
+            <Button onClick={handleForceRedirect} variant="outline" size="sm">
+              強制リダイレクト
             </Button>
             <Button onClick={handleClearStorage} variant="outline" size="sm">
               ストレージクリア

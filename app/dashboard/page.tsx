@@ -1,9 +1,14 @@
+import { Suspense } from "react"
 import DashboardClientPage from "./DashboardClientPage"
 import { logWithTimestamp } from "@/lib/auth-debug"
 
-// ページコンポーネントの先頭に追加
-logWithTimestamp("Dashboard page component rendered")
-
 export default function DashboardPage() {
-  return <DashboardClientPage />
+  // サーバーサイドでのログ
+  logWithTimestamp("DashboardPage: サーバーサイドレンダリング開始")
+
+  return (
+    <Suspense fallback={<div className="p-8 text-center">ダッシュボードを読み込み中...</div>}>
+      <DashboardClientPage />
+    </Suspense>
+  )
 }
