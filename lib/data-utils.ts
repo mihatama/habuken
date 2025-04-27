@@ -88,21 +88,48 @@ export async function getTools() {
 // 休暇申請データの取得
 export async function getLeaveRequests() {
   const supabase = createClientComponentClient()
-  const { data, error } = await supabase
-    .from("leave_requests")
-    .select("*, staff(full_name)")
-    .order("created_at", { ascending: false })
 
-  if (error) {
+  try {
+    // まず休暇申請データを取得
+    const { data: leaveRequests, error: leaveRequestsError } = await supabase
+      .from("leave_requests")
+      .select("*")
+      .order("created_at", { ascending: false })
+
+    if (leaveRequestsError) {
+      console.error("休暇申請データ取得エラー:", leaveRequestsError)
+      throw leaveRequestsError
+    }
+
+    // スタッフIDのリストを作成
+    const staffIds = [...new Set(leaveRequests.map((request) => request.staff_id))]
+
+    // スタッフデータを取得
+    const { data: staffData, error: staffError } = await supabase
+      .from("staff")
+      .select("id, full_name")
+      .in("id", staffIds)
+
+    if (staffError) {
+      console.error("スタッフデータ取得エラー:", staffError)
+      throw staffError
+    }
+
+    // スタッフIDをキーとしたマップを作成
+    const staffMap = new Map()
+    staffData?.forEach((staff) => {
+      staffMap.set(staff.id, staff.full_name)
+    })
+
+    // データ形式を整形
+    return (leaveRequests || []).map((request) => ({
+      ...request,
+      userName: staffMap.get(request.staff_id) || "不明",
+    }))
+  } catch (error) {
     console.error("休暇申請データ取得エラー:", error)
     throw error
   }
-
-  // データ形式を整形
-  return (data || []).map((request) => ({
-    ...request,
-    userName: request.staff?.full_name || "不明",
-  }))
 }
 
 // 休暇申請の更新
