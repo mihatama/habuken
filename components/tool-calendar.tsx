@@ -1,286 +1,278 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
+import { useState, useEffect } from "react"
 import { Calendar, momentLocalizer } from "react-big-calendar"
 import moment from "moment"
 import "moment/locale/ja"
 import "react-big-calendar/lib/css/react-big-calendar.css"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { sampleProjects, sampleStaff, sampleTools } from "@/data/sample-data"
-import { StaffAssignmentDialog } from "@/components/staff-assignment-dialog"
+import { useToast } from "@/hooks/use-toast"
+import { createClient } from "@supabase/supabase-js"
 
-// 日本語ロケールを設定
+// 日本語ローカライザーの設定
 moment.locale("ja")
 const localizer = momentLocalizer(moment)
 
-// カレンダーイベントの型定義
-interface CalendarEvent {
-  id: number
+// イベントの型定義
+interface ToolEvent {
+  id: string
   title: string
   start: Date
   end: Date
-  description?: string
-  projectId?: number
-  staffIds?: string[]
-  toolIds?: string[]
-  allDay?: boolean
-  toolId?: number
+  resource_id: string
+  resource_name?: string
+  project_id?: string
+  project_name?: string
+  staff_id?: string
+  staff_name?: string
+  status: string
+  notes?: string
+  [key: string]: any
 }
 
-// ツールカレンダーのprops型定義
-interface ToolCalendarProps {
-  events?: CalendarEvent[]
-  onEventAdd?: (event: CalendarEvent) => void
-  onEventUpdate?: (event: CalendarEvent) => void
-  onEventDelete?: (eventId: number) => void
-  timeframe?: string
-  category?: "machinery" | "vehicle" | "equipment" | string
+// ツールの型定義
+interface Tool {
+  id: string
+  name: string
+  type: string
+  status: string
+  [key: string]: any
 }
 
-// サンプルイベント
-const sampleEvents: CalendarEvent[] = [
-  {
-    id: 1,
-    title: "洗浄機A使用",
-    start: new Date(2023, 2, 1, 9, 0),
-    end: new Date(2023, 2, 3, 17, 0),
-    toolId: 1,
-    projectId: 1,
-    staffIds: ["1", "2"],
-    toolIds: ["1"],
-  },
-  {
-    id: 2,
-    title: "洗浄機B使用",
-    start: new Date(2023, 2, 5, 9, 0),
-    end: new Date(2023, 2, 7, 17, 0),
-    toolId: 2,
-    projectId: 2,
-    staffIds: ["3"],
-    toolIds: ["2"],
-  },
-  {
-    id: 3,
-    title: "1号車使用",
-    start: new Date(2023, 2, 10, 9, 0),
-    end: new Date(2023, 2, 12, 17, 0),
-    toolId: 3,
-    projectId: 3,
-    staffIds: ["1", "4"],
-    toolIds: ["3"],
-  },
-  {
-    id: 4,
-    title: "2号車使用",
-    start: new Date(2023, 2, 15, 9, 0),
-    end: new Date(2023, 2, 17, 17, 0),
-    toolId: 4,
-    projectId: 1,
-    staffIds: ["2", "3"],
-    toolIds: ["4"],
-  },
-  {
-    id: 5,
-    title: "会議室A予約",
-    start: new Date(2023, 2, 20, 13, 0),
-    end: new Date(2023, 2, 20, 15, 0),
-    toolId: 5,
-    projectId: 2,
-    staffIds: ["1", "2", "3"],
-    toolIds: ["5"],
-  },
-]
-
-// カテゴリーに基づいたサンプルイベントを生成
-const generateCategoryEvents = (category: string): CalendarEvent[] => {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth()
-
-  let categoryId = 0
-  let categoryTitle = ""
-
-  if (category === "machinery") {
-    categoryId = 1
-    categoryTitle = "重機"
-  } else if (category === "vehicle") {
-    categoryId = 2
-    categoryTitle = "車両"
-  } else if (category === "equipment") {
-    categoryId = 3
-    categoryTitle = "備品"
-  }
-
-  return [
-    {
-      id: 100 + categoryId,
-      title: `${categoryTitle}A使用`,
-      start: new Date(year, month, 5, 9, 0),
-      end: new Date(year, month, 7, 17, 0),
-      toolId: 10 + categoryId,
-      projectId: 1,
-      staffIds: ["1", "2"],
-      toolIds: [`${10 + categoryId}`],
-    },
-    {
-      id: 200 + categoryId,
-      title: `${categoryTitle}B使用`,
-      start: new Date(year, month, 12, 9, 0),
-      end: new Date(year, month, 14, 17, 0),
-      toolId: 20 + categoryId,
-      projectId: 2,
-      staffIds: ["3"],
-      toolIds: [`${20 + categoryId}`],
-    },
-    {
-      id: 300 + categoryId,
-      title: `${categoryTitle}C使用`,
-      start: new Date(year, month, 19, 9, 0),
-      end: new Date(year, month, 21, 17, 0),
-      toolId: 30 + categoryId,
-      projectId: 3,
-      staffIds: ["1", "4"],
-      toolIds: [`${30 + categoryId}`],
-    },
-  ]
+// プロジェクトの型定義
+interface Project {
+  id: string
+  name: string
+  [key: string]: any
 }
 
-export function ToolCalendar({
-  events: initialEvents,
-  onEventAdd,
-  onEventUpdate,
-  onEventDelete,
-  timeframe = "month",
-  category,
-}: ToolCalendarProps) {
-  const searchParams = useSearchParams()
-  const categoryParam = searchParams.get("category") || "all"
+// スタッフの型定義
+interface Staff {
+  id: string
+  full_name: string
+  [key: string]: any
+}
 
-  // カテゴリーに基づいてイベントを初期化
-  const [events, setEvents] = useState<CalendarEvent[]>(
-    initialEvents || (category ? generateCategoryEvents(category) : sampleEvents),
-  )
+// Supabaseクライアントの作成
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+)
 
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
-  const [selectedTool, setSelectedTool] = useState<any | null>(null)
-  const [viewMode, setViewMode] = useState<"month" | "week" | "day">((timeframe as any) || "month")
-  const [filterTool, setFilterTool] = useState<string>("all")
+export function ToolCalendar() {
+  const [events, setEvents] = useState<ToolEvent[]>([])
+  const [tools, setTools] = useState<Tool[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
+  const [staff, setStaff] = useState<Staff[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
-  const [selectedSlot, setSelectedSlot] = useState<{ start: Date; end: Date } | null>(null)
-  const [filteredTools, setFilteredTools] = useState(sampleTools)
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+  const [newEvent, setNewEvent] = useState({
+    title: "",
+    start: "",
+    end: "",
+    resource_id: "",
+    project_id: "",
+    staff_id: "",
+    status: "scheduled", // デフォルト値
+    notes: "",
+  })
+  const { toast } = useToast()
 
-  // カテゴリーに基づいてツールをフィルタリング
+  // データの取得
   useEffect(() => {
-    if (category) {
-      let categoryFilter = "all"
+    async function fetchData() {
+      try {
+        // ツール予約イベントの取得
+        const { data: eventData, error: eventError } = await supabase
+          .from("tool_reservations")
+          .select(
+            `
+            id,
+            title,
+            start_time,
+            end_time,
+            resource_id,
+            resources:resource_id(name),
+            project_id,
+            projects:project_id(name),
+            staff_id,
+            staff:staff_id(full_name),
+            status,
+            notes
+          `,
+          )
+          .order("start_time", { ascending: true })
 
-      if (category === "machinery") {
-        categoryFilter = "重機"
-      } else if (category === "vehicle") {
-        categoryFilter = "車両"
-      } else if (category === "equipment") {
-        categoryFilter = "工具"
+        if (eventError) throw eventError
+
+        // 日付文字列をDateオブジェクトに変換
+        const formattedEvents = (eventData || []).map((event) => ({
+          ...event,
+          start: new Date(event.start_time),
+          end: new Date(event.end_time),
+          resource_name: event.resources?.name,
+          project_name: event.projects?.name,
+          staff_name: event.staff?.full_name,
+        }))
+
+        setEvents(formattedEvents)
+
+        // ツールの取得
+        const { data: toolData, error: toolError } = await supabase
+          .from("resources")
+          .select("*")
+          .eq("type", "工具")
+          .eq("status", "利用可能")
+
+        if (toolError) throw toolError
+        setTools(toolData || [])
+
+        // プロジェクトの取得
+        const { data: projectData, error: projectError } = await supabase.from("projects").select("id, name")
+
+        if (projectError) throw projectError
+        setProjects(projectData || [])
+
+        // スタッフの取得
+        const { data: staffData, error: staffError } = await supabase.from("staff").select("id, full_name")
+
+        if (staffError) throw staffError
+        setStaff(staffData || [])
+      } catch (error) {
+        console.error("データ取得エラー:", error)
+        toast({
+          title: "エラー",
+          description: "データの取得に失敗しました",
+          variant: "destructive",
+        })
       }
-
-      const filteredByCategory = sampleTools.filter((tool) => {
-        if (categoryFilter === "all") return true
-        return tool.category === categoryFilter
-      })
-
-      // ツールをフィルタリング
-      const filtered =
-        filterTool === "all"
-          ? filteredByCategory
-          : filteredByCategory.filter((tool) => tool.id.toString() === filterTool)
-
-      setFilteredTools(filtered)
     }
-  }, [category, filterTool])
 
-  // ツールに紐づくプロジェクトを取得
-  const getToolProjects = (toolId: number) => {
-    const tool = sampleTools.find((t) => t.id === toolId)
-    if (!tool) return []
+    fetchData()
+  }, [toast])
 
-    return sampleProjects.filter((project) => tool.assignedProjects.includes(project.id))
+  // 日付選択ハンドラー
+  const handleSelectSlot = ({ start }: { start: Date }) => {
+    setSelectedDate(start)
+    const formattedDate = moment(start).format("YYYY-MM-DD")
+    setNewEvent({
+      ...newEvent,
+      start: `${formattedDate}T09:00`,
+      end: `${formattedDate}T17:00`,
+    })
+    setIsDialogOpen(true)
   }
 
-  // ツールに紐づくスタッフを取得
-  const getToolStaff = (toolId: number) => {
-    const tool = sampleTools.find((t) => t.id === toolId)
-    if (!tool) return []
-
-    return sampleStaff.filter((staff) => tool.assignedStaff.includes(staff.id))
-  }
-
-  // イベントをクリックしたときのハンドラ
-  const handleEventClick = useCallback((event: CalendarEvent) => {
-    setSelectedEvent(event)
-    setIsDialogOpen(true)
-  }, [])
-
-  // スロットを選択したときのハンドラ（新規イベント作成）
-  const handleSelectSlot = useCallback(({ start, end }: { start: Date; end: Date }) => {
-    setSelectedSlot({ start, end })
-    setSelectedEvent({ id: 0, title: "", start, end })
-    setIsDialogOpen(true)
-  }, [])
-
-  // 新規作成ボタンをクリックしたときのハンドラ
-  const handleNewEventClick = useCallback(() => {
-    console.log("機材カレンダー: 新規作成ボタンがクリックされました")
-    const now = new Date()
-    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000)
-    setSelectedEvent({ id: 0, title: "", start: now, end: oneHourLater })
-    console.log("ダイアログを開きます", { isDialogOpen: false, willBe: true })
-    setIsDialogOpen(true)
-  }, [])
-
-  // イベント追加のハンドラ
-  const handleEventAdd = useCallback(
-    (event: CalendarEvent) => {
-      // 新しいIDを生成（実際のアプリではサーバーから取得）
-      const newEvent = {
-        ...event,
-        id: Math.max(0, ...events.map((e) => e.id)) + 1,
+  // イベント追加ハンドラー
+  const handleAddEvent = async () => {
+    try {
+      // 入力検証
+      if (!newEvent.title || !newEvent.start || !newEvent.end || !newEvent.resource_id) {
+        toast({
+          title: "入力エラー",
+          description: "タイトル、日時、工具は必須です",
+          variant: "destructive",
+        })
+        return
       }
-      setEvents((prev) => [...prev, newEvent])
-      if (onEventAdd) onEventAdd(newEvent)
-    },
-    [events, onEventAdd],
-  )
 
-  // イベント更新のハンドラ
-  const handleEventUpdate = useCallback(
-    (updatedEvent: CalendarEvent) => {
-      setEvents((prev) => prev.map((event) => (event.id === updatedEvent.id ? updatedEvent : event)))
-      if (onEventUpdate) onEventUpdate(updatedEvent)
-    },
-    [onEventUpdate],
-  )
+      // 選択された工具の情報を取得
+      const selectedTool = tools.find((tool) => tool.id === newEvent.resource_id)
 
-  // イベント削除のハンドラ
-  const handleEventDelete = useCallback(
-    (eventId: number) => {
-      setEvents((prev) => prev.filter((event) => event.id !== eventId))
-      if (onEventDelete) onEventDelete(eventId)
-    },
-    [onEventDelete],
-  )
+      // Supabaseに保存するデータ形式に変換
+      const eventData = {
+        title: newEvent.title,
+        start_time: newEvent.start,
+        end_time: newEvent.end,
+        resource_id: newEvent.resource_id,
+        project_id: newEvent.project_id || null,
+        staff_id: newEvent.staff_id || null,
+        status: newEvent.status,
+        notes: newEvent.notes,
+      }
 
-  // イベントのスタイルをカスタマイズ
-  const eventStyleGetter = (event: CalendarEvent) => {
-    // ツールIDに基づいて色を変更
-    let backgroundColor = "#3174ad"
+      const { data, error } = await supabase.from("tool_reservations").insert(eventData).select()
 
-    if (event.toolId) {
-      const toolIndex = event.toolId % 5
-      const colors = ["#3174ad", "#ff8c00", "#008000", "#9932cc", "#ff4500"]
-      backgroundColor = colors[toolIndex]
+      if (error) throw error
+
+      // 工具の状態を「利用中」に更新
+      await supabase.from("resources").update({ status: "利用中" }).eq("id", newEvent.resource_id)
+
+      // 新しいイベントを追加
+      if (data && data[0]) {
+        const addedEvent = {
+          ...data[0],
+          start: new Date(data[0].start_time),
+          end: new Date(data[0].end_time),
+          resource_name: selectedTool?.name,
+          project_name: projects.find((p) => p.id === data[0].project_id)?.name,
+          staff_name: staff.find((s) => s.id === data[0].staff_id)?.full_name,
+        }
+        setEvents([...events, addedEvent])
+
+        // ツールリストを更新
+        setTools(
+          tools.map((tool) => {
+            if (tool.id === newEvent.resource_id) {
+              return { ...tool, status: "利用中" }
+            }
+            return tool
+          }),
+        )
+      }
+
+      // フォームをリセット
+      setNewEvent({
+        title: "",
+        start: "",
+        end: "",
+        resource_id: "",
+        project_id: "",
+        staff_id: "",
+        status: "scheduled",
+        notes: "",
+      })
+      setIsDialogOpen(false)
+
+      toast({
+        title: "成功",
+        description: "工具予約が追加されました",
+      })
+    } catch (error) {
+      console.error("予約追加エラー:", error)
+      toast({
+        title: "エラー",
+        description: "予約の追加に失敗しました",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // イベントの状態に応じたスタイルを取得
+  const eventStyleGetter = (event: ToolEvent) => {
+    let backgroundColor = "#3174ad" // デフォルト色
+
+    switch (event.status) {
+      case "scheduled":
+        backgroundColor = "#3174ad" // 青
+        break
+      case "in_use":
+        backgroundColor = "#38a169" // 緑
+        break
+      case "completed":
+        backgroundColor = "#718096" // グレー
+        break
+      case "cancelled":
+        backgroundColor = "#e53e3e" // 赤
+        break
+      default:
+        backgroundColor = "#3174ad" // デフォルト青
     }
 
     return {
@@ -295,84 +287,192 @@ export function ToolCalendar({
     }
   }
 
-  // カテゴリー名を取得
-  const getCategoryName = () => {
-    if (category === "machinery") return "重機"
-    if (category === "vehicle") return "車両"
-    if (category === "equipment") return "備品"
-    return "機材"
+  // イベントの状態の日本語表示
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "scheduled":
+        return "予約済"
+      case "in_use":
+        return "使用中"
+      case "completed":
+        return "完了"
+      case "cancelled":
+        return "キャンセル"
+      default:
+        return status
+    }
+  }
+
+  // イベントのタイトル表示をカスタマイズ
+  const eventTitleAccessor = (event: ToolEvent) => {
+    return `${event.title} (${event.resource_name || "不明な工具"})`
   }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center gap-2">
-          <Select value={viewMode} onValueChange={(value: "month" | "week" | "day") => setViewMode(value)}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="表示切替" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="month">月表示</SelectItem>
-              <SelectItem value="week">週表示</SelectItem>
-              <SelectItem value="day">日表示</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>
-            今日
-          </Button>
+    <Card className="w-full">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>工具予約カレンダー</CardTitle>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>予約追加</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>新しい工具予約</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="title">タイトル</Label>
+                <Input
+                  id="title"
+                  value={newEvent.title}
+                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+                  placeholder="予約タイトル"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="start">開始日時</Label>
+                  <Input
+                    id="start"
+                    type="datetime-local"
+                    value={newEvent.start}
+                    onChange={(e) => setNewEvent({ ...newEvent, start: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="end">終了日時</Label>
+                  <Input
+                    id="end"
+                    type="datetime-local"
+                    value={newEvent.end}
+                    onChange={(e) => setNewEvent({ ...newEvent, end: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="tool">工具</Label>
+                <Select
+                  value={newEvent.resource_id}
+                  onValueChange={(value) => setNewEvent({ ...newEvent, resource_id: value })}
+                >
+                  <SelectTrigger id="tool">
+                    <SelectValue placeholder="工具を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tools.map((tool) => (
+                      <SelectItem key={tool.id} value={tool.id}>
+                        {tool.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="project">プロジェクト</Label>
+                <Select
+                  value={newEvent.project_id}
+                  onValueChange={(value) => setNewEvent({ ...newEvent, project_id: value })}
+                >
+                  <SelectTrigger id="project">
+                    <SelectValue placeholder="プロジェクトを選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">なし</SelectItem>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="staff">担当者</Label>
+                <Select
+                  value={newEvent.staff_id}
+                  onValueChange={(value) => setNewEvent({ ...newEvent, staff_id: value })}
+                >
+                  <SelectTrigger id="staff">
+                    <SelectValue placeholder="担当者を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">なし</SelectItem>
+                    {staff.map((person) => (
+                      <SelectItem key={person.id} value={person.id}>
+                        {person.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="status">ステータス</Label>
+                <Select value={newEvent.status} onValueChange={(value) => setNewEvent({ ...newEvent, status: value })}>
+                  <SelectTrigger id="status">
+                    <SelectValue placeholder="ステータスを選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="scheduled">予約済</SelectItem>
+                    <SelectItem value="in_use">使用中</SelectItem>
+                    <SelectItem value="completed">完了</SelectItem>
+                    <SelectItem value="cancelled">キャンセル</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="notes">備考</Label>
+                <Textarea
+                  id="notes"
+                  value={newEvent.notes}
+                  onChange={(e) => setNewEvent({ ...newEvent, notes: e.target.value })}
+                  placeholder="備考や特記事項"
+                />
+              </div>
+              <Button onClick={handleAddEvent}>追加</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </CardHeader>
+      <CardContent>
+        <div className="h-[600px]">
+          <Calendar
+            localizer={localizer}
+            events={events}
+            startAccessor="start"
+            endAccessor="end"
+            titleAccessor={eventTitleAccessor}
+            style={{ height: "100%" }}
+            selectable
+            onSelectSlot={handleSelectSlot}
+            eventPropGetter={eventStyleGetter}
+            views={["month", "week", "day"]}
+            messages={{
+              today: "今日",
+              previous: "前へ",
+              next: "次へ",
+              month: "月",
+              week: "週",
+              day: "日",
+              agenda: "予定リスト",
+              date: "日付",
+              time: "時間",
+              event: "イベント",
+              allDay: "終日",
+              work_week: "稼働日",
+              yesterday: "昨日",
+              tomorrow: "明日",
+              noEventsInRange: "表示できるイベントはありません",
+            }}
+            formats={{
+              monthHeaderFormat: "YYYY年M月",
+              dayHeaderFormat: "YYYY年M月D日(ddd)",
+              dayRangeHeaderFormat: ({ start, end }) =>
+                `${moment(start).format("YYYY年M月D日")} - ${moment(end).format("D日")}`,
+            }}
+          />
         </div>
-
-        <div className="text-lg font-medium">{getCategoryName()}カレンダー</div>
-
-        <Button variant="default" size="sm" onClick={handleNewEventClick}>
-          新規作成
-        </Button>
-      </div>
-
-      <div style={{ height: 700 }}>
-        <Calendar
-          localizer={localizer}
-          events={events}
-          startAccessor="start"
-          endAccessor="end"
-          style={{ height: "100%" }}
-          onSelectEvent={handleEventClick}
-          onSelectSlot={handleSelectSlot}
-          selectable
-          views={["month", "week", "day"]}
-          view={viewMode}
-          onView={(view) => setViewMode(view as "month" | "week" | "day")}
-          date={currentDate}
-          onNavigate={(date) => setCurrentDate(date)}
-          eventPropGetter={eventStyleGetter}
-          messages={{
-            today: "今日",
-            previous: "前へ",
-            next: "次へ",
-            month: "月",
-            week: "週",
-            day: "日",
-            agenda: "予定リスト",
-            date: "日付",
-            time: "時間",
-            event: "イベント",
-            allDay: "終日",
-            showMore: (total) => `他 ${total} 件`,
-          }}
-        />
-      </div>
-
-      {isDialogOpen && (
-        <StaffAssignmentDialog
-          open={isDialogOpen}
-          onOpenChange={setIsDialogOpen}
-          eventData={selectedEvent}
-          onEventAdd={handleEventAdd}
-          onEventUpdate={handleEventUpdate}
-          onEventDelete={handleEventDelete}
-        />
-      )}
-    </div>
+      </CardContent>
+    </Card>
   )
 }

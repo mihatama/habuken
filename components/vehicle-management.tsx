@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -9,9 +9,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Plus, Edit, Trash2 } from "lucide-react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { toast } from "@/components/ui/use-toast"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
+// Supabaseクライアントの初期化
+const supabase = createClientComponentClient()
+
+// 型定義
 type Vehicle = {
   id: string
   name: string
@@ -26,13 +31,74 @@ type Vehicle = {
   updated_at: string
 }
 
+// データ取得関数
+async function fetchVehicles(filters?: Record<string, any>) {
+  let query = supabase.from("vehicles").select("*")
+
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) {
+        query = query.eq(key, value)
+      }
+    })
+  }
+
+  query = query.order("created_at", { ascending: false })
+
+  const { data, error } = await query
+
+  if (error) {
+    throw error
+  }
+
+  return data
+}
+
+// データ追加関数
+async function addVehicle(data: Omit<Vehicle, "id" | "created_at" | "updated_at">) {
+  const { data: result, error } = await supabase.from("vehicles").insert(data).select()
+
+  if (error) {
+    throw error
+  }
+
+  return result
+}
+
+// データ更新関数
+async function updateVehicle(id: string, data: Partial<Vehicle>) {
+  const { data: result, error } = await supabase
+    .from("vehicles")
+    .update({
+      ...data,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select()
+
+  if (error) {
+    throw error
+  }
+
+  return result
+}
+
+// データ削除関数
+async function deleteVehicle(id: string) {
+  const { error } = await supabase.from("vehicles").delete().eq("id", id)
+
+  if (error) {
+    throw error
+  }
+
+  return id
+}
+
 export function VehicleManagement() {
   const [open, setOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-  const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [currentVehicle, setCurrentVehicle] = useState<Vehicle | null>(null)
-  const [loading, setLoading] = useState(true)
 
   const [newVehicle, setNewVehicle] = useState({
     name: "",
@@ -45,57 +111,23 @@ export function VehicleManagement() {
     monthly_rate: "",
   })
 
-  const supabase = createClientComponentClient()
+  const queryClient = useQueryClient()
 
-  // 車両データの取得
-  const fetchVehicles = async () => {
-    setLoading(true)
-    try {
-      const { data, error } = await supabase.from("vehicles").select("*").order("created_at", { ascending: false })
+  // React Queryを使用してデータを取得
+  const { data: vehicles = [], isLoading: loading } = useQuery({
+    queryKey: ["vehicles"],
+    queryFn: () => fetchVehicles(),
+  })
 
-      if (error) throw error
-      setVehicles(data || [])
-    } catch (error) {
-      console.error("車両データの取得エラー:", error)
-      toast({
-        title: "エラー",
-        description: "車両データの取得に失敗しました",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // 初回読み込み時にデータ取得
-  useEffect(() => {
-    fetchVehicles()
-  }, [])
-
-  // 車両の追加
-  const handleAddVehicle = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("vehicles")
-        .insert({
-          name: newVehicle.name,
-          type: newVehicle.type,
-          location: newVehicle.location,
-          last_inspection_date: newVehicle.last_inspection_date || null,
-          ownership_type: newVehicle.ownership_type,
-          daily_rate: newVehicle.daily_rate ? Number.parseFloat(newVehicle.daily_rate) : null,
-          weekly_rate: newVehicle.weekly_rate ? Number.parseFloat(newVehicle.weekly_rate) : null,
-          monthly_rate: newVehicle.monthly_rate ? Number.parseFloat(newVehicle.monthly_rate) : null,
-        })
-        .select()
-
-      if (error) throw error
-
+  // 車両追加のミューテーション
+  const addVehicleMutation = useMutation({
+    mutationFn: (data: any) => addVehicle(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vehicles"] })
       toast({
         title: "成功",
         description: "車両を追加しました",
       })
-
       setOpen(false)
       setNewVehicle({
         name: "",
@@ -107,14 +139,74 @@ export function VehicleManagement() {
         weekly_rate: "",
         monthly_rate: "",
       })
-      fetchVehicles()
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error("車両追加エラー:", error)
       toast({
         title: "エラー",
         description: "車両の追加に失敗しました",
         variant: "destructive",
       })
+    },
+  })
+
+  // 車両更新のミューテーション
+  const updateVehicleMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => updateVehicle(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vehicles"] })
+      toast({
+        title: "成功",
+        description: "車両情報を更新しました",
+      })
+      setEditOpen(false)
+      setCurrentVehicle(null)
+    },
+    onError: (error) => {
+      console.error("車両更新エラー:", error)
+      toast({
+        title: "エラー",
+        description: "車両情報の更新に失敗しました",
+        variant: "destructive",
+      })
+    },
+  })
+
+  // 車両削除のミューテーション
+  const deleteVehicleMutation = useMutation({
+    mutationFn: (id: string) => deleteVehicle(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vehicles"] })
+      toast({
+        title: "成功",
+        description: "車両を削除しました",
+      })
+    },
+    onError: (error) => {
+      console.error("車両削除エラー:", error)
+      toast({
+        title: "エラー",
+        description: "車両の削除に失敗しました",
+        variant: "destructive",
+      })
+    },
+  })
+
+  // 車両の追加
+  const handleAddVehicle = async () => {
+    try {
+      await addVehicleMutation.mutateAsync({
+        name: newVehicle.name,
+        type: newVehicle.type,
+        location: newVehicle.location,
+        last_inspection_date: newVehicle.last_inspection_date || null,
+        ownership_type: newVehicle.ownership_type,
+        daily_rate: newVehicle.daily_rate ? Number.parseFloat(newVehicle.daily_rate) : null,
+        weekly_rate: newVehicle.weekly_rate ? Number.parseFloat(newVehicle.weekly_rate) : null,
+        monthly_rate: newVehicle.monthly_rate ? Number.parseFloat(newVehicle.monthly_rate) : null,
+      })
+    } catch (error) {
+      // エラーはミューテーションのonErrorで処理
     }
   }
 
@@ -123,9 +215,9 @@ export function VehicleManagement() {
     if (!currentVehicle) return
 
     try {
-      const { error } = await supabase
-        .from("vehicles")
-        .update({
+      await updateVehicleMutation.mutateAsync({
+        id: currentVehicle.id,
+        data: {
           name: currentVehicle.name,
           type: currentVehicle.type,
           location: currentVehicle.location,
@@ -134,27 +226,10 @@ export function VehicleManagement() {
           daily_rate: currentVehicle.daily_rate,
           weekly_rate: currentVehicle.weekly_rate,
           monthly_rate: currentVehicle.monthly_rate,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", currentVehicle.id)
-
-      if (error) throw error
-
-      toast({
-        title: "成功",
-        description: "車両情報を更新しました",
+        },
       })
-
-      setEditOpen(false)
-      setCurrentVehicle(null)
-      fetchVehicles()
     } catch (error) {
-      console.error("車両更新エラー:", error)
-      toast({
-        title: "エラー",
-        description: "車両情報の更新に失敗しました",
-        variant: "destructive",
-      })
+      // エラーはミューテーションのonErrorで処理
     }
   }
 
@@ -163,23 +238,9 @@ export function VehicleManagement() {
     if (!confirm("この車両を削除してもよろしいですか？")) return
 
     try {
-      const { error } = await supabase.from("vehicles").delete().eq("id", id)
-
-      if (error) throw error
-
-      toast({
-        title: "成功",
-        description: "車両を削除しました",
-      })
-
-      fetchVehicles()
+      await deleteVehicleMutation.mutateAsync(id)
     } catch (error) {
-      console.error("車両削除エラー:", error)
-      toast({
-        title: "エラー",
-        description: "車両の削除に失敗しました",
-        variant: "destructive",
-      })
+      // エラーはミューテーションのonErrorで処理
     }
   }
 

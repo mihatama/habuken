@@ -12,7 +12,7 @@ import { ImageIcon, Check, X, Sun, Cloud, CloudRain, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createClient } from "@supabase/supabase-js"
 import { toast } from "@/components/ui/use-toast"
 import { getDailyReports } from "@/lib/data-utils"
 
@@ -36,7 +36,7 @@ export function DailyWorkReport() {
     photos: [] as string[],
   })
 
-  const supabase = createClientComponentClient()
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
   // データの取得
   useEffect(() => {
@@ -44,7 +44,7 @@ export function DailyWorkReport() {
       setLoading(true)
       try {
         // 作業日報データを取得
-        const reportsData = await getDailyReports()
+        const reportsData = await getDailyReports(supabase)
         setReports(reportsData)
 
         // プロジェクトデータを取得
@@ -106,7 +106,7 @@ export function DailyWorkReport() {
       })
 
       // 作業日報リストを更新
-      const reportsData = await getDailyReports()
+      const reportsData = await getDailyReports(supabase)
       setReports(reportsData)
 
       setIsAddDialogOpen(false)
@@ -144,7 +144,7 @@ export function DailyWorkReport() {
       })
 
       // 作業日報リストを更新
-      const reportsData = await getDailyReports()
+      const reportsData = await getDailyReports(supabase)
       setReports(reportsData)
     } catch (error) {
       console.error("作業日報承認エラー:", error)
@@ -171,7 +171,7 @@ export function DailyWorkReport() {
       })
 
       // 作業日報リストを更新
-      const reportsData = await getDailyReports()
+      const reportsData = await getDailyReports(supabase)
       setReports(reportsData)
     } catch (error) {
       console.error("作業日報差し戻しエラー:", error)

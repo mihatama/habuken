@@ -1,16 +1,9 @@
-import { CalendarView } from "@/components/calendar-view"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
 
-export default async function DashboardPage() {
-  const supabase = createServerComponentClient({ cookies })
-
-  // 必要なデータをサーバーサイドで取得する場合はここに追加
-
+export default function DashboardPage() {
   return (
-    <DashboardLayout title="カレンダー">
-      <CalendarView />
-    </DashboardLayout>
+    <div className="container mx-auto px-4 py-8">
+      <DashboardLayout />
+    </div>
   )
 }

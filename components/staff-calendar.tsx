@@ -1,242 +1,236 @@
 "use client"
 
-import { useState, useCallback } from "react"
-import { Calendar, momentLocalizer } from "react-big-calendar"
-import moment from "moment"
-import "moment/locale/ja"
-import "react-big-calendar/lib/css/react-big-calendar.css"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { StaffAssignmentDialog } from "@/components/staff-assignment-dialog"
+import { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { Calendar } from "@/components/ui/calendar"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Loader2 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { createClient } from "@supabase/supabase-js"
+import { ja } from "date-fns/locale"
 
-// 日本語ロケールを設定
-moment.locale("ja")
-const localizer = momentLocalizer(moment)
+// Supabaseクライアントの作成
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+)
 
 // カレンダーイベントの型定義
 interface CalendarEvent {
-  id: number
+  id: string
   title: string
-  start: Date
-  end: Date
-  description?: string
-  projectId?: number
+  date: Date
+  type: "shift" | "vacation" | "holiday"
   staffId?: string
-  allDay?: boolean
+  staffName?: string
 }
 
-// スタッフカレンダーのprops型定義
-interface StaffCalendarProps {
-  events?: CalendarEvent[]
-  onEventAdd?: (event: CalendarEvent) => void
-  onEventUpdate?: (event: CalendarEvent) => void
-  onEventDelete?: (eventId: number) => void
-  timeframe?: string
-}
+export function StaffCalendar() {
+  const [date, setDate] = useState<Date>(new Date())
+  const { toast } = useToast()
 
-// サンプルイベント
-const sampleEvents: CalendarEvent[] = [
-  {
-    id: 1,
-    title: "山田太郎：現場A",
-    start: new Date(2023, 2, 1, 9, 0),
-    end: new Date(2023, 2, 1, 17, 0),
-    staffId: "1",
-    projectId: 1,
-  },
-  {
-    id: 2,
-    title: "佐藤次郎：現場B",
-    start: new Date(2023, 2, 3, 9, 0),
-    end: new Date(2023, 2, 3, 17, 0),
-    staffId: "2",
-    projectId: 2,
-  },
-  {
-    id: 3,
-    title: "鈴木三郎：現場C",
-    start: new Date(2023, 2, 5, 9, 0),
-    end: new Date(2023, 2, 5, 17, 0),
-    staffId: "3",
-    projectId: 3,
-  },
-  {
-    id: 4,
-    title: "高橋四郎：現場A",
-    start: new Date(2023, 2, 8, 9, 0),
-    end: new Date(2023, 2, 8, 17, 0),
-    staffId: "4",
-    projectId: 1,
-  },
-  {
-    id: 5,
-    title: "山田太郎：現場B",
-    start: new Date(2023, 2, 10, 9, 0),
-    end: new Date(2023, 2, 10, 17, 0),
-    staffId: "1",
-    projectId: 2,
-  },
-]
+  // スタッフシフトとイベントを取得するクエリ
+  const { data: events = [], isLoading } = useQuery({
+    queryKey: ["staff-calendar", date.getFullYear(), date.getMonth()],
+    queryFn: async () => {
+      try {
+        // 月の開始日と終了日を計算
+        const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1).toISOString()
+        const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString()
 
-export function StaffCalendar({
-  events: initialEvents = sampleEvents,
-  onEventAdd,
-  onEventUpdate,
-  onEventDelete,
-  timeframe = "month",
-}: StaffCalendarProps) {
-  const [events, setEvents] = useState<CalendarEvent[]>(initialEvents)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
-  const [viewMode, setViewMode] = useState<"month" | "week" | "day">((timeframe as any) || "month")
-  const [currentDate, setCurrentDate] = useState(new Date())
+        // シフトデータを取得
+        const { data: shifts, error: shiftsError } = await supabase
+          .from("shifts")
+          .select("id, staff_id, shift_date, shift_type")
+          .gte("shift_date", startOfMonth)
+          .lte("shift_date", endOfMonth)
 
-  // イベントをクリックしたときのハンドラ
-  const handleEventClick = useCallback((event: CalendarEvent) => {
-    setSelectedEvent(event)
-    setIsDialogOpen(true)
-  }, [])
+        if (shiftsError) throw shiftsError
 
-  // スロットを選択したときのハンドラ（新規イベント作成）
-  const handleSelectSlot = useCallback(({ start, end }: { start: Date; end: Date }) => {
-    setSelectedEvent({ id: 0, title: "", start, end })
-    setIsDialogOpen(true)
-  }, [])
+        // スタッフデータを取得
+        const staffIds = [...new Set(shifts?.map((shift) => shift.staff_id).filter(Boolean) || [])]
+        const { data: staffData, error: staffError } = await supabase
+          .from("staff")
+          .select("id, full_name")
+          .in("id", staffIds.length > 0 ? staffIds : ["no-staff"])
 
-  // 新規作成ボタンをクリックしたときのハンドラ
-  const handleNewEventClick = useCallback(() => {
-    console.log("スタッフカレンダー: 新規作成ボタンがクリックされました")
-    const now = new Date()
-    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000)
-    setSelectedEvent({ id: 0, title: "", start: now, end: oneHourLater })
-    console.log("ダイアログを開きます", { isDialogOpen: false, willBe: true })
-    setIsDialogOpen(true)
-  }, [])
+        if (staffError) throw staffError
 
-  // イベント追加のハンドラ
-  const handleEventAdd = useCallback(
-    (event: CalendarEvent) => {
-      // 新しいIDを生成（実際のアプリではサーバーから取得）
-      const newEvent = {
-        ...event,
-        id: Math.max(0, ...events.map((e) => e.id)) + 1,
+        // スタッフIDをキーとしたマップを作成
+        const staffMap = new Map()
+        staffData?.forEach((staff) => {
+          staffMap.set(staff.id, staff.full_name)
+        })
+
+        // 休暇データを取得
+        const { data: vacations, error: vacationsError } = await supabase
+          .from("leave_requests")
+          .select("id, staff_id, start_date, end_date")
+          .or(`start_date.lte.${endOfMonth},end_date.gte.${startOfMonth}`)
+          .eq("status", "approved")
+
+        if (vacationsError) throw vacationsError
+
+        // 休暇申請のスタッフIDを取得
+        const vacationStaffIds = [...new Set(vacations?.map((vacation) => vacation.staff_id).filter(Boolean) || [])]
+
+        // まだ取得していないスタッフIDがあれば追加で取得
+        const newStaffIds = vacationStaffIds.filter((id) => !staffMap.has(id))
+        if (newStaffIds.length > 0) {
+          const { data: additionalStaffData, error: additionalStaffError } = await supabase
+            .from("staff")
+            .select("id, full_name")
+            .in("id", newStaffIds)
+
+          if (additionalStaffError) throw additionalStaffError
+
+          additionalStaffData?.forEach((staff) => {
+            staffMap.set(staff.id, staff.full_name)
+          })
+        }
+
+        // シフトデータをイベント形式に変換
+        const shiftEvents: CalendarEvent[] = (shifts || []).map((shift) => ({
+          id: `shift-${shift.id}`,
+          title: `${staffMap.get(shift.staff_id) || "不明"}: ${shift.shift_type || "シフト"}`,
+          date: new Date(shift.shift_date),
+          type: "shift",
+          staffId: shift.staff_id,
+          staffName: staffMap.get(shift.staff_id),
+        }))
+
+        // 休暇データをイベント形式に変換（日付範囲を展開）
+        const vacationEvents: CalendarEvent[] = []
+        ;(vacations || []).forEach((vacation) => {
+          const startDate = new Date(vacation.start_date)
+          const endDate = new Date(vacation.end_date)
+
+          // 開始日から終了日までの各日をイベントとして追加
+          for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+            // 当月のみ表示
+            if (d.getMonth() === date.getMonth() && d.getFullYear() === date.getFullYear()) {
+              vacationEvents.push({
+                id: `vacation-${vacation.id}-${d.toISOString()}`,
+                title: `${staffMap.get(vacation.staff_id) || "不明"}: 休暇`,
+                date: new Date(d),
+                type: "vacation",
+                staffId: vacation.staff_id,
+                staffName: staffMap.get(vacation.staff_id),
+              })
+            }
+          }
+        })
+
+        // 祝日データ（実際のアプリではAPIから取得）
+        const holidays: CalendarEvent[] = [
+          {
+            id: "holiday-1",
+            title: "元日",
+            date: new Date(date.getFullYear(), 0, 1),
+            type: "holiday",
+          },
+          {
+            id: "holiday-2",
+            title: "成人の日",
+            date: new Date(date.getFullYear(), 0, 8), // 1月第2月曜日（簡略化）
+            type: "holiday",
+          },
+          // 他の祝日も同様に追加
+        ].filter(
+          (holiday) => holiday.date.getMonth() === date.getMonth() && holiday.date.getFullYear() === date.getFullYear(),
+        )
+
+        // すべてのイベントを結合
+        return [...shiftEvents, ...vacationEvents, ...holidays]
+      } catch (error) {
+        console.error("カレンダーデータ取得エラー:", error)
+        toast({
+          title: "エラー",
+          description: "カレンダーデータの取得に失敗しました",
+          variant: "destructive",
+        })
+        return []
       }
-      setEvents((prev) => [...prev, newEvent])
-      if (onEventAdd) onEventAdd(newEvent)
     },
-    [events, onEventAdd],
-  )
+  })
 
-  // イベント更新のハンドラ
-  const handleEventUpdate = useCallback(
-    (updatedEvent: CalendarEvent) => {
-      setEvents((prev) => prev.map((event) => (event.id === updatedEvent.id ? updatedEvent : event)))
-      if (onEventUpdate) onEventUpdate(updatedEvent)
-    },
-    [onEventUpdate],
-  )
+  // 特定の日付のイベントを取得
+  const getEventsForDay = (day: Date) => {
+    return events.filter(
+      (event) =>
+        event.date.getDate() === day.getDate() &&
+        event.date.getMonth() === day.getMonth() &&
+        event.date.getFullYear() === day.getFullYear(),
+    )
+  }
 
-  // イベント削除のハンドラ
-  const handleEventDelete = useCallback(
-    (eventId: number) => {
-      setEvents((prev) => prev.filter((event) => event.id !== eventId))
-      if (onEventDelete) onEventDelete(eventId)
-    },
-    [onEventDelete],
-  )
+  // カレンダーの日付セルをカスタマイズ
+  const renderDay = (day: Date) => {
+    const dayEvents = getEventsForDay(day)
+    const hasShift = dayEvents.some((e) => e.type === "shift")
+    const hasVacation = dayEvents.some((e) => e.type === "vacation")
+    const isHoliday = dayEvents.some((e) => e.type === "holiday")
 
-  // イベントのスタイルをカスタマイズ
-  const eventStyleGetter = (event: CalendarEvent) => {
-    // スタッフIDに基づいて色を変更
-    let backgroundColor = "#3174ad"
-
-    if (event.staffId) {
-      const staffIndex = Number.parseInt(event.staffId) % 5
-      const colors = ["#3174ad", "#ff8c00", "#008000", "#9932cc", "#ff4500"]
-      backgroundColor = colors[staffIndex]
-    }
-
-    return {
-      style: {
-        backgroundColor,
-        borderRadius: "4px",
-        opacity: 0.8,
-        color: "white",
-        border: "0px",
-        display: "block",
-      },
-    }
+    return (
+      <div className="relative w-full h-full min-h-[40px] p-1">
+        <div className={`text-sm ${isHoliday ? "text-red-500" : ""}`}>{day.getDate()}</div>
+        {hasShift && <div className="absolute bottom-1 left-1 w-2 h-2 bg-blue-500 rounded-full"></div>}
+        {hasVacation && <div className="absolute bottom-1 left-4 w-2 h-2 bg-green-500 rounded-full"></div>}
+      </div>
+    )
   }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center gap-2">
-          <Select value={viewMode} onValueChange={(value: "month" | "week" | "day") => setViewMode(value)}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="表示切替" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="month">月表示</SelectItem>
-              <SelectItem value="week">週表示</SelectItem>
-              <SelectItem value="day">日表示</SelectItem>
-            </SelectContent>
-          </Select>
+    <Card>
+      <CardHeader>
+        <CardTitle>スタッフカレンダー</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex justify-center items-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <Calendar
+              mode="single"
+              selected={date}
+              onSelect={(newDate) => newDate && setDate(newDate)}
+              locale={ja}
+              className="rounded-md border"
+              components={{
+                Day: ({ day }) => renderDay(day),
+              }}
+            />
 
-          <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>
-            今日
-          </Button>
-        </div>
-
-        <div className="text-lg font-medium">スタッフカレンダー</div>
-        <Button variant="default" size="sm" onClick={handleNewEventClick}>
-          新規作成
-        </Button>
-      </div>
-
-      <div style={{ height: 700 }}>
-        <Calendar
-          localizer={localizer}
-          events={events}
-          startAccessor="start"
-          endAccessor="end"
-          style={{ height: "100%" }}
-          onSelectEvent={handleEventClick}
-          onSelectSlot={handleSelectSlot}
-          selectable
-          views={["month", "week", "day"]}
-          view={viewMode}
-          onView={(view) => setViewMode(view as "month" | "week" | "day")}
-          date={currentDate}
-          onNavigate={(date) => setCurrentDate(date)}
-          eventPropGetter={eventStyleGetter}
-          messages={{
-            today: "今日",
-            previous: "前へ",
-            next: "次へ",
-            month: "月",
-            week: "週",
-            day: "日",
-            agenda: "予定リスト",
-            date: "日付",
-            time: "時間",
-            event: "イベント",
-            allDay: "終日",
-            showMore: (total) => `他 ${total} 件`,
-          }}
-        />
-      </div>
-
-      {isDialogOpen && (
-        <StaffAssignmentDialog
-          open={isDialogOpen}
-          onOpenChange={setIsDialogOpen}
-          eventData={selectedEvent}
-          onEventAdd={handleEventAdd}
-          onEventUpdate={handleEventUpdate}
-          onEventDelete={handleEventDelete}
-        />
-      )}
-    </div>
+            <div className="mt-4">
+              <h3 className="text-lg font-medium">
+                {date.toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" })}のイベント
+              </h3>
+              <div className="mt-2 space-y-2">
+                {getEventsForDay(date).length > 0 ? (
+                  getEventsForDay(date).map((event) => (
+                    <div
+                      key={event.id}
+                      className={`p-2 rounded-md ${
+                        event.type === "shift"
+                          ? "bg-blue-100"
+                          : event.type === "vacation"
+                            ? "bg-green-100"
+                            : "bg-red-100"
+                      }`}
+                    >
+                      {event.title}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-muted-foreground">イベントはありません</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

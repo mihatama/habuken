@@ -1,112 +1,171 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Trash2, Loader2 } from "lucide-react"
+import { Trash2, Loader2, Calendar } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { fetchData, deleteData } from "@/lib/supabase-client"
+import { createClient } from "@supabase/supabase-js"
+import { format } from "date-fns"
+import { ja } from "date-fns/locale"
 
 // 休暇データの型定義
 interface Vacation {
   id: string
-  staffId: string
-  staffName: string
-  date: Date
-  type: string
+  staff_id: string
+  staff_name: string
+  start_date: string
+  end_date: string
+  reason: string
+  status: "pending" | "approved" | "rejected"
+  [key: string]: any
+}
+
+// Supabaseクライアントの作成
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+)
+
+// ステータスに応じたバッジスタイルを取得
+function getStatusStyle(status: string) {
+  switch (status) {
+    case "approved":
+      return "bg-green-100 text-green-800"
+    case "rejected":
+      return "bg-red-100 text-red-800"
+    default:
+      return "bg-yellow-100 text-yellow-800"
+  }
+}
+
+// ステータスの日本語表示
+function getStatusText(status: string) {
+  switch (status) {
+    case "approved":
+      return "承認済"
+    case "rejected":
+      return "却下"
+    default:
+      return "審査中"
+  }
 }
 
 export function VacationList() {
-  const [vacations, setVacations] = useState<Vacation[]>([])
   const [searchTerm, setSearchTerm] = useState("")
-  const [loading, setLoading] = useState(true)
   const { toast } = useToast()
+  const queryClient = useQueryClient()
 
-  // Supabaseからデータを取得
-  useEffect(() => {
-    const fetchVacations = async () => {
+  // 休暇データを取得するクエリ
+  const { data: vacations = [], isLoading: loading } = useQuery({
+    queryKey: ["vacations"],
+    queryFn: async () => {
       try {
-        setLoading(true)
+        // まず休暇データを取得
+        const { data: vacationData, error: vacationError } = await supabase
+          .from("vacations")
+          .select("*")
+          .order("start_date", { ascending: false })
 
-        // 共通関数を使用してデータを取得
-        const { data } = await fetchData("vacations", {
-          select: `
-            id,
-            staff_id,
-            date,
-            type,
-            staff:staff_id (
-              id,
-              full_name
-            )
-          `,
-          order: { column: "date", ascending: false },
+        if (vacationError) {
+          console.error("休暇データ取得エラー:", vacationError)
+          throw vacationError
+        }
+
+        if (!vacationData || vacationData.length === 0) {
+          return []
+        }
+
+        // スタッフIDのリストを作成
+        const staffIds = [...new Set(vacationData.map((vacation) => vacation.staff_id).filter(Boolean))]
+
+        // スタッフデータを取得
+        const { data: staffData, error: staffError } = await supabase
+          .from("staff")
+          .select("id, full_name")
+          .in("id", staffIds)
+
+        if (staffError) {
+          console.error("スタッフデータ取得エラー:", staffError)
+          // スタッフデータの取得に失敗しても、休暇データは返す
+        }
+
+        // スタッフIDをキーとしたマップを作成
+        const staffMap = new Map()
+        staffData?.forEach((staff) => {
+          staffMap.set(staff.id, staff.full_name)
         })
 
         // データを整形
-        const formattedData = data.map((item: any) => ({
-          id: item.id,
-          staffId: item.staff_id,
-          staffName: item.staff?.full_name || "不明",
-          date: new Date(item.date),
-          type: item.type,
+        return vacationData.map((vacation) => ({
+          ...vacation,
+          staff_name: staffMap.get(vacation.staff_id) || "不明",
         }))
-
-        setVacations(formattedData)
       } catch (error) {
-        console.error("休暇データ取得エラー:", error)
+        console.error("休暇取得エラー:", error)
         toast({
           title: "エラー",
           description: "休暇データの取得に失敗しました",
           variant: "destructive",
         })
-      } finally {
-        setLoading(false)
+        return []
       }
-    }
+    },
+  })
 
-    fetchVacations()
-
-    // 定期的に更新（実際のアプリではイベントベースの更新が望ましい）
-    const intervalId = setInterval(fetchVacations, 30000) // 30秒ごとに更新
-
-    return () => clearInterval(intervalId)
-  }, [toast])
+  // 休暇を削除するミューテーション
+  const deleteVacationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("vacations").delete().eq("id", id)
+      if (error) throw error
+      return id
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vacations"] })
+      toast({
+        title: "成功",
+        description: "休暇申請が削除されました",
+      })
+    },
+    onError: () => {
+      toast({
+        title: "エラー",
+        description: "休暇申請の削除に失敗しました",
+        variant: "destructive",
+      })
+    },
+  })
 
   const filteredVacations = vacations.filter(
     (vacation) =>
-      vacation.staffName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vacation.type.toLowerCase().includes(searchTerm.toLowerCase()),
+      vacation.staff_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vacation.reason?.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
   const handleDeleteVacation = async (id: string) => {
     try {
-      // 共通関数を使用してデータを削除
-      await deleteData("vacations", id)
-
-      // 成功したら、ローカルの状態を更新
-      setVacations(vacations.filter((v) => v.id !== id))
-
-      toast({
-        title: "削除完了",
-        description: "休暇データを削除しました",
-      })
+      await deleteVacationMutation.mutateAsync(id)
     } catch (error) {
       console.error("休暇削除エラー:", error)
-      toast({
-        title: "エラー",
-        description: "休暇データの削除に失敗しました",
-        variant: "destructive",
-      })
+    }
+  }
+
+  // 日付をフォーマット
+  const formatDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString), "yyyy年MM月dd日", { locale: ja })
+    } catch (e) {
+      return dateString
     }
   }
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>年休一覧</CardTitle>
+        <CardTitle>休暇申請一覧</CardTitle>
         <div className="flex items-center space-x-2">
           <Input
             placeholder="検索..."
@@ -114,6 +173,10 @@ export function VacationList() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-[250px]"
           />
+          <Button>
+            <Calendar className="mr-2 h-4 w-4" />
+            休暇申請
+          </Button>
         </div>
       </CardHeader>
       <CardContent>
@@ -126,8 +189,10 @@ export function VacationList() {
             <TableHeader>
               <TableRow>
                 <TableHead>スタッフ名</TableHead>
-                <TableHead>日付</TableHead>
-                <TableHead>種類</TableHead>
+                <TableHead>開始日</TableHead>
+                <TableHead>終了日</TableHead>
+                <TableHead>理由</TableHead>
+                <TableHead>ステータス</TableHead>
                 <TableHead className="text-right">操作</TableHead>
               </TableRow>
             </TableHeader>
@@ -135,9 +200,15 @@ export function VacationList() {
               {filteredVacations.length > 0 ? (
                 filteredVacations.map((vacation) => (
                   <TableRow key={vacation.id}>
-                    <TableCell className="font-medium">{vacation.staffName}</TableCell>
-                    <TableCell>{vacation.date.toLocaleDateString()}</TableCell>
-                    <TableCell>{vacation.type}</TableCell>
+                    <TableCell className="font-medium">{vacation.staff_name}</TableCell>
+                    <TableCell>{formatDate(vacation.start_date)}</TableCell>
+                    <TableCell>{formatDate(vacation.end_date)}</TableCell>
+                    <TableCell>{vacation.reason}</TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusStyle(vacation.status)}`}>
+                        {getStatusText(vacation.status)}
+                      </span>
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button variant="outline" size="icon" onClick={() => handleDeleteVacation(vacation.id)}>
                         <Trash2 className="h-4 w-4" />
@@ -147,8 +218,8 @@ export function VacationList() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
-                    {searchTerm ? "該当する年休はありません" : "年休データがありません"}
+                  <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
+                    {searchTerm ? "該当する休暇申請はありません" : "休暇申請データがありません"}
                   </TableCell>
                 </TableRow>
               )}

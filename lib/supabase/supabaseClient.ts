@@ -1,10 +1,8 @@
-import {
-  getClientSupabase,
-  fetchData as fetchDataFromSupabase,
-  insertData as insertDataToSupabase,
-  updateData as updateDataInSupabase,
-  deleteData as deleteDataFromSupabase,
-} from "../supabase-client"
+// 絶対パスのインポートを修正
+// @/lib/supabase/index から直接インポートするのではなく
+// @/lib/supabase/operations から必要な関数をインポート
+
+import { getClientSupabase, fetchData, insertData, updateData, deleteData } from "@/lib/supabase/operations"
 
 // 後方互換性のために既存の関数名を維持
 export function getClientSupabaseInstance() {
@@ -22,19 +20,17 @@ export async function fetchDataFromTable(
     page?: number
   } = {},
 ) {
-  return fetchDataFromSupabase(tableName, options)
+  return fetchData(tableName, options)
 }
 
 export async function insertDataToTable(tableName: string, data: any) {
-  const result = await insertDataToSupabase(tableName, data)
-  return result
+  return insertData(tableName, data)
 }
 
 export async function updateDataInTable(tableName: string, id: string, data: any) {
-  const result = await updateDataInSupabase(tableName, id, data)
-  return result
+  return updateData(tableName, id, data)
 }
 
 export async function deleteDataFromTable(tableName: string, id: string) {
-  return deleteDataFromSupabase(tableName, id)
+  return deleteData(tableName, id)
 }

@@ -1,83 +1,95 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Trash2, Loader2, UserPlus } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { fetchData, deleteData } from "@/lib/supabase-client"
+import { createClient } from "@supabase/supabase-js"
 
 // スタッフデータの型定義
 interface Staff {
   id: string
   full_name: string
-  email: string
-  phone: string
-  position: string
+  email: string | null
+  phone: string | null
+  position: string | null
   [key: string]: any
 }
 
+// Supabaseクライアントの作成
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+)
+
 export function StaffList() {
-  const [staff, setStaff] = useState<Staff[]>([])
   const [searchTerm, setSearchTerm] = useState("")
-  const [loading, setLoading] = useState(true)
   const { toast } = useToast()
+  const queryClient = useQueryClient()
 
-  // Supabaseからデータを取得
-  useEffect(() => {
-    const fetchStaff = async () => {
+  // スタッフデータを取得するクエリ
+  const { data: staff = [], isLoading: loading } = useQuery({
+    queryKey: ["staff"],
+    queryFn: async () => {
       try {
-        setLoading(true)
+        const { data, error } = await supabase.from("staff").select("*").order("full_name", { ascending: true })
 
-        // 共通関数を使用してデータを取得
-        const { data } = await fetchData<Staff>("staff", {
-          order: { column: "full_name", ascending: true },
-        })
+        if (error) {
+          toast({
+            title: "エラー",
+            description: "スタッフデータの取得に失敗しました",
+            variant: "destructive",
+          })
+          throw error
+        }
 
-        setStaff(data || [])
+        return data || []
       } catch (error) {
-        console.error("スタッフデータ取得エラー:", error)
-        toast({
-          title: "エラー",
-          description: "スタッフデータの取得に失敗しました",
-          variant: "destructive",
-        })
-      } finally {
-        setLoading(false)
+        console.error("スタッフ取得エラー:", error)
+        return []
       }
-    }
+    },
+  })
 
-    fetchStaff()
-  }, [toast])
+  // スタッフを削除するミューテーション
+  const deleteStaffMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("staff").delete().eq("id", id)
+      if (error) throw error
+      return id
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["staff"] })
+      toast({
+        title: "成功",
+        description: "スタッフが削除されました",
+      })
+    },
+    onError: () => {
+      toast({
+        title: "エラー",
+        description: "スタッフの削除に失敗しました",
+        variant: "destructive",
+      })
+    },
+  })
 
   const filteredStaff = staff.filter(
     (person) =>
-      person.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      person.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       person.position?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       person.email?.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
   const handleDeleteStaff = async (id: string) => {
     try {
-      // 共通関数を使用してデータを削除
-      await deleteData("staff", id)
-
-      // 成功したら、ローカルの状態を更新
-      setStaff(staff.filter((s) => s.id !== id))
-
-      toast({
-        title: "削除完了",
-        description: "スタッフを削除しました",
-      })
+      await deleteStaffMutation.mutateAsync(id)
     } catch (error) {
       console.error("スタッフ削除エラー:", error)
-      toast({
-        title: "エラー",
-        description: "スタッフの削除に失敗しました",
-        variant: "destructive",
-      })
     }
   }
 

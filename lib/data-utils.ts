@@ -206,18 +206,54 @@ export function getLeaveTypeName(type: string) {
 
 // 作業日報データの取得
 export async function getDailyReports(client?: SupabaseClient<Database>) {
-  const { data } = await fetchData("daily_reports", {
-    select: "*, staff(full_name), projects(name)",
-    order: { column: "created_at", ascending: false },
-    client,
-  })
+  try {
+    // 日報データを取得
+    const { data: reports } = await fetchData("daily_reports", {
+      order: { column: "created_at", ascending: false },
+      client,
+    })
 
-  // データ形式を整形
-  return data.map((report: any) => ({
-    ...report,
-    userName: report.staff?.full_name || "不明",
-    projectName: report.projects?.name || "不明",
-    workDate: new Date(report.work_date),
-    createdAt: new Date(report.created_at),
-  }))
+    if (!reports || reports.length === 0) {
+      return []
+    }
+
+    // スタッフIDとプロジェクトIDのリストを作成
+    const staffIds = [...new Set(reports.map((report: any) => report.staff_id).filter(Boolean))]
+    const projectIds = [...new Set(reports.map((report: any) => report.project_id).filter(Boolean))]
+
+    // スタッフデータを取得
+    const { data: staffData } = await fetchData("staff", {
+      select: "id, full_name",
+      client,
+    })
+
+    // プロジェクトデータを取得
+    const { data: projectsData } = await fetchData("projects", {
+      select: "id, name",
+      client,
+    })
+
+    // スタッフIDとプロジェクトIDをキーとしたマップを作成
+    const staffMap = new Map()
+    staffData?.forEach((staff: any) => {
+      staffMap.set(staff.id, staff.full_name)
+    })
+
+    const projectMap = new Map()
+    projectsData?.forEach((project: any) => {
+      projectMap.set(project.id, project.name)
+    })
+
+    // データ形式を整形
+    return reports.map((report: any) => ({
+      ...report,
+      userName: staffMap.get(report.staff_id) || "不明",
+      projectName: projectMap.get(report.project_id) || "不明",
+      workDate: report.work_date,
+      createdAt: report.created_at,
+    }))
+  } catch (error) {
+    console.error("作業日報データ取得エラー:", error)
+    throw error
+  }
 }

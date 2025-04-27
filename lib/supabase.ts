@@ -1,7 +1,17 @@
-import { createServerClient, getClientSupabaseInstance } from "./supabase-client"
+// lib/supabase.ts
+// 相対パスのインポートを絶対パスに変更
+import { getClientSupabase, fetchData, insertData, updateData, deleteData } from "@/lib/supabase/operations"
+import { getServerSupabase } from "@/lib/supabase/operations"
 
-// 後方互換性のために既存の関数名を維持
-export const createServerSupabaseClient = createServerClient
+// 既存の関数をエクスポート
+export {
+  getClientSupabase,
+  fetchData,
+  insertData,
+  updateData,
+  deleteData,
+  getServerSupabase,
+  getServerSupabase as createServerSupabaseClient,
+}
 
-// 既存の関数名をエクスポート（実装は新しいモジュールを使用）
-export { getClientSupabaseInstance }
+// 追加の関数やエイリアスがあればここに追加

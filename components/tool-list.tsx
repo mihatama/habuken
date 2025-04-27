@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,20 +10,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label"
 import { Plus, Pencil, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { toast } from "@/components/ui/use-toast"
-import { getTools } from "@/lib/data-utils"
+import { createClient } from "@supabase/supabase-js"
 
 export function ToolList() {
-  const [tools, setTools] = useState<any[]>([])
   const [projects, setProjects] = useState<any[]>([])
   const [staff, setStaff] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [currentTool, setCurrentTool] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [resourceTypeField, setResourceTypeField] = useState<string | null>(null)
   const [newTool, setNewTool] = useState({
     name: "",
     type: "工具", // デフォルト値を設定
@@ -34,12 +31,116 @@ export function ToolList() {
     assigned_staff: [] as string[],
   })
 
-  const supabase = createClientComponentClient()
+  const [resourceTypeField, setResourceTypeField] = useState<string | null>("type")
 
-  // データの取得
+  // Supabaseクライアントの初期化
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+  )
+
+  const queryClient = useQueryClient()
+
+  // データ取得用のカスタムフック
+  const { data: tools = [], isLoading: loading } = useQuery({
+    queryKey: ["tools"],
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase
+          .from("resources")
+          .select("*")
+          .eq(resourceTypeField || "type", "工具")
+          .order("name", { ascending: true })
+
+        if (error) throw error
+        return data || []
+      } catch (error: any) {
+        toast({
+          title: "エラー",
+          description: "工具データの取得に失敗しました",
+          variant: "destructive",
+        })
+        console.error("工具データ取得エラー:", error)
+        return []
+      }
+    },
+  })
+
+  // 工具追加用のミューテーション
+  const addToolMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const { data: result, error } = await supabase.from("resources").insert(data).select()
+      if (error) throw error
+      return result
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tools"] })
+      toast({
+        title: "成功",
+        description: "工具が正常に追加されました",
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        title: "エラー",
+        description: "工具の追加に失敗しました",
+        variant: "destructive",
+      })
+      console.error("工具追加エラー:", error)
+    },
+  })
+
+  // 工具更新用のミューテーション
+  const updateToolMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const { data: result, error } = await supabase.from("resources").update(data).eq("id", id).select()
+      if (error) throw error
+      return result
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tools"] })
+      toast({
+        title: "成功",
+        description: "工具が正常に更新されました",
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        title: "エラー",
+        description: "工具の更新に失敗しました",
+        variant: "destructive",
+      })
+      console.error("工具更新エラー:", error)
+    },
+  })
+
+  // 工具削除用のミューテーション
+  const deleteToolMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("resources").delete().eq("id", id)
+      if (error) throw error
+      return id
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tools"] })
+      toast({
+        title: "成功",
+        description: "工具が正常に削除されました",
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        title: "エラー",
+        description: "工具の削除に失敗しました",
+        variant: "destructive",
+      })
+      console.error("工具削除エラー:", error)
+    },
+  })
+
+  // プロジェクトとスタッフのデータ取得
   useEffect(() => {
-    async function fetchData() {
-      setLoading(true)
+    async function fetchRelatedData() {
       try {
         // リソーステーブルのスキーマを確認
         const { data: columns } = await supabase.from("resources").select("*").limit(1)
@@ -53,10 +154,6 @@ export function ToolList() {
           }
         }
 
-        // 工具データを取得
-        const toolsData = await getTools()
-        setTools(toolsData)
-
         // プロジェクトデータを取得
         const { data: projectsData } = await supabase.from("projects").select("*")
         setProjects(projectsData || [])
@@ -65,18 +162,16 @@ export function ToolList() {
         const { data: staffData } = await supabase.from("staff").select("*")
         setStaff(staffData || [])
       } catch (error) {
-        console.error("データ取得エラー:", error)
+        console.error("関連データ取得エラー:", error)
         toast({
           title: "エラー",
-          description: "データの取得に失敗しました",
+          description: "関連データの取得に失敗しました",
           variant: "destructive",
         })
-      } finally {
-        setLoading(false)
       }
     }
 
-    fetchData()
+    fetchRelatedData()
   }, [supabase])
 
   // 検索フィルター
@@ -103,15 +198,13 @@ export function ToolList() {
         insertData.resource_type = "工具"
       }
 
-      const { data, error } = await supabase.from("resources").insert(insertData).select()
+      const result = await addToolMutation.mutateAsync(insertData)
 
-      if (error) throw error
-
-      if (data && data[0]) {
+      if (result && result[0]) {
         // 関連プロジェクトの登録
         for (const projectId of newTool.assigned_projects) {
           await supabase.from("resource_project").insert({
-            resource_id: data[0].id,
+            resource_id: result[0].id,
             project_id: projectId,
           })
         }
@@ -119,19 +212,10 @@ export function ToolList() {
         // 関連スタッフの登録
         for (const staffId of newTool.assigned_staff) {
           await supabase.from("resource_staff").insert({
-            resource_id: data[0].id,
+            resource_id: result[0].id,
             staff_id: staffId,
           })
         }
-
-        toast({
-          title: "成功",
-          description: "工具を追加しました",
-        })
-
-        // 工具リストを更新
-        const toolsData = await getTools()
-        setTools(toolsData)
       }
 
       setIsAddDialogOpen(false)
@@ -147,11 +231,6 @@ export function ToolList() {
       })
     } catch (error) {
       console.error("工具追加エラー:", error)
-      toast({
-        title: "エラー",
-        description: "工具の追加に失敗しました",
-        variant: "destructive",
-      })
     }
   }
 
@@ -168,28 +247,15 @@ export function ToolList() {
         updated_at: new Date().toISOString(),
       }
 
-      const { error } = await supabase.from("resources").update(updateData).eq("id", currentTool.id)
-
-      if (error) throw error
-
-      toast({
-        title: "成功",
-        description: "工具情報を更新しました",
+      await updateToolMutation.mutateAsync({
+        id: currentTool.id,
+        data: updateData,
       })
-
-      // 工具リストを更新
-      const toolsData = await getTools()
-      setTools(toolsData)
 
       setIsEditDialogOpen(false)
       setCurrentTool(null)
     } catch (error) {
       console.error("工具更新エラー:", error)
-      toast({
-        title: "エラー",
-        description: "工具情報の更新に失敗しました",
-        variant: "destructive",
-      })
     }
   }
 
@@ -203,24 +269,9 @@ export function ToolList() {
       await supabase.from("resource_staff").delete().eq("resource_id", id)
 
       // 工具を削除
-      const { error } = await supabase.from("resources").delete().eq("id", id)
-
-      if (error) throw error
-
-      toast({
-        title: "成功",
-        description: "工具を削除しました",
-      })
-
-      // 工具リストを更新
-      setTools(tools.filter((tool) => tool.id !== id))
+      await deleteToolMutation.mutateAsync(id)
     } catch (error) {
       console.error("工具削除エラー:", error)
-      toast({
-        title: "エラー",
-        description: "工具の削除に失敗しました",
-        variant: "destructive",
-      })
     }
   }
 

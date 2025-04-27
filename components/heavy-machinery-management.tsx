@@ -115,9 +115,8 @@ export function HeavyMachineryManagement() {
   }
 
   return (
-    <div className="container mx-auto py-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">重機管理</h1>
+    <div className="container mx-auto">
+      <div className="flex justify-end mb-6">
         <div className="flex gap-4">
           <Input
             placeholder="検索..."
