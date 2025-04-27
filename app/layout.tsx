@@ -2,8 +2,8 @@ import type React from "react"
 import "./globals.css"
 import type { Metadata } from "next"
 import { Inter, Noto_Serif_JP } from "next/font/google"
-import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/contexts/auth-context"
+import { Providers } from "./providers"
 
 const inter = Inter({ subsets: ["latin"] })
 const notoSerifJP = Noto_Serif_JP({
@@ -22,11 +22,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ja" suppressHydrationWarning>
       <body className={`${inter.className} ${notoSerifJP.variable}`}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <Providers>
           <AuthProvider>
             <div className="relative flex min-h-screen flex-col">{children}</div>
           </AuthProvider>
-        </ThemeProvider>
+        </Providers>
       </body>
     </html>
   )

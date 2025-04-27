@@ -1,50 +1,126 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect } from "react"
+import { createContext, useContext, useEffect } from "react"
 import type { ReactNode } from "react"
+import { useAuthStore } from "@/stores/auth-store"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { AuthUser } from "@/types/models/user"
 
-// 簡略化された認証コンテキスト型
+// 認証コンテキスト型
 type AuthContextType = {
   user: AuthUser | null
   loading: boolean
-  signOut: () => void
-}
-
-// モックユーザーデータ
-const MOCK_USER: AuthUser = {
-  id: "1",
-  email: "yamada@example.com",
-  user_metadata: {
-    full_name: "山田太郎",
-    role: "admin",
-  },
+  signOut: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<any | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { user, isLoading: loading, setUser, setLoading, signOut: clearUser } = useAuthStore()
+  const supabase = createClientComponentClient()
 
-  // コンポーネントマウント時にモックユーザーを設定
   useEffect(() => {
-    // モックユーザーをセット
-    setTimeout(() => {
-      setUser(MOCK_USER)
-      setLoading(false)
-    }, 500) // 読み込み感を出すために少し遅延
-  }, [])
+    // 初期ロード時に現在のセッションを確認
+    const checkSession = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        if (session) {
+          const userData: AuthUser = {
+            id: session.user.id,
+            email: session.user.email || "",
+            user_metadata: {
+              full_name: session.user.user_metadata.full_name || "",
+              role: session.user.user_metadata.role || "user",
+            },
+          }
+          setUser(userData)
+        } else {
+          // 開発用のモックユーザー（本番環境では削除）
+          const mockUser: AuthUser = {
+            id: "1",
+            email: "yamada@example.com",
+            user_metadata: {
+              full_name: "山田太郎",
+              role: "admin",
+            },
+          }
+          setUser(mockUser)
+        }
+      } catch (error) {
+        console.error("セッション確認エラー:", error)
+        // 開発用のモックユーザー（本番環境では削除）
+        const mockUser: AuthUser = {
+          id: "1",
+          email: "yamada@example.com",
+          user_metadata: {
+            full_name: "山田太郎",
+            role: "admin",
+          },
+        }
+        setUser(mockUser)
+      } finally {
+        setLoading(false)
+      }
+    }
 
-  // 簡略化されたサインアウト関数
-  const signOut = () => {
-    setUser(null)
-    // 実際のアプリではここでリダイレクトなどの処理を行う
-    console.log("サインアウト処理（モック）")
-    // すぐにサインインし直す（デモ用）
-    setTimeout(() => {
-      setUser(MOCK_USER)
-    }, 1000)
+    checkSession()
+
+    // 認証状態の変更を監視
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session) {
+        const userData: AuthUser = {
+          id: session.user.id,
+          email: session.user.email || "",
+          user_metadata: {
+            full_name: session.user.user_metadata.full_name || "",
+            role: session.user.user_metadata.role || "user",
+          },
+        }
+        setUser(userData)
+      } else {
+        // 開発用のモックユーザー（本番環境では削除）
+        const mockUser: AuthUser = {
+          id: "1",
+          email: "yamada@example.com",
+          user_metadata: {
+            full_name: "山田太郎",
+            role: "admin",
+          },
+        }
+        setUser(mockUser)
+      }
+      setLoading(false)
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [supabase, setUser, setLoading])
+
+  // サインアウト関数
+  const signOut = async () => {
+    try {
+      await supabase.auth.signOut()
+      clearUser()
+      // 開発用のモックユーザー（本番環境では削除）
+      setTimeout(() => {
+        const mockUser: AuthUser = {
+          id: "1",
+          email: "yamada@example.com",
+          user_metadata: {
+            full_name: "山田太郎",
+            role: "admin",
+          },
+        }
+        setUser(mockUser)
+      }, 1000)
+    } catch (error) {
+      console.error("サインアウトエラー:", error)
+    }
   }
 
   const value = {

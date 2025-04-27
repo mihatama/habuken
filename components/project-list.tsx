@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,29 +14,30 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
-import {
-  getClientSupabaseInstance,
-  fetchDataFromTable,
-  insertDataToTable,
-  updateDataInTable,
-  deleteDataFromTable,
-} from "@/lib/supabase/supabaseClient"
+import { useProjects, useCreateProject, useUpdateProject, useDeleteProject } from "@/hooks/use-projects"
+import { useStaff, useHeavyMachinery, useVehicles, useTools } from "@/hooks/use-resources"
+import { useAuth } from "@/contexts/auth-context"
 
 export function ProjectList() {
   const { toast } = useToast()
-  const [projects, setProjects] = useState<any[]>([])
+  const { user } = useAuth()
+
+  // React Queryフックを使用してデータを取得
+  const { data: projects = [], isLoading: dataLoading } = useProjects()
+  const { data: staffList = [] } = useStaff()
+  const { data: heavyMachineryList = [] } = useHeavyMachinery()
+  const { data: vehiclesList = [] } = useVehicles()
+  const { data: toolsList = [] } = useTools()
+
+  // ミューテーションフックを使用してデータを更新
+  const createProjectMutation = useCreateProject()
+  const updateProjectMutation = useUpdateProject()
+  const deleteProjectMutation = useDeleteProject()
+
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [currentProject, setCurrentProject] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [dataLoading, setDataLoading] = useState(true)
-
-  // スタッフ、重機、車両、備品のデータを保持するための状態
-  const [staffList, setStaffList] = useState<any[]>([])
-  const [heavyMachineryList, setHeavyMachineryList] = useState<any[]>([])
-  const [vehiclesList, setVehiclesList] = useState<any[]>([])
-  const [toolsList, setToolsList] = useState<any[]>([])
 
   // 検索用の状態
   const [searchStaff, setSearchStaff] = useState("")
@@ -58,118 +59,6 @@ export function ProjectList() {
     selectedVehicles: [] as string[],
     selectedTools: [] as string[],
   })
-
-  // プロジェクト一覧を取得
-  useEffect(() => {
-    fetchProjects()
-    fetchStaff()
-    fetchHeavyMachinery()
-    fetchVehicles()
-    fetchTools()
-  }, [])
-
-  // プロジェクト一覧を取得する関数
-  const fetchProjects = async () => {
-    try {
-      setDataLoading(true)
-      const { data } = await fetchDataFromTable("projects", {
-        order: { column: "created_at", ascending: false },
-      })
-
-      if (data) {
-        setProjects(data)
-      }
-    } catch (error) {
-      console.error("プロジェクト取得エラー:", error)
-      toast({
-        title: "エラー",
-        description: "プロジェクト一覧の取得に失敗しました",
-        variant: "destructive",
-      })
-    } finally {
-      setDataLoading(false)
-    }
-  }
-
-  // スタッフ一覧を取得する関数
-  const fetchStaff = async () => {
-    try {
-      const { data } = await fetchDataFromTable("staff", {
-        order: { column: "full_name", ascending: true },
-      })
-
-      if (data) {
-        setStaffList(data)
-      }
-    } catch (error) {
-      console.error("スタッフ取得エラー:", error)
-      toast({
-        title: "エラー",
-        description: "スタッフ一覧の取得に失敗しました",
-        variant: "destructive",
-      })
-    }
-  }
-
-  // 重機一覧を取得する関数
-  const fetchHeavyMachinery = async () => {
-    try {
-      const { data } = await fetchDataFromTable("heavy_machinery", {
-        order: { column: "name", ascending: true },
-      })
-
-      if (data) {
-        setHeavyMachineryList(data)
-      }
-    } catch (error) {
-      console.error("重機取得エラー:", error)
-      toast({
-        title: "エラー",
-        description: "重機一覧の取得に失敗しました",
-        variant: "destructive",
-      })
-    }
-  }
-
-  // 車両一覧を取得する関数
-  const fetchVehicles = async () => {
-    try {
-      const { data } = await fetchDataFromTable("vehicles", {
-        order: { column: "name", ascending: true },
-      })
-
-      if (data) {
-        setVehiclesList(data)
-      }
-    } catch (error) {
-      console.error("車両取得エラー:", error)
-      toast({
-        title: "エラー",
-        description: "車両一覧の取得に失敗しました",
-        variant: "destructive",
-      })
-    }
-  }
-
-  // 備品一覧を取得する関数
-  const fetchTools = async () => {
-    try {
-      const { data } = await fetchDataFromTable("tools", {
-        order: { column: "name", ascending: true },
-      })
-
-      if (data) {
-        setToolsList(data)
-      }
-    } catch (error) {
-      console.error("備品取得エラー:", error)
-      toast({
-        title: "エラー",
-        description: "備品一覧の取得に失敗しました",
-        variant: "destructive",
-      })
-    }
-  }
 
   // 検索条件に一致するプロジェクトをフィルタリング
   const filteredProjects = projects.filter(
@@ -274,8 +163,6 @@ export function ProjectList() {
   // 新規案件を追加する関数
   const handleAddProject = async () => {
     try {
-      setIsLoading(true)
-
       // 入力チェック
       if (!newProject.name) {
         toast({
@@ -295,13 +182,7 @@ export function ProjectList() {
         return
       }
 
-      // ユーザー情報を取得
-      const supabase = getClientSupabaseInstance()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      // プロジェクトを追加
+      // プロジェクトデータを準備
       const projectData = {
         name: newProject.name,
         description: newProject.description,
@@ -311,97 +192,71 @@ export function ProjectList() {
         client: newProject.client,
         location: newProject.location,
         created_by: user?.id || "system",
+        assignments: [],
       }
 
-      const insertedProject = await insertDataToTable("projects", projectData)
+      // 割り当てを準備
+      const assignments = []
 
-      if (insertedProject && insertedProject.length > 0) {
-        const projectId = insertedProject[0].id
-
-        // プロジェクト割り当てを作成
-        const assignments = []
-
-        // スタッフの割り当て
-        for (const staffId of newProject.selectedStaff) {
-          assignments.push({
-            project_id: projectId,
-            staff_id: staffId,
-          })
-        }
-
-        // 重機の割り当て
-        for (const machineryId of newProject.selectedHeavyMachinery) {
-          assignments.push({
-            project_id: projectId,
-            heavy_machinery_id: machineryId,
-          })
-        }
-
-        // 車両の割り当て
-        for (const vehicleId of newProject.selectedVehicles) {
-          assignments.push({
-            project_id: projectId,
-            vehicle_id: vehicleId,
-          })
-        }
-
-        // 備品の割り当て
-        for (const toolId of newProject.selectedTools) {
-          assignments.push({
-            project_id: projectId,
-            tool_id: toolId,
-          })
-        }
-
-        // 割り当てがある場合は保存
-        if (assignments.length > 0) {
-          await insertDataToTable("project_assignments", assignments)
-        }
-
-        // 成功メッセージを表示
-        toast({
-          title: "案件を追加しました",
-          description: "案件と割り当てが正常に登録されました",
+      // スタッフの割り当て
+      for (const staffId of newProject.selectedStaff) {
+        assignments.push({
+          staff_id: staffId,
         })
-
-        // プロジェクト一覧を再取得
-        fetchProjects()
-
-        // フォームをリセット
-        setNewProject({
-          name: "",
-          description: "",
-          startDate: "",
-          endDate: "",
-          status: "未着手",
-          client: "",
-          location: "",
-          selectedStaff: [],
-          selectedHeavyMachinery: [],
-          selectedVehicles: [],
-          selectedTools: [],
-        })
-
-        // ダイアログを閉じる
-        setIsAddDialogOpen(false)
       }
+
+      // 重機の割り当て
+      for (const machineryId of newProject.selectedHeavyMachinery) {
+        assignments.push({
+          heavy_machinery_id: machineryId,
+        })
+      }
+
+      // 車両の割り当て
+      for (const vehicleId of newProject.selectedVehicles) {
+        assignments.push({
+          vehicle_id: vehicleId,
+        })
+      }
+
+      // 備品の割り当て
+      for (const toolId of newProject.selectedTools) {
+        assignments.push({
+          tool_id: toolId,
+        })
+      }
+
+      // 割り当てを追加
+      projectData.assignments = assignments
+
+      // ミューテーションを実行
+      await createProjectMutation.mutateAsync(projectData)
+
+      // フォームをリセット
+      setNewProject({
+        name: "",
+        description: "",
+        startDate: "",
+        endDate: "",
+        status: "未着手",
+        client: "",
+        location: "",
+        selectedStaff: [],
+        selectedHeavyMachinery: [],
+        selectedVehicles: [],
+        selectedTools: [],
+      })
+
+      // ダイアログを閉じる
+      setIsAddDialogOpen(false)
     } catch (error) {
       console.error("案件追加エラー:", error)
-      toast({
-        title: "エラー",
-        description: "案件の追加に失敗しました",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
     }
   }
 
   // 案件を編集する関数
   const handleEditProject = async () => {
     try {
-      setIsLoading(true)
-
       if (!currentProject || !currentProject.id) {
         throw new Error("プロジェクトIDが不明です")
       }
@@ -425,7 +280,7 @@ export function ProjectList() {
         return
       }
 
-      // プロジェクトを更新
+      // プロジェクトデータを準備
       const projectData = {
         name: currentProject.name,
         description: currentProject.description,
@@ -434,31 +289,15 @@ export function ProjectList() {
         status: currentProject.status,
         client: currentProject.client,
         location: currentProject.location,
-        updated_at: new Date().toISOString(),
       }
 
-      await updateDataInTable("projects", currentProject.id, projectData)
-
-      // 成功メッセージを表示
-      toast({
-        title: "案件を更新しました",
-        description: "案件情報が正常に更新されました",
-      })
-
-      // プロジェクト一覧を再取得
-      fetchProjects()
+      // ミューテーションを実行
+      await updateProjectMutation.mutateAsync({ id: currentProject.id, data: projectData })
 
       // ダイアログを閉じる
       setIsEditDialogOpen(false)
     } catch (error) {
       console.error("案件更新エラー:", error)
-      toast({
-        title: "エラー",
-        description: "案件の更新に失敗しました",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -469,32 +308,10 @@ export function ProjectList() {
         return
       }
 
-      setIsLoading(true)
-
-      // 関連する割り当てを削除
-      const supabase = getClientSupabaseInstance()
-      await supabase.from("project_assignments").delete().eq("project_id", id)
-
-      // プロジェクトを削除
-      await deleteDataFromTable("projects", id)
-
-      // 成功メッセージを表示
-      toast({
-        title: "案件を削除しました",
-        description: "案件が正常に削除されました",
-      })
-
-      // プロジェクト一覧を再取得
-      fetchProjects()
+      // ミューテーションを実行
+      await deleteProjectMutation.mutateAsync(id)
     } catch (error) {
       console.error("案件削除エラー:", error)
-      toast({
-        title: "エラー",
-        description: "案件の削除に失敗しました",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -918,11 +735,15 @@ export function ProjectList() {
                 </Tabs>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={isLoading}>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsAddDialogOpen(false)}
+                  disabled={createProjectMutation.isPending}
+                >
                   キャンセル
                 </Button>
-                <Button type="submit" onClick={handleAddProject} disabled={isLoading}>
-                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                <Button type="submit" onClick={handleAddProject} disabled={createProjectMutation.isPending}>
+                  {createProjectMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   追加
                 </Button>
               </DialogFooter>
@@ -1053,14 +874,32 @@ export function ProjectList() {
                                     <option>完了</option>
                                   </select>
                                 </div>
+                                <div className="grid gap-2">
+                                  <Label htmlFor="edit-location">現場住所</Label>
+                                  <Input
+                                    id="edit-location"
+                                    value={currentProject.location || ""}
+                                    onChange={(e) => setCurrentProject({ ...currentProject, location: e.target.value })}
+                                  />
+                                </div>
                               </div>
                             )}
                             <DialogFooter>
-                              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isLoading}>
+                              <Button
+                                variant="outline"
+                                onClick={() => setIsEditDialogOpen(false)}
+                                disabled={updateProjectMutation.isPending}
+                              >
                                 キャンセル
                               </Button>
-                              <Button type="submit" onClick={handleEditProject} disabled={isLoading}>
-                                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                              <Button
+                                type="submit"
+                                onClick={handleEditProject}
+                                disabled={updateProjectMutation.isPending}
+                              >
+                                {updateProjectMutation.isPending ? (
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : null}
                                 保存
                               </Button>
                             </DialogFooter>
@@ -1070,7 +909,7 @@ export function ProjectList() {
                           variant="outline"
                           size="icon"
                           onClick={() => handleDeleteProject(project.id)}
-                          disabled={isLoading}
+                          disabled={deleteProjectMutation.isPending}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
