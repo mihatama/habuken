@@ -14,7 +14,13 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
-import { getClientSupabaseInstance } from "@/lib/supabase/supabaseClient"
+import {
+  getClientSupabaseInstance,
+  fetchDataFromTable,
+  insertDataToTable,
+  updateDataInTable,
+  deleteDataFromTable,
+} from "@/lib/supabase/supabaseClient"
 
 export function ProjectList() {
   const { toast } = useToast()
@@ -50,7 +56,7 @@ export function ProjectList() {
     selectedStaff: [] as string[],
     selectedHeavyMachinery: [] as string[],
     selectedVehicles: [] as string[],
-    selectedTools: [],
+    selectedTools: [] as string[],
   })
 
   // プロジェクト一覧を取得
@@ -66,10 +72,9 @@ export function ProjectList() {
   const fetchProjects = async () => {
     try {
       setDataLoading(true)
-      const supabase = getClientSupabaseInstance()
-      const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false })
-
-      if (error) throw error
+      const { data } = await fetchDataFromTable("projects", {
+        order: { column: "created_at", ascending: false },
+      })
 
       if (data) {
         setProjects(data)
@@ -89,10 +94,9 @@ export function ProjectList() {
   // スタッフ一覧を取得する関数
   const fetchStaff = async () => {
     try {
-      const supabase = getClientSupabaseInstance()
-      const { data, error } = await supabase.from("staff").select("*").order("full_name", { ascending: true })
-
-      if (error) throw error
+      const { data } = await fetchDataFromTable("staff", {
+        order: { column: "full_name", ascending: true },
+      })
 
       if (data) {
         setStaffList(data)
@@ -110,10 +114,9 @@ export function ProjectList() {
   // 重機一覧を取得する関数
   const fetchHeavyMachinery = async () => {
     try {
-      const supabase = getClientSupabaseInstance()
-      const { data, error } = await supabase.from("heavy_machinery").select("*").order("name", { ascending: true })
-
-      if (error) throw error
+      const { data } = await fetchDataFromTable("heavy_machinery", {
+        order: { column: "name", ascending: true },
+      })
 
       if (data) {
         setHeavyMachineryList(data)
@@ -131,10 +134,9 @@ export function ProjectList() {
   // 車両一覧を取得する関数
   const fetchVehicles = async () => {
     try {
-      const supabase = getClientSupabaseInstance()
-      const { data, error } = await supabase.from("vehicles").select("*").order("name", { ascending: true })
-
-      if (error) throw error
+      const { data } = await fetchDataFromTable("vehicles", {
+        order: { column: "name", ascending: true },
+      })
 
       if (data) {
         setVehiclesList(data)
@@ -152,10 +154,9 @@ export function ProjectList() {
   // 備品一覧を取得する関数
   const fetchTools = async () => {
     try {
-      const supabase = getClientSupabaseInstance()
-      const { data, error } = await supabase.from("tools").select("*").order("name", { ascending: true })
-
-      if (error) throw error
+      const { data } = await fetchDataFromTable("tools", {
+        order: { column: "name", ascending: true },
+      })
 
       if (data) {
         setToolsList(data)
@@ -294,27 +295,28 @@ export function ProjectList() {
         return
       }
 
+      // ユーザー情報を取得
       const supabase = getClientSupabaseInstance()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
 
       // プロジェクトを追加
-      const { data: projectData, error: projectError } = await supabase
-        .from("projects")
-        .insert({
-          name: newProject.name,
-          description: newProject.description,
-          start_date: newProject.startDate,
-          end_date: newProject.endDate || null,
-          status: newProject.status,
-          client: newProject.client,
-          location: newProject.location,
-          created_by: "system", // 実際のユーザーIDに置き換える
-        })
-        .select()
+      const projectData = {
+        name: newProject.name,
+        description: newProject.description,
+        start_date: newProject.startDate,
+        end_date: newProject.endDate || null,
+        status: newProject.status,
+        client: newProject.client,
+        location: newProject.location,
+        created_by: user?.id || "system",
+      }
 
-      if (projectError) throw projectError
+      const insertedProject = await insertDataToTable("projects", projectData)
 
-      if (projectData && projectData.length > 0) {
-        const projectId = projectData[0].id
+      if (insertedProject && insertedProject.length > 0) {
+        const projectId = insertedProject[0].id
 
         // プロジェクト割り当てを作成
         const assignments = []
@@ -353,9 +355,7 @@ export function ProjectList() {
 
         // 割り当てがある場合は保存
         if (assignments.length > 0) {
-          const { error: assignmentError } = await supabase.from("project_assignments").insert(assignments)
-
-          if (assignmentError) throw assignmentError
+          await insertDataToTable("project_assignments", assignments)
         }
 
         // 成功メッセージを表示
@@ -425,24 +425,19 @@ export function ProjectList() {
         return
       }
 
-      const supabase = getClientSupabaseInstance()
-
       // プロジェクトを更新
-      const { error: projectError } = await supabase
-        .from("projects")
-        .update({
-          name: currentProject.name,
-          description: currentProject.description,
-          start_date: currentProject.start_date,
-          end_date: currentProject.end_date || null,
-          status: currentProject.status,
-          client: currentProject.client,
-          location: currentProject.location,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", currentProject.id)
+      const projectData = {
+        name: currentProject.name,
+        description: currentProject.description,
+        start_date: currentProject.start_date,
+        end_date: currentProject.end_date || null,
+        status: currentProject.status,
+        client: currentProject.client,
+        location: currentProject.location,
+        updated_at: new Date().toISOString(),
+      }
 
-      if (projectError) throw projectError
+      await updateDataInTable("projects", currentProject.id, projectData)
 
       // 成功メッセージを表示
       toast({
@@ -475,12 +470,13 @@ export function ProjectList() {
       }
 
       setIsLoading(true)
+
+      // 関連する割り当てを削除
       const supabase = getClientSupabaseInstance()
+      await supabase.from("project_assignments").delete().eq("project_id", id)
 
       // プロジェクトを削除
-      const { error } = await supabase.from("projects").delete().eq("id", id)
-
-      if (error) throw error
+      await deleteDataFromTable("projects", id)
 
       // 成功メッセージを表示
       toast({

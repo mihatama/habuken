@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { sampleProjects, sampleStaff, sampleTools } from "@/data/sample-data"
+import { fetchDataFromTable } from "@/lib/supabase/supabaseClient"
 
 // イベントの型定義
 interface CalendarEvent {
@@ -51,6 +51,50 @@ export function StaffAssignmentDialog({
   const [selectedStaff, setSelectedStaff] = useState<string[]>([])
   const [selectedTools, setSelectedTools] = useState<string[]>([])
   const [isAllDay, setIsAllDay] = useState(false)
+
+  // データベースから取得したデータを保持する状態
+  const [projects, setProjects] = useState<any[]>([])
+  const [staff, setStaff] = useState<any[]>([])
+  const [tools, setTools] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // データの取得
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true)
+      try {
+        // プロジェクトデータの取得
+        const projectsResult = await fetchDataFromTable("projects", {
+          order: { column: "name", ascending: true },
+        })
+        if (projectsResult.data) {
+          setProjects(projectsResult.data)
+        }
+
+        // スタッフデータの取得
+        const staffResult = await fetchDataFromTable("staff", {
+          order: { column: "full_name", ascending: true },
+        })
+        if (staffResult.data) {
+          setStaff(staffResult.data)
+        }
+
+        // ツールデータの取得
+        const toolsResult = await fetchDataFromTable("tools", {
+          order: { column: "name", ascending: true },
+        })
+        if (toolsResult.data) {
+          setTools(toolsResult.data)
+        }
+      } catch (error) {
+        console.error("データ取得エラー:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
 
   // イベントデータが変更されたときにフォームを更新
   useEffect(() => {
@@ -163,6 +207,18 @@ export function StaffAssignmentDialog({
     })
   }
 
+  if (loading) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[600px]">
+          <div className="flex justify-center items-center py-8">
+            <div className="animate-spin h-8 w-8 border-4 border-blue-500 rounded-full border-t-transparent"></div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
@@ -202,7 +258,7 @@ export function StaffAssignmentDialog({
                 <SelectValue placeholder="プロジェクトを選択" />
               </SelectTrigger>
               <SelectContent>
-                {sampleProjects.map((project) => (
+                {projects.map((project) => (
                   <SelectItem key={project.id} value={project.id.toString()}>
                     {project.name}
                   </SelectItem>
@@ -213,14 +269,14 @@ export function StaffAssignmentDialog({
           <div className="grid grid-cols-4 items-start gap-4">
             <Label className="text-right pt-2">スタッフ</Label>
             <div className="col-span-3 grid grid-cols-2 gap-2">
-              {sampleStaff.map((staff) => (
-                <div key={staff.id} className="flex items-center space-x-2">
+              {staff.map((staffMember) => (
+                <div key={staffMember.id} className="flex items-center space-x-2">
                   <Checkbox
-                    id={`staff-${staff.id}`}
-                    checked={selectedStaff.includes(staff.id)}
-                    onCheckedChange={() => toggleStaffSelection(staff.id)}
+                    id={`staff-${staffMember.id}`}
+                    checked={selectedStaff.includes(staffMember.id)}
+                    onCheckedChange={() => toggleStaffSelection(staffMember.id)}
                   />
-                  <Label htmlFor={`staff-${staff.id}`}>{staff.name}</Label>
+                  <Label htmlFor={`staff-${staffMember.id}`}>{staffMember.full_name}</Label>
                 </div>
               ))}
             </div>
@@ -228,7 +284,7 @@ export function StaffAssignmentDialog({
           <div className="grid grid-cols-4 items-start gap-4">
             <Label className="text-right pt-2">機材</Label>
             <div className="col-span-3 grid grid-cols-2 gap-2">
-              {sampleTools.map((tool) => (
+              {tools.map((tool) => (
                 <div key={tool.id} className="flex items-center space-x-2">
                   <Checkbox
                     id={`tool-${tool.id}`}

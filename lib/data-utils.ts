@@ -1,134 +1,198 @@
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import type { Staff } from "@/types/supabase"
 
-export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3, delay = 1000): Promise<T> {
-  let lastError: Error | null = null
+// スタッフデータの取得
+export async function getStaff() {
+  const supabase = createClientComponentClient()
+  const { data, error } = await supabase.from("staff").select("*").order("full_name", { ascending: true })
 
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      return await operation()
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error))
-      console.warn(`操作に失敗しました (${attempt + 1}/${maxRetries}): ${lastError.message}`)
-
-      if (attempt < maxRetries - 1) {
-        await new Promise((resolve) => setTimeout(resolve, delay * (attempt + 1)))
-      }
-    }
+  if (error) {
+    console.error("スタッフデータ取得エラー:", error)
+    throw error
   }
 
-  throw lastError || new Error("不明なエラーが発生しました")
+  return data || []
 }
 
-/**
- * スタッフデータを取得する関数
- * @param options 取得オプション（ページネーション、フィルタリングなど）
- * @returns スタッフデータと関連メタデータ
- */
-export async function getStaff(
-  options: {
-    page?: number
-    limit?: number
-    status?: string
-    department?: string
-    searchTerm?: string
-  } = {},
-) {
-  const startTime = performance.now()
+// スタッフの削除
+export async function deleteStaff(id: string) {
   const supabase = createClientComponentClient()
+  const { error } = await supabase.from("staff").delete().eq("id", id)
 
+  if (error) {
+    console.error("スタッフ削除エラー:", error)
+    throw error
+  }
+
+  return true
+}
+
+// プロジェクトデータの取得
+export async function getProjects() {
+  const supabase = createClientComponentClient()
+  const { data, error } = await supabase.from("projects").select("*").order("name", { ascending: true })
+
+  if (error) {
+    console.error("プロジェクトデータ取得エラー:", error)
+    throw error
+  }
+
+  return data || []
+}
+
+// 工具データの取得
+export async function getTools() {
+  const supabase = createClientComponentClient()
   try {
-    console.log("スタッフデータを取得中...", options)
+    // まず、resourcesテーブルのスキーマを確認
+    const { data: columns, error: schemaError } = await supabase.from("resources").select("*").limit(1)
 
-    // デフォルト値の設定
-    const { page = 1, limit = 10, status, department, searchTerm } = options
+    if (schemaError) throw schemaError
 
-    const offset = (page - 1) * limit
+    // テーブルにtype列がある場合
+    if (columns && columns.length > 0 && "type" in columns[0]) {
+      const { data, error } = await supabase
+        .from("resources")
+        .select("*")
+        .eq("type", "工具")
+        .order("name", { ascending: true })
 
-    // クエリの構築
-    let query = supabase.from("staff").select("*", { count: "exact" })
-
-    // フィルタの適用
-    if (status) {
-      query = query.eq("status", status)
+      if (error) throw error
+      return data || []
     }
 
-    if (department) {
-      query = query.eq("department", department)
+    // テーブルにresource_type列がある場合
+    else if (columns && columns.length > 0 && "resource_type" in columns[0]) {
+      const { data, error } = await supabase
+        .from("resources")
+        .select("*")
+        .eq("resource_type", "工具")
+        .order("name", { ascending: true })
+
+      if (error) throw error
+      return data || []
     }
 
-    if (searchTerm) {
-      query = query.or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
-    }
+    // どちらの列もない場合は、全てのリソースを取得
+    else {
+      const { data, error } = await supabase.from("resources").select("*").order("name", { ascending: true })
 
-    // ページネーションの適用
-    const { data, error, count } = await query.order("full_name").range(offset, offset + limit - 1)
-
-    const endTime = performance.now()
-    const executionTime = endTime - startTime
-
-    if (error) {
-      console.error("スタッフデータの取得に失敗しました:", error)
-      throw error
-    }
-
-    console.log(`スタッフデータを正常に取得しました (${executionTime.toFixed(2)}ms):`, {
-      count,
-      page,
-      limit,
-      data: data?.length,
-    })
-
-    return {
-      data: data as Staff[],
-      metadata: {
-        count: count || 0,
-        page,
-        limit,
-        executionTime,
-      },
+      if (error) throw error
+      return data || []
     }
   } catch (error) {
-    console.error("スタッフデータの取得中にエラーが発生しました:", error)
+    console.error("工具データ取得エラー:", error)
     throw error
   }
 }
 
-/**
- * スタッフデータを削除する関数
- * @param id 削除するスタッフのID
- * @returns 削除の結果
- */
-export async function deleteStaff(id: string) {
-  const startTime = performance.now()
+// 休暇申請データの取得
+export async function getLeaveRequests() {
+  const supabase = createClientComponentClient()
+  const { data, error } = await supabase
+    .from("leave_requests")
+    .select("*, staff(full_name)")
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("休暇申請データ取得エラー:", error)
+    throw error
+  }
+
+  // データ形式を整形
+  return (data || []).map((request) => ({
+    ...request,
+    userName: request.staff?.full_name || "不明",
+  }))
+}
+
+// 休暇申請の更新
+export async function updateLeaveRequest(updatedRequest: any) {
+  const supabase = createClientComponentClient()
+  const { error } = await supabase
+    .from("leave_requests")
+    .update({
+      status: updatedRequest.status,
+      reject_reason: updatedRequest.rejectReason || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", updatedRequest.id)
+
+  if (error) {
+    console.error("休暇申請更新エラー:", error)
+    throw error
+  }
+
+  // 承認された場合、休暇データを追加
+  if (updatedRequest.status === "approved") {
+    await addVacationFromApprovedRequest(updatedRequest)
+  }
+
+  return true
+}
+
+// 承認された休暇申請から休暇データを追加
+export async function addVacationFromApprovedRequest(approvedRequest: any) {
   const supabase = createClientComponentClient()
 
-  return withRetry(async () => {
-    try {
-      console.log(`スタッフデータを削除中... ID: ${id}`)
+  // 開始日から終了日までの各日を追加
+  const startDate = new Date(approvedRequest.startDate)
+  const endDate = new Date(approvedRequest.endDate)
+  const currentDate = new Date(startDate)
 
-      const { error } = await supabase.from("staff").delete().eq("id", id)
+  while (currentDate <= endDate) {
+    // 休暇データを追加
+    const { error } = await supabase.from("vacations").insert({
+      staff_id: approvedRequest.userId,
+      date: new Date(currentDate).toISOString().split("T")[0],
+      type: getLeaveTypeName(approvedRequest.leaveType),
+      created_at: new Date().toISOString(),
+    })
 
-      const endTime = performance.now()
-      const executionTime = endTime - startTime
-
-      if (error) {
-        console.error(`スタッフ削除に失敗しました (ID: ${id}):`, error)
-        throw error
-      }
-
-      console.log(`スタッフを正常に削除しました (ID: ${id}, ${executionTime.toFixed(2)}ms)`)
-
-      return {
-        success: true,
-        metadata: {
-          executionTime,
-          id,
-        },
-      }
-    } catch (error) {
-      console.error(`スタッフの削除中にエラーが発生しました (ID: ${id}):`, error)
-      throw error
+    if (error) {
+      console.error("休暇データ追加エラー:", error)
+      // エラーがあっても処理を続行
     }
-  })
+
+    // 次の日に進める
+    currentDate.setDate(currentDate.getDate() + 1)
+  }
+}
+
+// 休暇種類の名前を取得
+export function getLeaveTypeName(type: string) {
+  switch (type) {
+    case "paid":
+      return "有給"
+    case "compensatory":
+      return "振替休日"
+    case "special":
+      return "特別休暇"
+    case "absent":
+      return "欠勤"
+    default:
+      return type
+  }
+}
+
+// 作業日報データの取得
+export async function getDailyReports() {
+  const supabase = createClientComponentClient()
+  const { data, error } = await supabase
+    .from("daily_reports")
+    .select("*, staff(full_name), projects(name)")
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("作業日報データ取得エラー:", error)
+    throw error
+  }
+
+  // データ形式を整形
+  return (data || []).map((report) => ({
+    ...report,
+    userName: report.staff?.full_name || "不明",
+    projectName: report.projects?.name || "不明",
+    workDate: new Date(report.work_date),
+    createdAt: new Date(report.created_at),
+  }))
 }

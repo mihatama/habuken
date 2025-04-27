@@ -109,12 +109,8 @@ export async function getCalendarEvents(filters?: {
   try {
     const supabase = createServerSupabaseClient()
 
-    let query = supabase.from("shifts").select(`
-      *,
-      projects(*),
-      staff(*),
-      resources(*)
-    `)
+    // リレーションシップを使わずに基本的なイベントデータを取得
+    let query = supabase.from("shifts").select("*")
 
     // フィルター適用
     if (filters) {
@@ -138,11 +134,65 @@ export async function getCalendarEvents(filters?: {
       }
     }
 
-    const { data, error } = await query.order("start_time", { ascending: true })
+    const { data: shiftsData, error: shiftsError } = await query.order("start_time", { ascending: true })
 
-    if (error) throw new Error(`イベント取得エラー: ${error.message}`)
+    if (shiftsError) throw new Error(`イベント取得エラー: ${shiftsError.message}`)
 
-    return { success: true, data }
+    // 関連データを個別に取得
+    const staffIds = shiftsData
+      .filter((shift) => shift.staff_id)
+      .map((shift) => shift.staff_id)
+      .filter((value, index, self) => self.indexOf(value) === index) // 重複を削除
+
+    const projectIds = shiftsData
+      .filter((shift) => shift.project_id)
+      .map((shift) => shift.project_id)
+      .filter((value, index, self) => self.indexOf(value) === index) // 重複を削除
+
+    const resourceIds = shiftsData
+      .filter((shift) => shift.resource_id)
+      .map((shift) => shift.resource_id)
+      .filter((value, index, self) => self.indexOf(value) === index) // 重複を削除
+
+    // スタッフデータを取得
+    let staffData: any[] = []
+    if (staffIds.length > 0) {
+      const { data, error } = await supabase.from("staff").select("*").in("id", staffIds)
+      if (error) throw new Error(`スタッフデータ取得エラー: ${error.message}`)
+      staffData = data || []
+    }
+
+    // プロジェクトデータを取得
+    let projectsData: any[] = []
+    if (projectIds.length > 0) {
+      const { data, error } = await supabase.from("projects").select("*").in("id", projectIds)
+      if (error) throw new Error(`プロジェクトデータ取得エラー: ${error.message}`)
+      projectsData = data || []
+    }
+
+    // リソースデータを取得
+    let resourcesData: any[] = []
+    if (resourceIds.length > 0) {
+      const { data, error } = await supabase.from("resources").select("*").in("id", resourceIds)
+      if (error) throw new Error(`リソースデータ取得エラー: ${error.message}`)
+      resourcesData = data || []
+    }
+
+    // データを結合
+    const enrichedData = shiftsData.map((shift) => {
+      const staff = staffData.find((s) => s.id === shift.staff_id) || null
+      const project = projectsData.find((p) => p.id === shift.project_id) || null
+      const resource = resourcesData.find((r) => r.id === shift.resource_id) || null
+
+      return {
+        ...shift,
+        staff,
+        projects: project,
+        resources: resource,
+      }
+    })
+
+    return { success: true, data: enrichedData }
   } catch (error) {
     console.error("イベント取得エラー:", error)
     return { success: false, error: error instanceof Error ? error.message : "不明なエラー", data: [] }
@@ -177,9 +227,11 @@ export async function createMultipleAssignmentEvent({
 }) {
   try {
     const supabase = createServerSupabaseClient()
-    const user = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-    if (!user.data.user) {
+    if (!user) {
       return { success: false, error: "ユーザーが認証されていません" }
     }
 
@@ -190,7 +242,7 @@ export async function createMultipleAssignmentEvent({
       end_time: new Date(end_time).toISOString(),
       notes,
       project_id: project_id || null,
-      created_by: user.data.user.id,
+      created_by: user.id,
       event_type,
     }
 

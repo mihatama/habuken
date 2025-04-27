@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -12,10 +12,13 @@ import { Plus, Check, X, Calendar, Clock } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { sampleStaff, leaveRequests, updateLeaveRequest, getLeaveTypeName } from "@/data/sample-data"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { toast } from "@/components/ui/use-toast"
+import { getLeaveRequests, updateLeaveRequest, getLeaveTypeName } from "@/lib/data-utils"
 
 export function LeaveRequestManagement() {
-  const [requests, setRequests] = useState(leaveRequests)
+  const [requests, setRequests] = useState<any[]>([])
+  const [staff, setStaff] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false)
@@ -23,6 +26,7 @@ export function LeaveRequestManagement() {
   const [currentRequest, setCurrentRequest] = useState<any>(null)
   const [activeTab, setActiveTab] = useState("pending")
   const [rejectReason, setRejectReason] = useState("")
+  const [loading, setLoading] = useState(true)
   const [newRequest, setNewRequest] = useState({
     userId: "",
     leaveType: "paid",
@@ -31,76 +35,153 @@ export function LeaveRequestManagement() {
     reason: "",
   })
 
+  const supabase = createClientComponentClient()
+
+  // データの取得
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true)
+      try {
+        // 休暇申請データを取得
+        const leaveRequestsData = await getLeaveRequests()
+        setRequests(leaveRequestsData)
+
+        // スタッフデータを取得
+        const { data: staffData } = await supabase.from("staff").select("*")
+        setStaff(staffData || [])
+      } catch (error) {
+        console.error("データ取得エラー:", error)
+        toast({
+          title: "エラー",
+          description: "データの取得に失敗しました",
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [supabase])
+
   const filteredRequests = requests.filter(
     (request) =>
       (request.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        getLeaveTypeName(request.leaveType).toLowerCase().includes(searchTerm.toLowerCase())) &&
+        getLeaveTypeName(request.leave_type).toLowerCase().includes(searchTerm.toLowerCase())) &&
       (activeTab === "all" ||
         (activeTab === "pending" && request.status === "pending") ||
         (activeTab === "approved" && request.status === "approved") ||
         (activeTab === "rejected" && request.status === "rejected")),
   )
 
-  const handleAddRequest = () => {
+  const handleAddRequest = async () => {
     if (!newRequest.userId || !newRequest.startDate || !newRequest.endDate) return
 
-    const userId = Number.parseInt(newRequest.userId)
-    const user = sampleStaff.find((s) => s.id === userId)
+    try {
+      const { data, error } = await supabase
+        .from("leave_requests")
+        .insert({
+          staff_id: newRequest.userId,
+          leave_type: newRequest.leaveType,
+          start_date: newRequest.startDate,
+          end_date: newRequest.endDate,
+          reason: newRequest.reason,
+          status: "pending",
+          created_at: new Date().toISOString(),
+        })
+        .select()
 
-    if (!user) return
+      if (error) throw error
 
-    const request = {
-      id: requests.length + 1,
-      userId,
-      userName: user.name,
-      leaveType: newRequest.leaveType,
-      startDate: new Date(newRequest.startDate),
-      endDate: new Date(newRequest.endDate),
-      reason: newRequest.reason,
-      status: "pending",
-      rejectReason: "",
-      createdAt: new Date(),
+      toast({
+        title: "成功",
+        description: "休暇申請を送信しました",
+      })
+
+      // 休暇申請リストを更新
+      const leaveRequestsData = await getLeaveRequests()
+      setRequests(leaveRequestsData)
+
+      setIsAddDialogOpen(false)
+      setNewRequest({
+        userId: "",
+        leaveType: "paid",
+        startDate: "",
+        endDate: "",
+        reason: "",
+      })
+    } catch (error) {
+      console.error("休暇申請エラー:", error)
+      toast({
+        title: "エラー",
+        description: "休暇申請の送信に失敗しました",
+        variant: "destructive",
+      })
     }
-
-    const updatedRequests = [...requests, request]
-    setRequests(updatedRequests)
-    setNewRequest({
-      userId: "",
-      leaveType: "paid",
-      startDate: "",
-      endDate: "",
-      reason: "",
-    })
-    setIsAddDialogOpen(false)
   }
 
-  const handleApproveRequest = () => {
+  const handleApproveRequest = async () => {
     if (!currentRequest) return
 
-    const updatedRequest = { ...currentRequest, status: "approved" }
+    try {
+      await updateLeaveRequest({
+        id: currentRequest.id,
+        status: "approved",
+        userId: currentRequest.staff_id,
+        startDate: currentRequest.start_date,
+        endDate: currentRequest.end_date,
+        leaveType: currentRequest.leave_type,
+      })
 
-    // グローバルデータを更新（年休一覧に自動登録）
-    updateLeaveRequest(updatedRequest)
+      toast({
+        title: "成功",
+        description: "休暇申請を承認しました",
+      })
 
-    // ローカル状態を更新
-    const updatedRequests = requests.map((request) => (request.id === currentRequest.id ? updatedRequest : request))
-    setRequests(updatedRequests)
-    setIsApproveDialogOpen(false)
+      // 休暇申請リストを更新
+      const leaveRequestsData = await getLeaveRequests()
+      setRequests(leaveRequestsData)
+
+      setIsApproveDialogOpen(false)
+    } catch (error) {
+      console.error("休暇申請承認エラー:", error)
+      toast({
+        title: "エラー",
+        description: "休暇申請の承認に失敗しました",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleRejectRequest = () => {
+  const handleRejectRequest = async () => {
     if (!currentRequest) return
 
-    const updatedRequest = { ...currentRequest, status: "rejected", rejectReason }
+    try {
+      await updateLeaveRequest({
+        id: currentRequest.id,
+        status: "rejected",
+        rejectReason: rejectReason,
+      })
 
-    // グローバルデータを更新
-    updateLeaveRequest(updatedRequest)
+      toast({
+        title: "成功",
+        description: "休暇申請を否認しました",
+      })
 
-    // ローカル状態を更新
-    const updatedRequests = requests.map((request) => (request.id === currentRequest.id ? updatedRequest : request))
-    setRequests(updatedRequests)
-    setRejectReason("")
-    setIsRejectDialogOpen(false)
+      // 休暇申請リストを更新
+      const leaveRequestsData = await getLeaveRequests()
+      setRequests(leaveRequestsData)
+
+      setRejectReason("")
+      setIsRejectDialogOpen(false)
+    } catch (error) {
+      console.error("休暇申請否認エラー:", error)
+      toast({
+        title: "エラー",
+        description: "休暇申請の否認に失敗しました",
+        variant: "destructive",
+      })
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -149,9 +230,9 @@ export function LeaveRequestManagement() {
                       <SelectValue placeholder="申請者を選択" />
                     </SelectTrigger>
                     <SelectContent>
-                      {sampleStaff.map((staff) => (
-                        <SelectItem key={staff.id} value={staff.id.toString()}>
-                          {staff.name}
+                      {staff.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.full_name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -235,175 +316,182 @@ export function LeaveRequestManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRequests.map((request) => (
-                  <TableRow key={request.id}>
-                    <TableCell className="font-medium">{request.userName}</TableCell>
-                    <TableCell>{getLeaveTypeName(request.leaveType)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                        <span>
-                          {request.startDate.toLocaleDateString()}
-                          {request.startDate.getTime() !== request.endDate.getTime() &&
-                            ` 〜 ${request.endDate.toLocaleDateString()}`}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{request.reason}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center">
-                        <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                        <span>{request.createdAt.toLocaleDateString()}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{getStatusBadge(request.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end space-x-2">
-                        {request.status === "pending" && (
-                          <>
-                            <Dialog
-                              open={isApproveDialogOpen && currentRequest?.id === request.id}
-                              onOpenChange={(open) => {
-                                setIsApproveDialogOpen(open)
-                                if (open) setCurrentRequest(request)
-                              }}
-                            >
-                              <DialogTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  className="bg-green-50 hover:bg-green-100 text-green-600"
-                                  onClick={() => {
-                                    setCurrentRequest(request)
-                                    setIsApproveDialogOpen(true)
-                                  }}
-                                >
-                                  <Check className="h-4 w-4" />
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>休暇申請の承認</DialogTitle>
-                                </DialogHeader>
-                                <div className="py-4">
-                                  <p>
-                                    {request.userName}さんの{getLeaveTypeName(request.leaveType)}申請を承認しますか？
-                                  </p>
-                                  <div className="mt-4 p-4 border rounded-md">
-                                    <div className="grid grid-cols-2 gap-2">
-                                      <div>
-                                        <span className="text-sm text-muted-foreground">期間:</span>
-                                        <p>
-                                          {request.startDate.toLocaleDateString()}
-                                          {request.startDate.getTime() !== request.endDate.getTime() &&
-                                            ` 〜 ${request.endDate.toLocaleDateString()}`}
-                                        </p>
-                                      </div>
-                                      <div>
-                                        <span className="text-sm text-muted-foreground">申請日:</span>
-                                        <p>{request.createdAt.toLocaleDateString()}</p>
-                                      </div>
-                                    </div>
-                                    <div className="mt-2">
-                                      <span className="text-sm text-muted-foreground">理由:</span>
-                                      <p>{request.reason}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                                <DialogFooter>
-                                  <Button variant="outline" onClick={() => setIsApproveDialogOpen(false)}>
-                                    キャンセル
-                                  </Button>
-                                  <Button onClick={handleApproveRequest}>承認する</Button>
-                                </DialogFooter>
-                              </DialogContent>
-                            </Dialog>
-                            <Dialog
-                              open={isRejectDialogOpen && currentRequest?.id === request.id}
-                              onOpenChange={(open) => {
-                                setIsRejectDialogOpen(open)
-                                if (open) setCurrentRequest(request)
-                              }}
-                            >
-                              <DialogTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  className="bg-red-50 hover:bg-red-100 text-red-600"
-                                  onClick={() => {
-                                    setCurrentRequest(request)
-                                    setIsRejectDialogOpen(true)
-                                  }}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>休暇申請の否認</DialogTitle>
-                                </DialogHeader>
-                                <div className="py-4">
-                                  <p>
-                                    {request.userName}さんの{getLeaveTypeName(request.leaveType)}申請を否認しますか？
-                                  </p>
-                                  <div className="mt-4 p-4 border rounded-md">
-                                    <div className="grid grid-cols-2 gap-2">
-                                      <div>
-                                        <span className="text-sm text-muted-foreground">期間:</span>
-                                        <p>
-                                          {request.startDate.toLocaleDateString()}
-                                          {request.startDate.getTime() !== request.endDate.getTime() &&
-                                            ` 〜 ${request.endDate.toLocaleDateString()}`}
-                                        </p>
-                                      </div>
-                                      <div>
-                                        <span className="text-sm text-muted-foreground">申請日:</span>
-                                        <p>{request.createdAt.toLocaleDateString()}</p>
-                                      </div>
-                                    </div>
-                                    <div className="mt-2">
-                                      <span className="text-sm text-muted-foreground">理由:</span>
-                                      <p>{request.reason}</p>
-                                    </div>
-                                  </div>
-                                  <div className="mt-4">
-                                    <Label htmlFor="rejectReason">否認理由</Label>
-                                    <Textarea
-                                      id="rejectReason"
-                                      value={rejectReason}
-                                      onChange={(e) => setRejectReason(e.target.value)}
-                                      placeholder="否認の理由を入力してください"
-                                      className="mt-2"
-                                    />
-                                  </div>
-                                </div>
-                                <DialogFooter>
-                                  <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)}>
-                                    キャンセル
-                                  </Button>
-                                  <Button variant="destructive" onClick={handleRejectRequest}>
-                                    否認する
-                                  </Button>
-                                </DialogFooter>
-                              </DialogContent>
-                            </Dialog>
-                          </>
-                        )}
-                        {request.status === "rejected" && (
-                          <Button variant="outline" size="sm" className="text-xs">
-                            否認理由を表示
-                          </Button>
-                        )}
-                      </div>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-4">
+                      読み込み中...
                     </TableCell>
                   </TableRow>
-                ))}
-                {filteredRequests.length === 0 && (
+                ) : filteredRequests.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
                       該当する申請はありません
                     </TableCell>
                   </TableRow>
+                ) : (
+                  filteredRequests.map((request) => (
+                    <TableRow key={request.id}>
+                      <TableCell className="font-medium">{request.userName}</TableCell>
+                      <TableCell>{getLeaveTypeName(request.leave_type)}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center">
+                          <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+                          <span>
+                            {new Date(request.start_date).toLocaleDateString()}
+                            {request.start_date !== request.end_date &&
+                              ` 〜 ${new Date(request.end_date).toLocaleDateString()}`}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{request.reason}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center">
+                          <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
+                          <span>{new Date(request.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{getStatusBadge(request.status)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end space-x-2">
+                          {request.status === "pending" && (
+                            <>
+                              <Dialog
+                                open={isApproveDialogOpen && currentRequest?.id === request.id}
+                                onOpenChange={(open) => {
+                                  setIsApproveDialogOpen(open)
+                                  if (open) setCurrentRequest(request)
+                                }}
+                              >
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="bg-green-50 hover:bg-green-100 text-green-600"
+                                    onClick={() => {
+                                      setCurrentRequest(request)
+                                      setIsApproveDialogOpen(true)
+                                    }}
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>休暇申請の承認</DialogTitle>
+                                  </DialogHeader>
+                                  <div className="py-4">
+                                    <p>
+                                      {request.userName}さんの{getLeaveTypeName(request.leave_type)}申請を承認しますか？
+                                    </p>
+                                    <div className="mt-4 p-4 border rounded-md">
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                          <span className="text-sm text-muted-foreground">期間:</span>
+                                          <p>
+                                            {new Date(request.start_date).toLocaleDateString()}
+                                            {request.start_date !== request.end_date &&
+                                              ` 〜 ${new Date(request.end_date).toLocaleDateString()}`}
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <span className="text-sm text-muted-foreground">申請日:</span>
+                                          <p>{new Date(request.created_at).toLocaleDateString()}</p>
+                                        </div>
+                                      </div>
+                                      <div className="mt-2">
+                                        <span className="text-sm text-muted-foreground">理由:</span>
+                                        <p>{request.reason}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <DialogFooter>
+                                    <Button variant="outline" onClick={() => setIsApproveDialogOpen(false)}>
+                                      キャンセル
+                                    </Button>
+                                    <Button onClick={handleApproveRequest}>承認する</Button>
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+                              <Dialog
+                                open={isRejectDialogOpen && currentRequest?.id === request.id}
+                                onOpenChange={(open) => {
+                                  setIsRejectDialogOpen(open)
+                                  if (open) setCurrentRequest(request)
+                                }}
+                              >
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="bg-red-50 hover:bg-red-100 text-red-600"
+                                    onClick={() => {
+                                      setCurrentRequest(request)
+                                      setIsRejectDialogOpen(true)
+                                    }}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>休暇申請の否認</DialogTitle>
+                                  </DialogHeader>
+                                  <div className="py-4">
+                                    <p>
+                                      {request.userName}さんの{getLeaveTypeName(request.leave_type)}申請を否認しますか？
+                                    </p>
+                                    <div className="mt-4 p-4 border rounded-md">
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                          <span className="text-sm text-muted-foreground">期間:</span>
+                                          <p>
+                                            {new Date(request.start_date).toLocaleDateString()}
+                                            {request.start_date !== request.end_date &&
+                                              ` 〜 ${new Date(request.end_date).toLocaleDateString()}`}
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <span className="text-sm text-muted-foreground">申請日:</span>
+                                          <p>{new Date(request.created_at).toLocaleDateString()}</p>
+                                        </div>
+                                      </div>
+                                      <div className="mt-2">
+                                        <span className="text-sm text-muted-foreground">理由:</span>
+                                        <p>{request.reason}</p>
+                                      </div>
+                                    </div>
+                                    <div className="mt-4">
+                                      <Label htmlFor="rejectReason">否認理由</Label>
+                                      <Textarea
+                                        id="rejectReason"
+                                        value={rejectReason}
+                                        onChange={(e) => setRejectReason(e.target.value)}
+                                        placeholder="否認の理由を入力してください"
+                                        className="mt-2"
+                                      />
+                                    </div>
+                                  </div>
+                                  <DialogFooter>
+                                    <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)}>
+                                      キャンセル
+                                    </Button>
+                                    <Button variant="destructive" onClick={handleRejectRequest}>
+                                      否認する
+                                    </Button>
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+                            </>
+                          )}
+                          {request.status === "rejected" && request.reject_reason && (
+                            <Button variant="outline" size="sm" className="text-xs">
+                              否認理由を表示
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>

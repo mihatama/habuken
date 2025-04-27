@@ -1,74 +1,227 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Plus, Pencil, Trash2, Users, Briefcase } from "lucide-react"
+import { Plus, Pencil, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { sampleTools, sampleProjects, sampleStaff } from "@/data/sample-data"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { toast } from "@/components/ui/use-toast"
+import { getTools } from "@/lib/data-utils"
 
 export function ToolList() {
-  const [tools, setTools] = useState(sampleTools)
+  const [tools, setTools] = useState<any[]>([])
+  const [projects, setProjects] = useState<any[]>([])
+  const [staff, setStaff] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [currentTool, setCurrentTool] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [resourceTypeField, setResourceTypeField] = useState<string | null>(null)
   const [newTool, setNewTool] = useState({
     name: "",
-    category: "工具",
+    type: "工具", // デフォルト値を設定
+    resource_type: "工具", // 代替フィールド
     location: "",
     status: "利用可能",
-    lastMaintenance: "",
-    assignedProjects: [] as number[],
-    assignedStaff: [] as number[],
+    last_inspection_date: "",
+    assigned_projects: [] as string[],
+    assigned_staff: [] as string[],
   })
 
-  // 工具のみをフィルタリング
-  const filteredTools = tools
-    .filter((tool) => tool.category === "工具")
-    .filter(
-      (tool) =>
-        tool.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tool.location.toLowerCase().includes(searchTerm.toLowerCase()),
-    )
+  const supabase = createClientComponentClient()
 
-  const handleAddTool = () => {
-    const tool = {
-      id: tools.length + 1,
-      name: newTool.name,
-      category: "工具",
-      location: newTool.location,
-      status: newTool.status,
-      lastMaintenance: newTool.lastMaintenance ? new Date(newTool.lastMaintenance) : null,
-      assignedProjects: newTool.assignedProjects,
-      assignedStaff: newTool.assignedStaff,
+  // データの取得
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true)
+      try {
+        // リソーステーブルのスキーマを確認
+        const { data: columns } = await supabase.from("resources").select("*").limit(1)
+
+        // 使用するフィールド名を特定
+        if (columns && columns.length > 0) {
+          if ("type" in columns[0]) {
+            setResourceTypeField("type")
+          } else if ("resource_type" in columns[0]) {
+            setResourceTypeField("resource_type")
+          }
+        }
+
+        // 工具データを取得
+        const toolsData = await getTools()
+        setTools(toolsData)
+
+        // プロジェクトデータを取得
+        const { data: projectsData } = await supabase.from("projects").select("*")
+        setProjects(projectsData || [])
+
+        // スタッフデータを取得
+        const { data: staffData } = await supabase.from("staff").select("*")
+        setStaff(staffData || [])
+      } catch (error) {
+        console.error("データ取得エラー:", error)
+        toast({
+          title: "エラー",
+          description: "データの取得に失敗しました",
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
+      }
     }
 
-    setTools([...tools, tool])
-    setNewTool({
-      name: "",
-      category: "工具",
-      location: "",
-      status: "利用可能",
-      lastMaintenance: "",
-      assignedProjects: [],
-      assignedStaff: [],
-    })
-    setIsAddDialogOpen(false)
+    fetchData()
+  }, [supabase])
+
+  // 検索フィルター
+  const filteredTools = tools.filter(
+    (tool) =>
+      tool.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (tool.location && tool.location.toLowerCase().includes(searchTerm.toLowerCase())),
+  )
+
+  // 工具の追加
+  const handleAddTool = async () => {
+    try {
+      const insertData: any = {
+        name: newTool.name,
+        location: newTool.location,
+        status: newTool.status,
+        last_inspection_date: newTool.last_inspection_date || null,
+      }
+
+      // 適切なフィールド名を使用
+      if (resourceTypeField === "type") {
+        insertData.type = "工具"
+      } else if (resourceTypeField === "resource_type") {
+        insertData.resource_type = "工具"
+      }
+
+      const { data, error } = await supabase.from("resources").insert(insertData).select()
+
+      if (error) throw error
+
+      if (data && data[0]) {
+        // 関連プロジェクトの登録
+        for (const projectId of newTool.assigned_projects) {
+          await supabase.from("resource_project").insert({
+            resource_id: data[0].id,
+            project_id: projectId,
+          })
+        }
+
+        // 関連スタッフの登録
+        for (const staffId of newTool.assigned_staff) {
+          await supabase.from("resource_staff").insert({
+            resource_id: data[0].id,
+            staff_id: staffId,
+          })
+        }
+
+        toast({
+          title: "成功",
+          description: "工具を追加しました",
+        })
+
+        // 工具リストを更新
+        const toolsData = await getTools()
+        setTools(toolsData)
+      }
+
+      setIsAddDialogOpen(false)
+      setNewTool({
+        name: "",
+        type: "工具",
+        resource_type: "工具",
+        location: "",
+        status: "利用可能",
+        last_inspection_date: "",
+        assigned_projects: [],
+        assigned_staff: [],
+      })
+    } catch (error) {
+      console.error("工具追加エラー:", error)
+      toast({
+        title: "エラー",
+        description: "工具の追加に失敗しました",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleEditTool = () => {
-    const updatedTools = tools.map((tool) => (tool.id === currentTool.id ? currentTool : tool))
-    setTools(updatedTools)
-    setIsEditDialogOpen(false)
+  // 工具の更新
+  const handleEditTool = async () => {
+    if (!currentTool) return
+
+    try {
+      const updateData: any = {
+        name: currentTool.name,
+        location: currentTool.location,
+        status: currentTool.status,
+        last_inspection_date: currentTool.last_inspection_date,
+        updated_at: new Date().toISOString(),
+      }
+
+      const { error } = await supabase.from("resources").update(updateData).eq("id", currentTool.id)
+
+      if (error) throw error
+
+      toast({
+        title: "成功",
+        description: "工具情報を更新しました",
+      })
+
+      // 工具リストを更新
+      const toolsData = await getTools()
+      setTools(toolsData)
+
+      setIsEditDialogOpen(false)
+      setCurrentTool(null)
+    } catch (error) {
+      console.error("工具更新エラー:", error)
+      toast({
+        title: "エラー",
+        description: "工具情報の更新に失敗しました",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleDeleteTool = (id: number) => {
-    setTools(tools.filter((tool) => tool.id !== id))
+  // 工具の削除
+  const handleDeleteTool = async (id: string) => {
+    if (!confirm("この工具を削除してもよろしいですか？")) return
+
+    try {
+      // 関連データを先に削除
+      await supabase.from("resource_project").delete().eq("resource_id", id)
+      await supabase.from("resource_staff").delete().eq("resource_id", id)
+
+      // 工具を削除
+      const { error } = await supabase.from("resources").delete().eq("id", id)
+
+      if (error) throw error
+
+      toast({
+        title: "成功",
+        description: "工具を削除しました",
+      })
+
+      // 工具リストを更新
+      setTools(tools.filter((tool) => tool.id !== id))
+    } catch (error) {
+      console.error("工具削除エラー:", error)
+      toast({
+        title: "エラー",
+        description: "工具の削除に失敗しました",
+        variant: "destructive",
+      })
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -85,25 +238,29 @@ export function ToolList() {
   }
 
   // ツールに紐づくプロジェクトを取得
-  const getToolProjects = (toolId: number) => {
-    const tool = tools.find((t) => t.id === toolId)
-    if (!tool) return []
+  const getToolProjects = async (toolId: string) => {
+    const { data } = await supabase.from("resource_project").select("project_id").eq("resource_id", toolId)
 
-    return sampleProjects.filter((project) => tool.assignedProjects.includes(project.id))
+    if (!data || data.length === 0) return []
+
+    const projectIds = data.map((item) => item.project_id)
+    return projects.filter((project) => projectIds.includes(project.id))
   }
 
   // ツールに紐づくスタッフを取得
-  const getToolStaff = (toolId: number) => {
-    const tool = tools.find((t) => t.id === toolId)
-    if (!tool) return []
+  const getToolStaff = async (toolId: string) => {
+    const { data } = await supabase.from("resource_staff").select("staff_id").eq("resource_id", toolId)
 
-    return sampleStaff.filter((staff) => tool.assignedStaff.includes(staff.id))
+    if (!data || data.length === 0) return []
+
+    const staffIds = data.map((item) => item.staff_id)
+    return staff.filter((s) => staffIds.includes(s.id))
   }
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <div className="flex items-center gap-4">{/* 切り替えボタンを削除 */}</div>
+        <div className="flex items-center gap-4"></div>
         <div className="flex items-center space-x-2">
           <Input
             placeholder="検索..."
@@ -157,29 +314,29 @@ export function ToolList() {
                   <Input
                     id="lastMaintenance"
                     type="date"
-                    value={newTool.lastMaintenance}
-                    onChange={(e) => setNewTool({ ...newTool, lastMaintenance: e.target.value })}
+                    value={newTool.last_inspection_date}
+                    onChange={(e) => setNewTool({ ...newTool, last_inspection_date: e.target.value })}
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="assignedProjects">使用案件</Label>
                   <div className="flex flex-col gap-2 max-h-[150px] overflow-y-auto">
-                    {sampleProjects.map((project) => (
+                    {projects.map((project) => (
                       <div key={project.id} className="flex items-center space-x-2">
                         <input
                           type="checkbox"
                           id={`project-${project.id}`}
-                          checked={newTool.assignedProjects.includes(project.id)}
+                          checked={newTool.assigned_projects.includes(project.id)}
                           onChange={(e) => {
                             if (e.target.checked) {
                               setNewTool({
                                 ...newTool,
-                                assignedProjects: [...newTool.assignedProjects, project.id],
+                                assigned_projects: [...newTool.assigned_projects, project.id],
                               })
                             } else {
                               setNewTool({
                                 ...newTool,
-                                assignedProjects: newTool.assignedProjects.filter((id) => id !== project.id),
+                                assigned_projects: newTool.assigned_projects.filter((id) => id !== project.id),
                               })
                             }
                           }}
@@ -195,29 +352,29 @@ export function ToolList() {
                 <div className="grid gap-2">
                   <Label htmlFor="assignedStaff">担当スタッフ</Label>
                   <div className="flex flex-col gap-2 max-h-[150px] overflow-y-auto">
-                    {sampleStaff.map((staff) => (
-                      <div key={staff.id} className="flex items-center space-x-2">
+                    {staff.map((s) => (
+                      <div key={s.id} className="flex items-center space-x-2">
                         <input
                           type="checkbox"
-                          id={`staff-${staff.id}`}
-                          checked={newTool.assignedStaff.includes(staff.id)}
+                          id={`staff-${s.id}`}
+                          checked={newTool.assigned_staff.includes(s.id)}
                           onChange={(e) => {
                             if (e.target.checked) {
                               setNewTool({
                                 ...newTool,
-                                assignedStaff: [...newTool.assignedStaff, staff.id],
+                                assigned_staff: [...newTool.assigned_staff, s.id],
                               })
                             } else {
                               setNewTool({
                                 ...newTool,
-                                assignedStaff: newTool.assignedStaff.filter((id) => id !== staff.id),
+                                assigned_staff: newTool.assigned_staff.filter((id) => id !== s.id),
                               })
                             }
                           }}
                           className="h-4 w-4 rounded border-gray-300"
                         />
-                        <label htmlFor={`staff-${staff.id}`} className="text-sm">
-                          {staff.name}
+                        <label htmlFor={`staff-${s.id}`} className="text-sm">
+                          {s.full_name}
                         </label>
                       </div>
                     ))}
@@ -245,121 +402,121 @@ export function ToolList() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredTools.map((tool) => (
-              <TableRow key={tool.id}>
-                <TableCell className="font-medium">{tool.name}</TableCell>
-                <TableCell>{tool.location}</TableCell>
-                <TableCell>{getStatusBadge(tool.status)}</TableCell>
-                <TableCell>
-                  <div className="flex flex-col gap-2">
-                    <div className="flex flex-wrap gap-1">
-                      {getToolProjects(tool.id).map((project) => (
-                        <Badge key={project.id} variant="outline" className="flex items-center gap-1">
-                          <Briefcase className="h-3 w-3" />
-                          {project.name}
-                        </Badge>
-                      ))}
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {getToolStaff(tool.id).map((staff) => (
-                        <Badge key={staff.id} variant="outline" className="flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          {staff.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end space-x-2">
-                    <Dialog
-                      open={isEditDialogOpen && currentTool?.id === tool.id}
-                      onOpenChange={(open) => {
-                        setIsEditDialogOpen(open)
-                        if (open) setCurrentTool(tool)
-                      }}
-                    >
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => {
-                            setCurrentTool(tool)
-                            setIsEditDialogOpen(true)
-                          }}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>工具の編集</DialogTitle>
-                        </DialogHeader>
-                        {currentTool && (
-                          <div className="grid gap-4 py-4">
-                            <div className="grid gap-2">
-                              <Label htmlFor="edit-name">名称</Label>
-                              <Input
-                                id="edit-name"
-                                value={currentTool.name}
-                                onChange={(e) => setCurrentTool({ ...currentTool, name: e.target.value })}
-                              />
-                            </div>
-                            <div className="grid gap-2">
-                              <Label htmlFor="edit-location">保管場所</Label>
-                              <Input
-                                id="edit-location"
-                                value={currentTool.location}
-                                onChange={(e) => setCurrentTool({ ...currentTool, location: e.target.value })}
-                              />
-                            </div>
-                            <div className="grid gap-2">
-                              <Label htmlFor="edit-status">状態</Label>
-                              <select
-                                id="edit-status"
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                value={currentTool.status}
-                                onChange={(e) => setCurrentTool({ ...currentTool, status: e.target.value })}
-                              >
-                                <option>利用可能</option>
-                                <option>利用中</option>
-                                <option>メンテナンス中</option>
-                              </select>
-                            </div>
-                            <div className="grid gap-2">
-                              <Label htmlFor="edit-lastMaintenance">最終メンテナンス日</Label>
-                              <Input
-                                id="edit-lastMaintenance"
-                                type="date"
-                                value={
-                                  currentTool.lastMaintenance instanceof Date
-                                    ? currentTool.lastMaintenance.toISOString().split("T")[0]
-                                    : currentTool.lastMaintenance
-                                }
-                                onChange={(e) =>
-                                  setCurrentTool({
-                                    ...currentTool,
-                                    lastMaintenance: e.target.value ? new Date(e.target.value) : null,
-                                  })
-                                }
-                              />
-                            </div>
-                          </div>
-                        )}
-                        <DialogFooter>
-                          <Button type="submit" onClick={handleEditTool}>
-                            保存
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                    <Button variant="outline" size="icon" onClick={() => handleDeleteTool(tool.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-4">
+                  読み込み中...
                 </TableCell>
               </TableRow>
-            ))}
+            ) : filteredTools.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-4">
+                  データがありません
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredTools.map((tool) => (
+                <TableRow key={tool.id}>
+                  <TableCell className="font-medium">{tool.name}</TableCell>
+                  <TableCell>{tool.location || "-"}</TableCell>
+                  <TableCell>{getStatusBadge(tool.status || "利用可能")}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex flex-wrap gap-1">{/* プロジェクト情報は必要に応じて非同期で取得 */}</div>
+                      <div className="flex flex-wrap gap-1">{/* スタッフ情報は必要に応じて非同期で取得 */}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end space-x-2">
+                      <Dialog
+                        open={isEditDialogOpen && currentTool?.id === tool.id}
+                        onOpenChange={(open) => {
+                          setIsEditDialogOpen(open)
+                          if (open) setCurrentTool(tool)
+                        }}
+                      >
+                        <DialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => {
+                              setCurrentTool(tool)
+                              setIsEditDialogOpen(true)
+                            }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>工具の編集</DialogTitle>
+                          </DialogHeader>
+                          {currentTool && (
+                            <div className="grid gap-4 py-4">
+                              <div className="grid gap-2">
+                                <Label htmlFor="edit-name">名称</Label>
+                                <Input
+                                  id="edit-name"
+                                  value={currentTool.name}
+                                  onChange={(e) => setCurrentTool({ ...currentTool, name: e.target.value })}
+                                />
+                              </div>
+                              <div className="grid gap-2">
+                                <Label htmlFor="edit-location">保管場所</Label>
+                                <Input
+                                  id="edit-location"
+                                  value={currentTool.location || ""}
+                                  onChange={(e) => setCurrentTool({ ...currentTool, location: e.target.value })}
+                                />
+                              </div>
+                              <div className="grid gap-2">
+                                <Label htmlFor="edit-status">状態</Label>
+                                <select
+                                  id="edit-status"
+                                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                  value={currentTool.status || "利用可能"}
+                                  onChange={(e) => setCurrentTool({ ...currentTool, status: e.target.value })}
+                                >
+                                  <option>利用可能</option>
+                                  <option>利用中</option>
+                                  <option>メンテナンス中</option>
+                                </select>
+                              </div>
+                              <div className="grid gap-2">
+                                <Label htmlFor="edit-lastMaintenance">最終メンテナンス日</Label>
+                                <Input
+                                  id="edit-lastMaintenance"
+                                  type="date"
+                                  value={
+                                    currentTool.last_inspection_date
+                                      ? new Date(currentTool.last_inspection_date).toISOString().split("T")[0]
+                                      : ""
+                                  }
+                                  onChange={(e) =>
+                                    setCurrentTool({
+                                      ...currentTool,
+                                      last_inspection_date: e.target.value ? e.target.value : null,
+                                    })
+                                  }
+                                />
+                              </div>
+                            </div>
+                          )}
+                          <DialogFooter>
+                            <Button type="submit" onClick={handleEditTool}>
+                              保存
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                      <Button variant="outline" size="icon" onClick={() => handleDeleteTool(tool.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </CardContent>
