@@ -1,42 +1,37 @@
-// クライアント側のSupabaseインスタンス作成を改善
-console.log("supabaseClient.ts が読み込まれました")
+import { createClient, type SupabaseClient } from "@supabase/supabase-js"
+import type { Database } from "@/types/supabase"
 
-// createClientSupabaseInstance関数を修正
-import { createClient } from "@supabase/supabase-js"
+// クライアントサイドSupabaseクライアント（シングルトンパターン）
+let clientSupabaseInstance: SupabaseClient<Database> | null = null
 
-let supabaseInstance = null
+export const getClientSupabaseInstance = () => {
+  if (typeof window === "undefined") {
+    throw new Error("getClientSupabaseInstance はクライアントサイドでのみ使用できます")
+  }
 
-export function getClientSupabaseInstance() {
   try {
-    console.log("クライアントSupabaseインスタンス取得開始 (supabaseClient.ts)")
-
-    if (supabaseInstance) {
-      console.log("既存のクライアントSupabaseインスタンスを返します (supabaseClient.ts)")
-      return supabaseInstance
+    if (clientSupabaseInstance) {
+      return clientSupabaseInstance
     }
 
     // 環境変数の存在確認
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-    console.log("Supabase環境変数チェック (supabaseClient.ts):", {
-      urlExists: !!supabaseUrl,
-      keyExists: !!supabaseKey,
-      url: supabaseUrl?.substring(0, 10) + "...",
-      key: supabaseKey ? supabaseKey.substring(0, 5) + "..." : null,
-    })
-
     if (!supabaseUrl || !supabaseKey) {
-      console.error("Supabase環境変数が設定されていません (supabaseClient.ts)")
+      console.error("Supabase環境変数が設定されていません (クライアント)")
       throw new Error("Supabase環境変数が設定されていません")
     }
 
-    supabaseInstance = createClient(supabaseUrl, supabaseKey)
+    clientSupabaseInstance = createClient<Database>(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: true,
+      },
+    })
 
-    console.log("新しいクライアントSupabaseインスタンスを作成しました (supabaseClient.ts)")
-    return supabaseInstance
+    return clientSupabaseInstance
   } catch (error) {
-    console.error("クライアントSupabaseインスタンス取得エラー (supabaseClient.ts):", error)
+    console.error("クライアントSupabaseインスタンス取得エラー:", error)
     throw error
   }
 }

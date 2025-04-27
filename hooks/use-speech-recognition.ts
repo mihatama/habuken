@@ -1,108 +1,83 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback } from "react"
-import { useToast } from "@/components/ui/use-toast"
+import { useState, useEffect, useCallback } from "react"
 
-interface SpeechRecognitionResult {
-  transcript: string
-  isFinal: boolean
+interface UseSpeechRecognitionReturn {
+  isRecording: boolean
+  activeId: number | null
+  startRecording: (id: number, onResult: (text: string) => void) => void
+  stopRecording: () => void
 }
 
-export function useSpeechRecognition() {
+export function useSpeechRecognition(): UseSpeechRecognitionReturn {
   const [isRecording, setIsRecording] = useState(false)
-  const [activeId, setActiveId] = useState<string | number | null>(null)
-  const recognitionRef = useRef<any>(null)
-  const { toast } = useToast()
+  const [activeId, setActiveId] = useState<number | null>(null)
+  const [recognition, setRecognition] = useState<any>(null)
 
-  // 音声認識の停止
-  const stopRecording = useCallback(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop()
-      setIsRecording(false)
-      setActiveId(null)
-      toast({
-        title: "音声認識停止",
-        description: "音声認識を停止しました。",
-      })
-    }
-  }, [toast])
-
-  // 音声認識の開始
-  const startRecording = useCallback(
-    (id: string | number, onTranscript: (text: string) => void) => {
-      if (!("webkitSpeechRecognition" in window)) {
-        toast({
-          title: "非対応",
-          description: "お使いのブラウザは音声認識をサポートしていません。",
-          variant: "destructive",
-        })
-        return
-      }
-
-      try {
-        // 既に録音中の場合は停止
-        if (isRecording) {
-          stopRecording()
-        }
-
-        // 新しい音声認識インスタンスを作成
-        const SpeechRecognition = window.webkitSpeechRecognition
-        recognitionRef.current = new SpeechRecognition()
-        recognitionRef.current.lang = "ja-JP"
-        recognitionRef.current.continuous = true
-        recognitionRef.current.interimResults = true
-
-        recognitionRef.current.onresult = (event: any) => {
-          let finalTranscript = ""
-
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            if (event.results[i].isFinal) {
-              finalTranscript += event.results[i][0].transcript
-            }
-          }
-
-          if (finalTranscript) {
-            onTranscript(finalTranscript)
-          }
-        }
-
-        recognitionRef.current.onerror = () => {
-          setIsRecording(false)
-          setActiveId(null)
-          toast({
-            title: "音声認識エラー",
-            description: "音声認識中にエラーが発生しました。",
-            variant: "destructive",
-          })
-        }
-
-        recognitionRef.current.start()
-        setIsRecording(true)
-        setActiveId(id)
-        toast({
-          title: "音声認識開始",
-          description: "音声認識を開始しました。話してください。",
-        })
-      } catch (error) {
-        console.error("音声認識の初期化エラー:", error)
-        toast({
-          title: "音声認識エラー",
-          description: "音声認識の初期化に失敗しました。",
-          variant: "destructive",
-        })
-      }
-    },
-    [isRecording, stopRecording, toast],
-  )
-
-  // コンポーネントがアンマウントされるときに音声認識を停止
+  // Initialize speech recognition
   useEffect(() => {
+    if (typeof window !== "undefined" && "webkitSpeechRecognition" in window) {
+      const SpeechRecognition = window.webkitSpeechRecognition
+      const newRecognition = new SpeechRecognition()
+      newRecognition.continuous = true
+      newRecognition.interimResults = true
+      newRecognition.lang = "ja-JP"
+      setRecognition(newRecognition)
+    }
+
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop()
+      if (recognition) {
+        recognition.stop()
       }
     }
   }, [])
+
+  // Start recording
+  const startRecording = useCallback(
+    (id: number, onResult: (text: string) => void) => {
+      if (!recognition) {
+        console.warn("Speech recognition is not supported in this browser")
+        return
+      }
+
+      setIsRecording(true)
+      setActiveId(id)
+
+      recognition.onresult = (event: any) => {
+        const transcript = Array.from(event.results)
+          .map((result: any) => result[0].transcript)
+          .join("")
+
+        if (event.results[0].isFinal) {
+          onResult(transcript)
+        }
+      }
+
+      recognition.onerror = (event: any) => {
+        console.error("Speech recognition error", event.error)
+        setIsRecording(false)
+        setActiveId(null)
+      }
+
+      recognition.onend = () => {
+        if (isRecording) {
+          recognition.start()
+        }
+      }
+
+      recognition.start()
+    },
+    [recognition, isRecording],
+  )
+
+  // Stop recording
+  const stopRecording = useCallback(() => {
+    if (recognition) {
+      recognition.stop()
+    }
+    setIsRecording(false)
+    setActiveId(null)
+  }, [recognition])
 
   return {
     isRecording,

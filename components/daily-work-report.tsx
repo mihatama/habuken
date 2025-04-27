@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Mic, MicOff, ImageIcon, Check, X, Sun, Cloud, CloudRain } from "lucide-react"
+import { ImageIcon, Check, X, Sun, Cloud, CloudRain, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -81,7 +81,6 @@ export function DailyWorkReport() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [currentReport, setCurrentReport] = useState<any>(null)
   const [activeTab, setActiveTab] = useState("all")
-  const [isRecording, setIsRecording] = useState(false)
   const [newReport, setNewReport] = useState({
     projectId: "",
     userId: "",
@@ -91,9 +90,6 @@ export function DailyWorkReport() {
     speechRecognitionRaw: "",
     photos: [] as string[],
   })
-
-  // Web Speech API用の参照
-  const recognitionRef = useRef<any>(null)
 
   const filteredReports = reports.filter(
     (report) =>
@@ -180,64 +176,6 @@ export function DailyWorkReport() {
         return <Badge className="bg-red-500 hover:bg-red-600">差戻し</Badge>
       default:
         return <Badge>{status}</Badge>
-    }
-  }
-
-  // 音声認識の開始
-  const startSpeechRecognition = () => {
-    if (!("webkitSpeechRecognition" in window)) {
-      alert("お使いのブラウザは音声認識をサポートしていません。")
-      return
-    }
-
-    const SpeechRecognition = window.webkitSpeechRecognition
-    recognitionRef.current = new SpeechRecognition()
-    recognitionRef.current.lang = "ja-JP"
-    recognitionRef.current.continuous = true
-    recognitionRef.current.interimResults = true
-
-    recognitionRef.current.onresult = (event: any) => {
-      let interimTranscript = ""
-      let finalTranscript = ""
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript
-        if (event.results[i].isFinal) {
-          finalTranscript += transcript
-        } else {
-          interimTranscript += transcript
-        }
-      }
-
-      if (finalTranscript) {
-        setNewReport({
-          ...newReport,
-          workContentText: newReport.workContentText + finalTranscript,
-          speechRecognitionRaw: newReport.speechRecognitionRaw + finalTranscript,
-        })
-      }
-    }
-
-    recognitionRef.current.onerror = (event: any) => {
-      console.error("音声認識エラー:", event.error)
-      setIsRecording(false)
-    }
-
-    recognitionRef.current.onend = () => {
-      if (isRecording) {
-        recognitionRef.current.start()
-      }
-    }
-
-    recognitionRef.current.start()
-    setIsRecording(true)
-  }
-
-  // 音声認識の停止
-  const stopSpeechRecognition = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop()
-      setIsRecording(false)
     }
   }
 
@@ -332,25 +270,6 @@ export function DailyWorkReport() {
                 <div className="grid gap-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="workContentText">作業内容</Label>
-                    <div className="flex space-x-2">
-                      {isRecording ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={stopSpeechRecognition}
-                          className="text-red-500"
-                        >
-                          <MicOff className="h-4 w-4 mr-1" />
-                          録音停止
-                        </Button>
-                      ) : (
-                        <Button type="button" variant="outline" size="sm" onClick={startSpeechRecognition}>
-                          <Mic className="h-4 w-4 mr-1" />
-                          音声入力
-                        </Button>
-                      )}
-                    </div>
                   </div>
                   <Textarea
                     id="workContentText"
@@ -359,12 +278,6 @@ export function DailyWorkReport() {
                     placeholder="作業内容を入力してください"
                     className="min-h-[150px]"
                   />
-                  {isRecording && (
-                    <div className="text-sm text-red-500 animate-pulse flex items-center">
-                      <Mic className="h-4 w-4 mr-1" />
-                      音声を認識中...
-                    </div>
-                  )}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="photos">写真添付</Label>

@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/supabase"
 
-// createServerSupabaseClient関数を修正
+// サーバーサイドSupabaseクライアント
 export const createServerSupabaseClient = () => {
   try {
     // 環境変数の存在確認
@@ -26,10 +26,14 @@ export const createServerSupabaseClient = () => {
   }
 }
 
-// getClientSupabaseInstance関数を修正
+// クライアントサイドSupabaseクライアント（シングルトンパターン）
 let clientSupabaseInstance: SupabaseClient<Database> | null = null
 
 export const getClientSupabaseInstance = () => {
+  if (typeof window === "undefined") {
+    throw new Error("getClientSupabaseInstance はクライアントサイドでのみ使用できます")
+  }
+
   try {
     if (clientSupabaseInstance) {
       return clientSupabaseInstance
@@ -44,7 +48,11 @@ export const getClientSupabaseInstance = () => {
       throw new Error("Supabase環境変数が設定されていません")
     }
 
-    clientSupabaseInstance = createClient<Database>(supabaseUrl, supabaseKey)
+    clientSupabaseInstance = createClient<Database>(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: true,
+      },
+    })
 
     return clientSupabaseInstance
   } catch (error) {

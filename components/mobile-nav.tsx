@@ -4,9 +4,13 @@ import type * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Calendar, Users, Wrench, ClipboardList, Settings, Briefcase } from "lucide-react"
+import { Calendar, Users, Wrench, ClipboardList, Briefcase, Truck, Car, FileCheck } from "lucide-react"
 
-export function MobileNav({ className, ...props }: React.HTMLAttributes<HTMLElement>) {
+export function MobileNav({
+  className,
+  isAdmin = false,
+  ...props
+}: React.HTMLAttributes<HTMLElement> & { isAdmin?: boolean }) {
   const pathname = usePathname()
 
   return (
@@ -29,17 +33,37 @@ export function MobileNav({ className, ...props }: React.HTMLAttributes<HTMLElem
         )}
       >
         <Briefcase className="w-5 h-5 mb-1" />
-        <span>案件登録</span>
+        <span>案件</span>
       </Link>
       <Link
-        href="/staff"
+        href="/master/staff"
         className={cn(
           "flex flex-col items-center justify-center px-2 py-1 text-xs font-medium transition-colors hover:text-primary",
-          pathname === "/staff" ? "text-primary" : "text-muted-foreground",
+          pathname === "/master/staff" ? "text-primary" : "text-muted-foreground",
         )}
       >
         <Users className="w-5 h-5 mb-1" />
         <span>スタッフ</span>
+      </Link>
+      <Link
+        href="/master/heavy"
+        className={cn(
+          "flex flex-col items-center justify-center px-2 py-1 text-xs font-medium transition-colors hover:text-primary",
+          pathname === "/master/heavy" ? "text-primary" : "text-muted-foreground",
+        )}
+      >
+        <Truck className="w-5 h-5 mb-1" />
+        <span>重機</span>
+      </Link>
+      <Link
+        href="/master/vehicle"
+        className={cn(
+          "flex flex-col items-center justify-center px-2 py-1 text-xs font-medium transition-colors hover:text-primary",
+          pathname === "/master/vehicle" ? "text-primary" : "text-muted-foreground",
+        )}
+      >
+        <Car className="w-5 h-5 mb-1" />
+        <span>車両</span>
       </Link>
       <Link
         href="/tools"
@@ -49,7 +73,7 @@ export function MobileNav({ className, ...props }: React.HTMLAttributes<HTMLElem
         )}
       >
         <Wrench className="w-5 h-5 mb-1" />
-        <span>工具</span>
+        <span>備品</span>
       </Link>
       <Link
         href="/leave"
@@ -59,17 +83,17 @@ export function MobileNav({ className, ...props }: React.HTMLAttributes<HTMLElem
         )}
       >
         <ClipboardList className="w-5 h-5 mb-1" />
-        <span>休暇申請</span>
+        <span>休暇</span>
       </Link>
       <Link
-        href="/settings"
+        href="/reports"
         className={cn(
           "flex flex-col items-center justify-center px-2 py-1 text-xs font-medium transition-colors hover:text-primary",
-          pathname === "/settings" ? "text-primary" : "text-muted-foreground",
+          pathname.startsWith("/reports") ? "text-primary" : "text-muted-foreground",
         )}
       >
-        <Settings className="w-5 h-5 mb-1" />
-        <span>設定</span>
+        <FileCheck className="w-5 h-5 mb-1" />
+        <span>報告</span>
       </Link>
     </nav>
   )

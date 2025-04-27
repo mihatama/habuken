@@ -1,38 +1,36 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
-import { Briefcase, Loader2, AlertCircle } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { useToast } from "@/hooks/use-toast"
-import { createMultipleAssignmentEvent, updateCalendarEvent, deleteCalendarEvent } from "@/actions/calendar-events"
-import { getClientSupabaseInstance } from "@/lib/supabase/supabaseClient"
+import { sampleProjects, sampleStaff, sampleTools } from "@/data/sample-data"
 
+// イベントの型定義
+interface CalendarEvent {
+  id: number
+  title: string
+  start: Date
+  end: Date
+  description?: string
+  projectId?: number
+  staffIds?: string[]
+  toolIds?: string[]
+  allDay?: boolean
+}
+
+// ダイアログのprops型定義
 interface StaffAssignmentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  eventData: any | null
-  onEventAdd?: (event: any) => void
-  onEventUpdate?: (event: any) => void
-  onEventDelete?: (eventId: string) => void
-  projects?: any[]
-  staff?: any[]
-  resources?: any[]
+  eventData: CalendarEvent | null
+  onEventAdd?: (event: CalendarEvent) => void
+  onEventUpdate?: (event: CalendarEvent) => void
+  onEventDelete?: (eventId: number) => void
 }
 
 export function StaffAssignmentDialog({
@@ -42,677 +40,135 @@ export function StaffAssignmentDialog({
   onEventAdd,
   onEventUpdate,
   onEventDelete,
-  projects = [],
-  staff = [],
-  resources = [],
 }: StaffAssignmentDialogProps) {
-  console.log("StaffAssignmentDialog: レンダリング", { open, eventData })
-
-  const { toast } = useToast()
   const [title, setTitle] = useState("")
-  const [startDate, setStartDate] = useState("")
-  const [startTime, setStartTime] = useState("")
-  const [endDate, setEndDate] = useState("")
-  const [endTime, setEndTime] = useState("")
   const [description, setDescription] = useState("")
-  const [selectedProject, setSelectedProject] = useState("")
+  const [startDate, setStartDate] = useState<string>("")
+  const [startTime, setStartTime] = useState<string>("")
+  const [endDate, setEndDate] = useState<string>("")
+  const [endTime, setEndTime] = useState<string>("")
+  const [selectedProject, setSelectedProject] = useState<string>("")
   const [selectedStaff, setSelectedStaff] = useState<string[]>([])
-  const [selectedResources, setSelectedResources] = useState<string[]>([])
-  const [isNewEvent, setIsNewEvent] = useState(true)
-  const [activeTab, setActiveTab] = useState("staff")
-  const [isLoading, setIsLoading] = useState(false)
-  const [searchStaff, setSearchStaff] = useState("")
-  const [searchResources, setSearchResources] = useState("")
-  const [dataLoading, setDataLoading] = useState(false)
-  const [staffData, setStaffData] = useState<any[]>([])
-  const [resourceData, setResourceData] = useState<any[]>([])
-  const [heavyMachineryData, setHeavyMachineryData] = useState<any[]>([])
-  const [vehicleData, setVehicleData] = useState<any[]>([])
-  const [toolData, setToolData] = useState<any[]>([])
-  const [selectedHeavyMachinery, setSelectedHeavyMachinery] = useState<string[]>([])
-  const [selectedVehicles, setSelectedVehicles] = useState<string[]>([])
   const [selectedTools, setSelectedTools] = useState<string[]>([])
-  const [searchHeavyMachinery, setSearchHeavyMachinery] = useState("")
-  const [searchVehicles, setSearchVehicles] = useState("")
-  const [searchTools, setSearchTools] = useState("")
-  const [debugInfo, setDebugInfo] = useState<any>(null)
-  const [showDebugInfo, setShowDebugInfo] = useState(false)
+  const [isAllDay, setIsAllDay] = useState(false)
 
-  // Reset form when dialog opens/closes or eventData changes
+  // イベントデータが変更されたときにフォームを更新
   useEffect(() => {
-    if (open && eventData) {
-      // Editing existing event
-      setIsNewEvent(false)
+    if (eventData) {
       setTitle(eventData.title || "")
+      setDescription(eventData.description || "")
 
-      const start = eventData.start ? new Date(eventData.start) : new Date()
-      const end = eventData.end ? new Date(eventData.end) : new Date()
-
-      setStartDate(formatDateForInput(start))
-      setStartTime(formatTimeForInput(start))
-      setEndDate(formatDateForInput(end))
-      setEndTime(formatTimeForInput(end))
-
-      setDescription(eventData.description || eventData.notes || "")
-      setSelectedProject(eventData.project_id || eventData.projectId || "")
-
-      // Handle staff selection
-      if (eventData.staff_id) {
-        setSelectedStaff([eventData.staff_id])
-      } else if (eventData.staffIds) {
-        setSelectedStaff(eventData.staffIds)
-      } else {
-        setSelectedStaff([])
-      }
-
-      // Handle resource selection
-      if (eventData.resource_id) {
-        setSelectedResources([eventData.resource_id])
-      } else if (eventData.toolIds) {
-        setSelectedResources(eventData.toolIds)
-      } else {
-        setSelectedResources([])
-      }
-
-      // Handle heavy machinery selection
-      if (eventData.heavy_machinery_id) {
-        setSelectedHeavyMachinery([eventData.heavy_machinery_id])
-      } else if (eventData.heavyMachineryIds) {
-        setSelectedHeavyMachinery(eventData.heavyMachineryIds)
-      } else {
-        setSelectedHeavyMachinery([])
-      }
-
-      // Handle vehicle selection
-      if (eventData.vehicle_id) {
-        setSelectedVehicles([eventData.vehicle_id])
-      } else if (eventData.vehicleIds) {
-        setSelectedVehicles(eventData.vehicleIds)
-      } else {
-        setSelectedVehicles([])
-      }
-
-      // Handle tool selection
-      if (eventData.tool_id) {
-        setSelectedTools([eventData.tool_id])
-      } else if (eventData.toolIds) {
-        setSelectedTools(eventData.toolIds)
-      } else {
-        setSelectedTools([])
-      }
-    } else if (open) {
-      // Creating new event from selected slot
-      setIsNewEvent(true)
-      setTitle("")
-
-      const start = eventData?.start ? new Date(eventData.start) : new Date()
-      const end = eventData?.end ? new Date(eventData.end) : new Date()
-
-      // Set default times to 8:00-17:00 if no specific time was selected
-      if (!eventData?.start) {
-        start.setHours(8, 0, 0, 0)
-        end.setHours(17, 0, 0, 0)
-      } else {
-        // If a specific time was selected, keep that time but ensure end time is at least 1 hour later
-        if (end.getTime() - start.getTime() < 3600000) {
-          end.setTime(start.getTime() + 3600000)
-        }
-      }
+      // 日付と時間を設定
+      const start = eventData.start
+      const end = eventData.end
 
       setStartDate(formatDateForInput(start))
       setStartTime(formatTimeForInput(start))
       setEndDate(formatDateForInput(end))
       setEndTime(formatTimeForInput(end))
 
-      setDescription("")
-      setSelectedProject("")
-      setSelectedStaff([])
-      setSelectedResources([])
-      setSelectedHeavyMachinery([])
-      setSelectedVehicles([])
-      setSelectedTools([])
+      // プロジェクト、スタッフ、ツールを設定
+      setSelectedProject(eventData.projectId?.toString() || "")
+      setSelectedStaff(eventData.staffIds || [])
+      setSelectedTools(eventData.toolIds || [])
+      setIsAllDay(eventData.allDay || false)
     }
-  }, [open, eventData])
+  }, [eventData])
 
-  // Load staff and resources data if not provided
-  useEffect(() => {
-    const loadData = async () => {
-      if (open) {
-        setDataLoading(true)
-        setDebugInfo(null)
-        console.log("データ取得開始 - ダイアログが開かれました", { open })
-        try {
-          const supabase = getClientSupabaseInstance()
+  // 日付をinput用にフォーマット (YYYY-MM-DD)
+  const formatDateForInput = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, "0")
+    const day = String(date.getDate()).padStart(2, "0")
+    return `${year}-${month}-${day}`
+  }
 
-          console.log("Supabaseインスタンス取得完了", {
-            supabaseExists: !!supabase,
-            supabaseAuth: !!supabase.auth,
-            supabaseFrom: !!supabase.from,
-          })
+  // 時間をinput用にフォーマット (HH:MM)
+  const formatTimeForInput = (date: Date): string => {
+    const hours = String(date.getHours()).padStart(2, "0")
+    const minutes = String(date.getMinutes()).padStart(2, "0")
+    return `${hours}:${minutes}`
+  }
 
-          // スタッフデータ取得を改善
-          console.log("スタッフデータ取得開始")
-
-          // サンプルデータを使用（Supabaseが利用できない場合のフォールバック）
-          const sampleStaffData = [
-            {
-              id: "1",
-              full_name: "山田太郎",
-              position: "現場監督",
-              email: "yamada@example.com",
-              phone: "090-1234-5678",
-            },
-            {
-              id: "2",
-              full_name: "佐藤次郎",
-              position: "作業員",
-              email: "sato@example.com",
-              phone: "090-2345-6789",
-            },
-            {
-              id: "3",
-              full_name: "鈴木花子",
-              position: "事務",
-              email: "suzuki@example.com",
-              phone: "090-3456-7890",
-            },
-          ]
-
-          try {
-            console.log("スタッフデータ取得開始 - クエリ実行前")
-            const startTime = performance.now()
-
-            // スタッフデータを取得
-            const { data: staffData, error: staffError } = await supabase
-              .from("staff")
-              .select("*")
-              .order("full_name", { ascending: true })
-
-            const endTime = performance.now()
-
-            // デバッグ情報を設定
-            setDebugInfo({
-              queryTime: Math.round(endTime - startTime),
-              staffData: staffData?.length > 0 ? `${staffData.length}件取得` : "0件",
-              staffError: staffError?.message,
-              supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 10) + "...",
-              supabaseKeyExists: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-              timestamp: new Date().toISOString(),
-            })
-
-            console.log("スタッフデータ取得結果:", {
-              staffData: staffData ? `${staffData.length}件取得` : null,
-              staffError: staffError ? staffError.message : null,
-              queryTime: Math.round(endTime - startTime) + "ms",
-            })
-
-            if (staffError) {
-              console.error("スタッフ取得エラー:", staffError)
-              console.log("サンプルデータを使用します")
-              setStaffData(sampleStaffData)
-            } else if (staffData && staffData.length > 0) {
-              console.log("Supabaseからスタッフデータを取得しました")
-              setStaffData(staffData)
-            } else {
-              console.warn("スタッフデータが空です。サンプルデータを使用します")
-              setStaffData(sampleStaffData)
-            }
-          } catch (staffQueryError) {
-            console.error("スタッフクエリエラー:", staffQueryError)
-            console.log("サンプルデータを使用します")
-            setStaffData(sampleStaffData)
-            setDebugInfo((prev) => ({
-              ...prev,
-              queryError: staffQueryError instanceof Error ? staffQueryError.message : "不明なエラー",
-            }))
-          }
-
-          // 同様にリソースデータも改善（サンプルデータを用意）
-          const sampleResourceData = [
-            {
-              id: "1",
-              name: "クレーンA",
-              type: "重機",
-            },
-            {
-              id: "2",
-              name: "ダンプトラックB",
-              type: "車両",
-            },
-            {
-              id: "3",
-              name: "発電機C",
-              type: "工具",
-            },
-          ]
-
-          try {
-            const { data: resourceData, error: resourceError } = await supabase
-              .from("resources")
-              .select("*")
-              .order("name", { ascending: true })
-
-            if (resourceError) {
-              console.warn("リソース取得エラー:", resourceError)
-              setResourceData(sampleResourceData)
-            } else if (resourceData && resourceData.length > 0) {
-              setResourceData(resourceData)
-            } else {
-              setResourceData(sampleResourceData)
-            }
-          } catch (resourceQueryError) {
-            console.error("リソースクエリエラー:", resourceQueryError)
-            setResourceData(sampleResourceData)
-          }
-
-          // 重機データのサンプル
-          const sampleHeavyData = [
-            {
-              id: "1",
-              name: "バックホウA",
-              type: "掘削機",
-            },
-            {
-              id: "2",
-              name: "ブルドーザーB",
-              type: "整地機",
-            },
-          ]
-
-          try {
-            const { data: heavyData, error: heavyError } = await supabase
-              .from("heavy_machinery")
-              .select("*")
-              .order("name", { ascending: true })
-
-            if (heavyError) {
-              setHeavyMachineryData(sampleHeavyData)
-            } else if (heavyData && heavyData.length > 0) {
-              setHeavyMachineryData(heavyData)
-            } else {
-              setHeavyMachineryData(sampleHeavyData)
-            }
-          } catch (error) {
-            setHeavyMachineryData(sampleHeavyData)
-          }
-
-          // 車両データのサンプル
-          const sampleVehicleData = [
-            {
-              id: "1",
-              name: "トラックA",
-              type: "4t車",
-            },
-            {
-              id: "2",
-              name: "軽トラックB",
-              type: "軽自動車",
-            },
-          ]
-
-          try {
-            const { data: vehicleData, error: vehicleError } = await supabase
-              .from("vehicles")
-              .select("*")
-              .order("name", { ascending: true })
-
-            if (vehicleError) {
-              setVehicleData(sampleVehicleData)
-            } else if (vehicleData && vehicleData.length > 0) {
-              setVehicleData(vehicleData)
-            } else {
-              setVehicleData(sampleVehicleData)
-            }
-          } catch (error) {
-            setVehicleData(sampleVehicleData)
-          }
-
-          // 備品データのサンプル
-          const sampleToolData = [
-            {
-              id: "1",
-              name: "電動ドリルA",
-              storage_location: "倉庫1",
-            },
-            {
-              id: "2",
-              name: "チェーンソーB",
-              storage_location: "倉庫2",
-            },
-          ]
-
-          try {
-            const { data: toolData, error: toolError } = await supabase
-              .from("tools")
-              .select("*")
-              .order("name", { ascending: true })
-
-            if (toolError) {
-              setToolData(sampleToolData)
-            } else if (toolData && toolData.length > 0) {
-              setToolData(toolData)
-            } else {
-              setToolData(sampleToolData)
-            }
-          } catch (error) {
-            setToolData(sampleToolData)
-          }
-        } catch (error) {
-          console.error("データ読み込みエラー:", error)
-          toast({
-            title: "データ読み込みエラー",
-            description: error instanceof Error ? error.message : "データの読み込みに失敗しました",
-            variant: "destructive",
-          })
-
-          // エラー時にもサンプルデータを設定
-          setStaffData([
-            {
-              id: "1",
-              full_name: "山田太郎",
-              position: "現場監督",
-              email: "yamada@example.com",
-            },
-            {
-              id: "2",
-              full_name: "佐藤次郎",
-              position: "作業員",
-              email: "sato@example.com",
-            },
-          ])
-
-          setDebugInfo((prev) => ({
-            ...prev,
-            loadError: error instanceof Error ? error.message : "不明なエラー",
-          }))
-        } finally {
-          setDataLoading(false)
-        }
-      }
+  // 保存ボタンをクリックしたときのハンドラ
+  const handleSave = () => {
+    if (!title || !startDate || !endDate) {
+      alert("タイトル、開始日、終了日は必須です")
+      return
     }
 
-    loadData()
-  }, [open, toast])
+    // 開始日時と終了日時を作成
+    const start = new Date(`${startDate}T${startTime || "00:00"}`)
+    const end = new Date(`${endDate}T${endTime || "23:59"}`)
 
-  // Format date for input field (YYYY-MM-DD)
-  const formatDateForInput = useCallback((date: Date) => {
-    return date.toISOString().split("T")[0]
-  }, [])
+    // 終了日が開始日より前の場合はエラー
+    if (end < start) {
+      alert("終了日時は開始日時より後にしてください")
+      return
+    }
 
-  // Format time for input field (HH:MM)
-  const formatTimeForInput = useCallback((date: Date) => {
-    return date.toTimeString().slice(0, 5)
-  }, [])
+    // イベントデータを作成
+    const updatedEvent: CalendarEvent = {
+      id: eventData?.id || 0,
+      title,
+      start,
+      end,
+      description,
+      projectId: selectedProject ? Number(selectedProject) : undefined,
+      staffIds: selectedStaff.length > 0 ? selectedStaff : undefined,
+      toolIds: selectedTools.length > 0 ? selectedTools : undefined,
+      allDay: isAllDay,
+    }
 
-  // Filter staff based on search
-  const filteredStaff = useMemo(() => {
-    if (dataLoading) return []
+    // 新規作成または更新
+    if (eventData?.id === 0 || !eventData?.id) {
+      if (onEventAdd) onEventAdd(updatedEvent)
+    } else {
+      if (onEventUpdate) onEventUpdate(updatedEvent)
+    }
 
-    const staffToFilter = staffData.length > 0 ? staffData : staff
-    const lowerSearchTerm = searchStaff.toLowerCase()
+    // ダイアログを閉じる
+    onOpenChange(false)
+  }
 
-    return staffToFilter.filter(
-      (s) => s.name?.toLowerCase().includes(lowerSearchTerm) || s.full_name?.toLowerCase().includes(lowerSearchTerm),
-    )
-  }, [dataLoading, staffData, staff, searchStaff])
-
-  // Filter resources based on search
-  const filteredResources = useMemo(() => {
-    if (dataLoading) return []
-
-    const resourcesToFilter = resourceData.length > 0 ? resourceData : resources
-    const lowerSearchTerm = searchResources.toLowerCase()
-
-    return resourcesToFilter.filter((r) => r.name?.toLowerCase().includes(lowerSearchTerm))
-  }, [dataLoading, resourceData, resources, searchResources])
-
-  // Filter heavy machinery based on search
-  const filteredHeavyMachinery = useMemo(() => {
-    if (dataLoading) return []
-
-    const lowerSearchTerm = searchHeavyMachinery.toLowerCase()
-
-    return heavyMachineryData.filter(
-      (h) => h.name?.toLowerCase().includes(lowerSearchTerm) || h.type?.toLowerCase().includes(lowerSearchTerm),
-    )
-  }, [dataLoading, heavyMachineryData, searchHeavyMachinery])
-
-  // Filter vehicles based on search
-  const filteredVehicles = useMemo(() => {
-    if (dataLoading) return []
-
-    const lowerSearchTerm = searchVehicles.toLowerCase()
-
-    return vehicleData.filter(
-      (v) => v.name?.toLowerCase().includes(lowerSearchTerm) || v.type?.toLowerCase().includes(lowerSearchTerm),
-    )
-  }, [dataLoading, vehicleData, searchVehicles])
-
-  // Filter tools based on search
-  const filteredTools = useMemo(() => {
-    if (dataLoading) return []
-
-    const lowerSearchTerm = searchTools.toLowerCase()
-
-    return toolData.filter(
-      (t) =>
-        t.name?.toLowerCase().includes(lowerSearchTerm) || t.storage_location?.toLowerCase().includes(lowerSearchTerm),
-    )
-  }, [dataLoading, toolData, searchTools])
-
-  // Handle form submission
-  const handleSubmit = async () => {
-    try {
-      setIsLoading(true)
-
-      // Create start and end dates from the form inputs
-      const start = new Date(`${startDate}T${startTime}`)
-      const end = new Date(`${endDate}T${endTime}`)
-
-      // Determine event type based on selections
-      let eventType: "project" | "staff" | "tool" | "general" = "general"
-      if (selectedProject) eventType = "project"
-      if (selectedStaff.length > 0) eventType = "staff"
-      if (selectedResources.length > 0) eventType = "tool"
-
-      if (isNewEvent) {
-        // Create new event
-        const result = await createMultipleAssignmentEvent({
-          title,
-          start_time: start,
-          end_time: end,
-          notes: description,
-          project_id: selectedProject || undefined,
-          staff_ids: selectedStaff.length > 0 ? selectedStaff : undefined,
-          resource_ids: selectedResources.length > 0 ? selectedResources : undefined,
-          heavy_machinery_ids: selectedHeavyMachinery.length > 0 ? selectedHeavyMachinery : undefined,
-          vehicle_ids: selectedVehicles.length > 0 ? selectedVehicles : undefined,
-          tool_ids: selectedTools.length > 0 ? selectedTools : undefined,
-          event_type: eventType,
-        })
-
-        if (!result.success) {
-          throw new Error(result.error || "イベントの作成に失敗しました")
-        }
-
-        toast({
-          title: "イベントを作成しました",
-          description: "カレンダーに新しいイベントが追加されました",
-        })
-
-        if (onEventAdd) {
-          onEventAdd({
-            id: result.id,
-            title,
-            start,
-            end,
-            description,
-            project_id: selectedProject,
-            staff_ids: selectedStaff,
-            resource_ids: selectedResources,
-          })
-        }
-      } else {
-        // Update existing event
-        const result = await updateCalendarEvent(eventData.id, {
-          title,
-          start_time: start,
-          end_time: end,
-          notes: description,
-          project_id: selectedProject || null,
-          staff_id: selectedStaff[0] || null,
-          resource_id: selectedResources[0] || null,
-          event_type: eventType,
-        })
-
-        if (!result.success) {
-          throw new Error(result.error || "イベントの更新に失敗しました")
-        }
-
-        toast({
-          title: "イベントを更新しました",
-          description: "カレンダーのイベントが更新されました",
-        })
-
-        if (onEventUpdate) {
-          onEventUpdate({
-            ...eventData,
-            title,
-            start,
-            end,
-            description,
-            project_id: selectedProject,
-            staff_id: selectedStaff[0],
-            resource_id: selectedResources[0],
-          })
-        }
+  // 削除ボタンをクリックしたときのハンドラ
+  const handleDelete = () => {
+    if (eventData?.id && eventData.id > 0) {
+      if (window.confirm("このイベントを削除してもよろしいですか？")) {
+        if (onEventDelete) onEventDelete(eventData.id)
+        onOpenChange(false)
       }
-
-      onOpenChange(false)
-    } catch (error) {
-      console.error("イベント保存エラー:", error)
-      toast({
-        title: "エラー",
-        description: error instanceof Error ? error.message : "不明なエラーが発生しました",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
     }
   }
 
-  // Handle event deletion
-  const handleDelete = async () => {
-    try {
-      setIsLoading(true)
-
-      if (!isNewEvent && eventData?.id) {
-        const result = await deleteCalendarEvent(eventData.id)
-
-        if (!result.success) {
-          throw new Error(result.error || "イベントの削除に失敗しました")
-        }
-
-        toast({
-          title: "イベントを削除しました",
-          description: "カレンダーからイベントが削除されました",
-        })
-
-        if (onEventDelete) {
-          onEventDelete(eventData.id)
-        }
-      }
-
-      onOpenChange(false)
-    } catch (error) {
-      console.error("イベント削除エラー:", error)
-      toast({
-        title: "エラー",
-        description: error instanceof Error ? error.message : "不明なエラーが発生しました",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Handle staff selection
-  const handleStaffChange = useCallback((staffId: string, checked: boolean) => {
+  // スタッフの選択状態を切り替えるハンドラ
+  const toggleStaffSelection = (staffId: string) => {
     setSelectedStaff((prev) => {
-      if (checked) {
-        return [...prev, staffId]
-      } else {
+      if (prev.includes(staffId)) {
         return prev.filter((id) => id !== staffId)
-      }
-    })
-  }, [])
-
-  // Handle resource selection
-  const handleResourceChange = useCallback((resourceId: string, checked: boolean) => {
-    setSelectedResources((prev) => {
-      if (checked) {
-        return [...prev, resourceId]
       } else {
-        return prev.filter((id) => id !== resourceId)
+        return [...prev, staffId]
       }
     })
-  }, [])
+  }
 
-  // Handle heavy machinery selection
-  const handleHeavyMachineryChange = useCallback((id: string, checked: boolean) => {
-    setSelectedHeavyMachinery((prev) => {
-      if (checked) {
-        return [...prev, id]
-      } else {
-        return prev.filter((itemId) => itemId !== id)
-      }
-    })
-  }, [])
-
-  // Handle vehicle selection
-  const handleVehicleChange = useCallback((id: string, checked: boolean) => {
-    setSelectedVehicles((prev) => {
-      if (checked) {
-        return [...prev, id]
-      } else {
-        return prev.filter((itemId) => itemId !== id)
-      }
-    })
-  }, [])
-
-  // Handle tool selection
-  const handleToolChange = useCallback((id: string, checked: boolean) => {
+  // ツールの選択状態を切り替えるハンドラ
+  const toggleToolSelection = (toolId: string) => {
     setSelectedTools((prev) => {
-      if (checked) {
-        return [...prev, id]
+      if (prev.includes(toolId)) {
+        return prev.filter((id) => id !== toolId)
       } else {
-        return prev.filter((itemId) => itemId !== id)
+        return [...prev, toolId]
       }
     })
-  }, [])
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>{isNewEvent ? "新規予定作成" : "予定の編集"}</DialogTitle>
-          <DialogDescription>
-            {isNewEvent
-              ? "カレンダーに新しい予定を追加します。必要な情報を入力してください。"
-              : "既存の予定を編集します。変更したい情報を更新してください。"}
-          </DialogDescription>
+          <DialogTitle>{eventData?.id && eventData.id > 0 ? "イベントを編集" : "新規イベント"}</DialogTitle>
         </DialogHeader>
-
-        {debugInfo && showDebugInfo && (
-          <Alert className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>デバッグ情報</AlertTitle>
-            <AlertDescription>
-              <pre className="text-xs overflow-auto max-h-40 mt-2">{JSON.stringify(debugInfo, null, 2)}</pre>
-            </AlertDescription>
-          </Alert>
-        )}
-
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="title" className="text-right">
@@ -723,304 +179,134 @@ export function StaffAssignmentDialog({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="col-span-3"
-              placeholder="予定のタイトルを入力"
+              required
             />
           </div>
-
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="project" className="text-right">
-              案件
-            </Label>
-            <Select value={selectedProject} onValueChange={setSelectedProject}>
-              <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="案件を選択" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="no-project">案件なし</SelectItem>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    <div className="flex items-center">
-                      <Briefcase className="mr-2 h-4 w-4" />
-                      <span>{project.name}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="start-date" className="text-right">
-              開始日時
-            </Label>
-            <div className="col-span-3 flex gap-2">
-              <div className="flex-1">
-                <Input id="start-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-              </div>
-              <div className="flex-1">
-                <Input id="start-time" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="end-date" className="text-right">
-              終了日時
-            </Label>
-            <div className="col-span-3 flex gap-2">
-              <div className="flex-1">
-                <Input id="end-date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-              </div>
-              <div className="flex-1">
-                <Input id="end-time" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-              </div>
-            </div>
-          </div>
-
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="staff">スタッフ</TabsTrigger>
-              <TabsTrigger value="resources">資材</TabsTrigger>
-              <TabsTrigger value="heavy">重機</TabsTrigger>
-              <TabsTrigger value="vehicles">車両</TabsTrigger>
-              <TabsTrigger value="tools">備品</TabsTrigger>
-            </TabsList>
-            <TabsContent value="staff" className="border rounded-md p-4">
-              <div className="mb-4">
-                <Input
-                  placeholder="スタッフを検索"
-                  value={searchStaff}
-                  onChange={(e) => setSearchStaff(e.target.value)}
-                />
-              </div>
-              <ScrollArea className="h-[200px]">
-                {dataLoading ? (
-                  <div className="flex flex-col items-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin mb-2" />
-                    <span>スタッフデータを読み込み中...</span>
-                  </div>
-                ) : (
-                  <>
-                    {filteredStaff.length > 0 ? (
-                      <div className="space-y-2">
-                        {filteredStaff.map((s) => (
-                          <div key={s.id} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`staff-${s.id}`}
-                              checked={selectedStaff.includes(s.id)}
-                              onCheckedChange={(checked) => handleStaffChange(s.id, checked as boolean)}
-                            />
-                            <Label htmlFor={`staff-${s.id}`} className="flex-1">
-                              {s.full_name || s.name} {s.position && `(${s.position})`}
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-4 text-muted-foreground">
-                        検索条件に一致するスタッフが見つかりません
-                      </div>
-                    )}
-                  </>
-                )}
-              </ScrollArea>
-            </TabsContent>
-            <TabsContent value="resources" className="border rounded-md p-4">
-              <div className="mb-4">
-                <Input
-                  placeholder="機材を検索"
-                  value={searchResources}
-                  onChange={(e) => setSearchResources(e.target.value)}
-                />
-              </div>
-              <ScrollArea className="h-[200px]">
-                {dataLoading ? (
-                  <div className="flex flex-col items-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin mb-2" />
-                    <span>機材データを読み込み中...</span>
-                  </div>
-                ) : (
-                  <>
-                    {filteredResources.length > 0 ? (
-                      <div className="space-y-2">
-                        {filteredResources.map((r) => (
-                          <div key={r.id} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`resource-${r.id}`}
-                              checked={selectedResources.includes(r.id)}
-                              onCheckedChange={(checked) => handleResourceChange(r.id, checked as boolean)}
-                            />
-                            <Label htmlFor={`resource-${r.id}`} className="flex-1">
-                              {r.name} {r.type && `(${r.type})`}
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-4 text-muted-foreground">
-                        検索条件に一致する機材が見つかりません
-                      </div>
-                    )}
-                  </>
-                )}
-              </ScrollArea>
-            </TabsContent>
-            <TabsContent value="heavy" className="border rounded-md p-4">
-              <div className="mb-4">
-                <Input
-                  placeholder="重機を検索"
-                  value={searchHeavyMachinery}
-                  onChange={(e) => setSearchHeavyMachinery(e.target.value)}
-                />
-              </div>
-              <ScrollArea className="h-[200px]">
-                {dataLoading ? (
-                  <div className="flex flex-col items-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin mb-2" />
-                    <span>重機データを読み込み中...</span>
-                  </div>
-                ) : (
-                  <>
-                    {filteredHeavyMachinery.length > 0 ? (
-                      <div className="space-y-2">
-                        {filteredHeavyMachinery.map((h) => (
-                          <div key={h.id} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`heavy-${h.id}`}
-                              checked={selectedHeavyMachinery.includes(h.id)}
-                              onCheckedChange={(checked) => handleHeavyMachineryChange(h.id, checked as boolean)}
-                            />
-                            <Label htmlFor={`heavy-${h.id}`} className="flex-1">
-                              {h.name} {h.type && `(${h.type})`}
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-4 text-muted-foreground">
-                        検索条件に一致する重機が見つかりません
-                      </div>
-                    )}
-                  </>
-                )}
-              </ScrollArea>
-            </TabsContent>
-            <TabsContent value="vehicles" className="border rounded-md p-4">
-              <div className="mb-4">
-                <Input
-                  placeholder="車両を検索"
-                  value={searchVehicles}
-                  onChange={(e) => setSearchVehicles(e.target.value)}
-                />
-              </div>
-              <ScrollArea className="h-[200px]">
-                {dataLoading ? (
-                  <div className="flex flex-col items-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin mb-2" />
-                    <span>車両データを読み込み中...</span>
-                  </div>
-                ) : (
-                  <>
-                    {filteredVehicles.length > 0 ? (
-                      <div className="space-y-2">
-                        {filteredVehicles.map((v) => (
-                          <div key={v.id} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`vehicle-${v.id}`}
-                              checked={selectedVehicles.includes(v.id)}
-                              onCheckedChange={(checked) => handleVehicleChange(v.id, checked as boolean)}
-                            />
-                            <Label htmlFor={`vehicle-${v.id}`} className="flex-1">
-                              {v.name} {v.type && `(${v.type})`}
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-4 text-muted-foreground">
-                        検索条件に一致する車両が見つかりません
-                      </div>
-                    )}
-                  </>
-                )}
-              </ScrollArea>
-            </TabsContent>
-            <TabsContent value="tools" className="border rounded-md p-4">
-              <div className="mb-4">
-                <Input placeholder="備品を検索" value={searchTools} onChange={(e) => setSearchTools(e.target.value)} />
-              </div>
-              <ScrollArea className="h-[200px]">
-                {dataLoading ? (
-                  <div className="flex flex-col items-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin mb-2" />
-                    <span>備品データを読み込み中...</span>
-                  </div>
-                ) : (
-                  <>
-                    {filteredTools.length > 0 ? (
-                      <div className="space-y-2">
-                        {filteredTools.map((t) => (
-                          <div key={t.id} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`tool-${t.id}`}
-                              checked={selectedTools.includes(t.id)}
-                              onCheckedChange={(checked) => handleToolChange(t.id, checked as boolean)}
-                            />
-                            <Label htmlFor={`tool-${t.id}`} className="flex-1">
-                              {t.name} {t.storage_location && `(${t.storage_location})`}
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-4 text-muted-foreground">
-                        検索条件に一致する備品が見つかりません
-                      </div>
-                    )}
-                  </>
-                )}
-              </ScrollArea>
-            </TabsContent>
-          </Tabs>
-
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="description" className="text-right">
-              詳細
+              説明
             </Label>
             <Textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="col-span-3"
-              placeholder="予定の詳細を入力"
             />
           </div>
-        </div>
-        <DialogFooter className="flex items-center justify-between">
-          <div className="flex items-center">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowDebugInfo(!showDebugInfo)}
-              className="text-xs text-muted-foreground"
-            >
-              {showDebugInfo ? "デバッグ情報を隠す" : "デバッグ情報を表示"}
-            </Button>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="project" className="text-right">
+              プロジェクト
+            </Label>
+            <Select value={selectedProject} onValueChange={setSelectedProject}>
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="プロジェクトを選択" />
+              </SelectTrigger>
+              <SelectContent>
+                {sampleProjects.map((project) => (
+                  <SelectItem key={project.id} value={project.id.toString()}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <div className="flex gap-2">
-            {!isNewEvent && (
-              <Button variant="destructive" onClick={handleDelete} disabled={isLoading}>
-                {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label className="text-right pt-2">スタッフ</Label>
+            <div className="col-span-3 grid grid-cols-2 gap-2">
+              {sampleStaff.map((staff) => (
+                <div key={staff.id} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`staff-${staff.id}`}
+                    checked={selectedStaff.includes(staff.id)}
+                    onCheckedChange={() => toggleStaffSelection(staff.id)}
+                  />
+                  <Label htmlFor={`staff-${staff.id}`}>{staff.name}</Label>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label className="text-right pt-2">機材</Label>
+            <div className="col-span-3 grid grid-cols-2 gap-2">
+              {sampleTools.map((tool) => (
+                <div key={tool.id} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`tool-${tool.id}`}
+                    checked={selectedTools.includes(tool.id.toString())}
+                    onCheckedChange={() => toggleToolSelection(tool.id.toString())}
+                  />
+                  <Label htmlFor={`tool-${tool.id}`}>{tool.name}</Label>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="start-date" className="text-right">
+              開始日
+            </Label>
+            <div className="col-span-3 flex gap-2">
+              <Input
+                id="start-date"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="flex-1"
+                required
+              />
+              <Input
+                id="start-time"
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="w-32"
+                disabled={isAllDay}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="end-date" className="text-right">
+              終了日
+            </Label>
+            <div className="col-span-3 flex gap-2">
+              <Input
+                id="end-date"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="flex-1"
+                required
+              />
+              <Input
+                id="end-time"
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="w-32"
+                disabled={isAllDay}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <div></div>
+            <div className="col-span-3 flex items-center space-x-2">
+              <Checkbox id="all-day" checked={isAllDay} onCheckedChange={(checked) => setIsAllDay(!!checked)} />
+              <Label htmlFor="all-day">終日</Label>
+            </div>
+          </div>
+        </div>
+        <DialogFooter className="flex justify-between">
+          <div>
+            {eventData?.id && eventData.id > 0 && (
+              <Button variant="destructive" onClick={handleDelete}>
                 削除
               </Button>
             )}
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
               キャンセル
             </Button>
-            <Button onClick={handleSubmit} disabled={isLoading}>
-              {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-              保存
-            </Button>
+            <Button onClick={handleSave}>保存</Button>
           </div>
         </DialogFooter>
       </DialogContent>

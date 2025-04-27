@@ -7,7 +7,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { FileText, Shield, Eye, Check, X, Download } from "lucide-react"
-import { format } from "date-fns"
 
 // サンプルデータ
 const sampleReports = [
@@ -241,7 +240,13 @@ export function ReportsList() {
                     </div>
                   </TableCell>
                   <TableCell>{report.projectName}</TableCell>
-                  <TableCell>{format(new Date(report.date), "yyyy/MM/dd")}</TableCell>
+                  <TableCell>
+                    {new Date(report.date).toLocaleDateString("ja-JP", {
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                    })}
+                  </TableCell>
                   <TableCell>{report.createdBy}</TableCell>
                   <TableCell>{getStatusBadge(report.status)}</TableCell>
                   <TableCell className="text-right">

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Plus, Pencil, Trash2, Users, Briefcase, PenToolIcon as Tool } from "lucide-react"
+import { Plus, Pencil, Trash2, Users, Briefcase } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { sampleTools, sampleProjects, sampleStaff } from "@/data/sample-data"
 
@@ -82,10 +82,6 @@ export function ToolList() {
       default:
         return <Badge>{status}</Badge>
     }
-  }
-
-  const getCategoryIcon = (category: string) => {
-    return <Tool className="h-4 w-4 mr-2" />
   }
 
   // ツールに紐づくプロジェクトを取得

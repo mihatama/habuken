@@ -1,319 +1,148 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Plus, Pencil, Trash2 } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { sampleProjects, sampleStaff } from "@/data/sample-data"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
+import { Calendar, momentLocalizer } from "react-big-calendar"
+import moment from "moment"
+import "moment/locale/ja"
+import "react-big-calendar/lib/css/react-big-calendar.css"
 
-// Mock data for shifts
-const initialShifts = [
+// 日本語ロケールを設定
+moment.locale("ja")
+const localizer = momentLocalizer(moment)
+
+// シフトの型定義
+interface Shift {
+  id: number
+  title: string
+  start: Date
+  end: Date
+  staffId: string
+  staffName: string
+  projectId?: number
+  projectName?: string
+}
+
+// サンプルシフトデータ
+const sampleShifts: Shift[] = [
   {
     id: 1,
+    title: "山田太郎: 現場A",
+    start: new Date(2023, 2, 1, 8, 0),
+    end: new Date(2023, 2, 1, 17, 0),
+    staffId: "1",
+    staffName: "山田太郎",
     projectId: 1,
-    staffId: 1,
-    startTime: "08:00",
-    endTime: "17:00",
-    notes: "基礎工事",
+    projectName: "現場A",
   },
   {
     id: 2,
+    title: "佐藤次郎: 現場B",
+    start: new Date(2023, 2, 2, 8, 0),
+    end: new Date(2023, 2, 2, 17, 0),
+    staffId: "2",
+    staffName: "佐藤次郎",
     projectId: 2,
-    staffId: 2,
-    startTime: "09:00",
-    endTime: "18:00",
-    notes: "内装工事",
+    projectName: "現場B",
+  },
+  {
+    id: 3,
+    title: "鈴木三郎: 現場C",
+    start: new Date(2023, 2, 3, 8, 0),
+    end: new Date(2023, 2, 3, 17, 0),
+    staffId: "3",
+    staffName: "鈴木三郎",
+    projectId: 3,
+    projectName: "現場C",
   },
 ]
 
 export function ShiftManagement() {
-  const [shifts, setShifts] = useState(initialShifts)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [currentShift, setCurrentShift] = useState<any>(null)
-  const [newShift, setNewShift] = useState({
-    projectId: "",
-    staffId: "",
-    startTime: "",
-    endTime: "",
-    notes: "",
-  })
+  const [shifts, setShifts] = useState<Shift[]>(sampleShifts)
+  const [viewMode, setViewMode] = useState<"month" | "week" | "day" | "agenda">("week")
+  const [currentDate, setCurrentDate] = useState(new Date())
 
-  const filteredShifts = shifts.filter(
-    (shift) =>
-      sampleProjects
-        .find((project) => project.id === shift.projectId)
-        ?.name.toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      sampleStaff
-        .find((staff) => staff.id === shift.staffId)
-        ?.name.toLowerCase()
-        .includes(searchTerm.toLowerCase()),
-  )
+  // イベントのスタイルをカスタマイズ
+  const eventStyleGetter = (event: Shift) => {
+    // スタッフIDに基づいて色を変更
+    let backgroundColor = "#3174ad"
 
-  const handleAddShift = () => {
-    const shift = {
-      id: shifts.length + 1,
-      projectId: Number.parseInt(newShift.projectId),
-      staffId: Number.parseInt(newShift.staffId),
-      startTime: newShift.startTime,
-      endTime: newShift.endTime,
-      notes: newShift.notes,
+    if (event.staffId) {
+      const staffIndex = Number.parseInt(event.staffId) % 5
+      const colors = ["#3174ad", "#ff8c00", "#008000", "#9932cc", "#ff4500"]
+      backgroundColor = colors[staffIndex]
     }
 
-    setShifts([...shifts, shift])
-    setNewShift({
-      projectId: "",
-      staffId: "",
-      startTime: "",
-      endTime: "",
-      notes: "",
-    })
-    setIsAddDialogOpen(false)
-  }
-
-  const handleEditShift = () => {
-    const updatedShifts = shifts.map((shift) => (shift.id === currentShift.id ? currentShift : shift))
-    setShifts(updatedShifts)
-    setIsEditDialogOpen(false)
-  }
-
-  const handleDeleteShift = (id: number) => {
-    setShifts(shifts.filter((shift) => shift.id !== id))
+    return {
+      style: {
+        backgroundColor,
+        borderRadius: "4px",
+        opacity: 0.8,
+        color: "white",
+        border: "0px",
+        display: "block",
+      },
+    }
   }
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="pb-3">
         <CardTitle>シフト管理</CardTitle>
-        <div className="flex items-center space-x-2">
-          <Input
-            placeholder="検索..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-[250px]"
-          />
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                新規シフト
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>新規シフトの追加</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="projectId">案件</Label>
-                  <Select
-                    value={newShift.projectId}
-                    onValueChange={(value) => setNewShift({ ...newShift, projectId: value })}
-                  >
-                    <SelectTrigger id="projectId">
-                      <SelectValue placeholder="案件を選択" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sampleProjects.map((project) => (
-                        <SelectItem key={project.id} value={project.id.toString()}>
-                          {project.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="staffId">スタッフ</Label>
-                  <Select
-                    value={newShift.staffId}
-                    onValueChange={(value) => setNewShift({ ...newShift, staffId: value })}
-                  >
-                    <SelectTrigger id="staffId">
-                      <SelectValue placeholder="スタッフを選択" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sampleStaff.map((staff) => (
-                        <SelectItem key={staff.id} value={staff.id.toString()}>
-                          {staff.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="startTime">開始時間</Label>
-                    <Input
-                      id="startTime"
-                      type="time"
-                      value={newShift.startTime}
-                      onChange={(e) => setNewShift({ ...newShift, startTime: e.target.value })}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="endTime">終了時間</Label>
-                    <Input
-                      id="endTime"
-                      type="time"
-                      value={newShift.endTime}
-                      onChange={(e) => setNewShift({ ...newShift, endTime: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="notes">備考</Label>
-                  <Input
-                    id="notes"
-                    value={newShift.notes}
-                    onChange={(e) => setNewShift({ ...newShift, notes: e.target.value })}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit" onClick={handleAddShift}>
-                  追加
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>案件</TableHead>
-              <TableHead>スタッフ</TableHead>
-              <TableHead>開始時間</TableHead>
-              <TableHead>終了時間</TableHead>
-              <TableHead>備考</TableHead>
-              <TableHead className="text-right">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredShifts.map((shift) => (
-              <TableRow key={shift.id}>
-                <TableCell>{sampleProjects.find((project) => project.id === shift.projectId)?.name}</TableCell>
-                <TableCell>{sampleStaff.find((staff) => staff.id === shift.staffId)?.name}</TableCell>
-                <TableCell>{shift.startTime}</TableCell>
-                <TableCell>{shift.endTime}</TableCell>
-                <TableCell>{shift.notes}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end space-x-2">
-                    <Dialog
-                      open={isEditDialogOpen && currentShift?.id === shift.id}
-                      onOpenChange={(open) => {
-                        setIsEditDialogOpen(open)
-                        if (open) setCurrentShift(shift)
-                      }}
-                    >
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => {
-                            setCurrentShift(shift)
-                            setIsEditDialogOpen(true)
-                          }}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>シフトの編集</DialogTitle>
-                        </DialogHeader>
-                        {currentShift && (
-                          <div className="grid gap-4 py-4">
-                            <div className="grid gap-2">
-                              <Label htmlFor="edit-projectId">案件</Label>
-                              <Select
-                                value={currentShift.projectId}
-                                onValueChange={(value) => setCurrentShift({ ...currentShift, projectId: value })}
-                              >
-                                <SelectTrigger id="edit-projectId">
-                                  <SelectValue placeholder="案件を選択" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {sampleProjects.map((project) => (
-                                    <SelectItem key={project.id} value={project.id}>
-                                      {project.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="grid gap-2">
-                              <Label htmlFor="edit-staffId">スタッフ</Label>
-                              <Select
-                                value={currentShift.staffId}
-                                onValueChange={(value) => setCurrentShift({ ...currentShift, staffId: value })}
-                              >
-                                <SelectTrigger id="edit-staffId">
-                                  <SelectValue placeholder="スタッフを選択" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {sampleStaff.map((staff) => (
-                                    <SelectItem key={staff.id} value={staff.id}>
-                                      {staff.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="grid gap-2">
-                                <Label htmlFor="edit-startTime">開始時間</Label>
-                                <Input
-                                  id="edit-startTime"
-                                  type="time"
-                                  value={currentShift.startTime}
-                                  onChange={(e) => setCurrentShift({ ...currentShift, startTime: e.target.value })}
-                                />
-                              </div>
-                              <div className="grid gap-2">
-                                <Label htmlFor="edit-endTime">終了時間</Label>
-                                <Input
-                                  id="edit-endTime"
-                                  type="time"
-                                  value={currentShift.endTime}
-                                  onChange={(e) => setCurrentShift({ ...currentShift, endTime: e.target.value })}
-                                />
-                              </div>
-                            </div>
-                            <div className="grid gap-2">
-                              <Label htmlFor="edit-notes">備考</Label>
-                              <Input
-                                id="edit-notes"
-                                value={currentShift.notes}
-                                onChange={(e) => setCurrentShift({ ...currentShift, notes: e.target.value })}
-                              />
-                            </div>
-                          </div>
-                        )}
-                        <DialogFooter>
-                          <Button type="submit" onClick={handleEditShift}>
-                            保存
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                    <Button variant="outline" size="icon" onClick={() => handleDeleteShift(shift.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center gap-2">
+            <Tabs value={viewMode} onValueChange={(value: any) => setViewMode(value)}>
+              <TabsList>
+                <TabsTrigger value="month">月表示</TabsTrigger>
+                <TabsTrigger value="week">週表示</TabsTrigger>
+                <TabsTrigger value="day">日表示</TabsTrigger>
+                <TabsTrigger value="agenda">リスト</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>
+              今日
+            </Button>
+          </div>
+
+          <Button variant="default" size="sm">
+            シフト追加
+          </Button>
+        </div>
+
+        <div style={{ height: 700 }}>
+          <Calendar
+            localizer={localizer}
+            events={shifts}
+            startAccessor="start"
+            endAccessor="end"
+            style={{ height: "100%" }}
+            views={["month", "week", "day", "agenda"]}
+            view={viewMode}
+            onView={(view) => setViewMode(view as any)}
+            date={currentDate}
+            onNavigate={(date) => setCurrentDate(date)}
+            eventPropGetter={eventStyleGetter}
+            messages={{
+              today: "今日",
+              previous: "前へ",
+              next: "次へ",
+              month: "月",
+              week: "週",
+              day: "日",
+              agenda: "リスト",
+              date: "日付",
+              time: "時間",
+              event: "イベント",
+              allDay: "終日",
+              showMore: (total) => `他 ${total} 件`,
+            }}
+          />
+        </div>
       </CardContent>
     </Card>
   )

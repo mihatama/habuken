@@ -1,69 +1,75 @@
 import type React from "react"
+import { cn } from "@/lib/utils"
 
-type PreviewContainerProps = {
+// PreviewContainer props
+interface PreviewContainerProps {
   title: string
   children: React.ReactNode
   className?: string
 }
 
-export function PreviewContainer({ title, children, className }: PreviewContainerProps) {
-  return (
-    <div className="mt-8 border-t pt-6">
-      <h3 className="text-lg font-medium mb-4">プレビュー</h3>
-      <div className={`border rounded-md p-4 bg-white ${className || ""}`}>
-        <div className="text-center text-2xl font-bold mb-4">{title}</div>
-        {children}
-      </div>
-    </div>
-  )
-}
-
-type PreviewSectionProps = {
+// PreviewSection props
+interface PreviewSectionProps {
   children: React.ReactNode
   className?: string
 }
 
-export function PreviewSection({ children, className }: PreviewSectionProps) {
-  return <div className={`border border-gray-300 ${className || ""}`}>{children}</div>
-}
-
-type PreviewHeaderProps = {
+// PreviewHeader props
+interface PreviewHeaderProps {
   title: string
-  value: React.ReactNode
+  value: string
   colSpan?: number
   className?: string
 }
 
+// PreviewTable props
+interface PreviewTableProps {
+  headers: string[]
+  children: React.ReactNode
+  className?: string
+}
+
+// PreviewContainer component
+export function PreviewContainer({ title, children, className }: PreviewContainerProps) {
+  return (
+    <div className={cn("border rounded-md", className)}>
+      <div className="border-b p-4 bg-gray-50">
+        <h3 className="text-lg font-medium">{title}</h3>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+// PreviewSection component
+export function PreviewSection({ children, className }: PreviewSectionProps) {
+  return <div className={cn("", className)}>{children}</div>
+}
+
+// PreviewHeader component
 export function PreviewHeader({ title, value, colSpan = 1, className }: PreviewHeaderProps) {
   return (
-    <div className={`col-span-${colSpan} p-2 ${className || ""}`}>
+    <div className={cn("p-2", className)} style={{ gridColumn: `span ${colSpan} / span ${colSpan}` }}>
       <div className="font-bold">{title}</div>
       <div>{value}</div>
     </div>
   )
 }
 
-type PreviewTableProps = {
-  headers: string[]
-  children: React.ReactNode
-  className?: string
-}
-
+// PreviewTable component
 export function PreviewTable({ headers, children, className }: PreviewTableProps) {
   return (
-    <div className={`border-b border-gray-300 ${className || ""}`}>
-      <table className="w-full border-collapse">
-        <thead>
-          <tr>
-            {headers.map((header, index) => (
-              <th key={index} className="border-r border-b border-gray-300 p-2">
-                {header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>{children}</tbody>
-      </table>
-    </div>
+    <table className={cn("w-full border-collapse", className)}>
+      <thead>
+        <tr>
+          {headers.map((header, index) => (
+            <th key={index} className="border-r border-b border-gray-300 p-2 text-left font-medium">
+              {header}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>{children}</tbody>
+    </table>
   )
 }

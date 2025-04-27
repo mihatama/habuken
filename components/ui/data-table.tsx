@@ -1,25 +1,27 @@
 "use client"
 
 import type React from "react"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Plus, Trash2 } from "lucide-react"
 
-type DataTableProps<T> = {
+// DataTable props
+interface DataTableProps<T> {
   data: T[]
   columns: {
     header: string
-    accessor: keyof T | ((item: T) => React.ReactNode)
+    accessor: (item: T, index: number) => React.ReactNode
     className?: string
   }[]
-  onAdd?: () => void
-  onDelete?: (id: string | number) => void
-  getRowId: (item: T) => string | number
+  onAdd: () => void
+  onDelete: (id: any) => void
+  getRowId: (item: T) => any
   addButtonLabel?: string
   isDeleteDisabled?: (item: T) => boolean
   className?: string
 }
 
+// DataTable component
 export function DataTable<T>({
   data,
   columns,
@@ -31,18 +33,8 @@ export function DataTable<T>({
   className,
 }: DataTableProps<T>) {
   return (
-    <div className={`border rounded-md p-4 ${className || ""}`}>
-      {onAdd && (
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-medium">データ一覧</h3>
-          <Button onClick={onAdd} size="sm">
-            <Plus className="h-4 w-4 mr-1" />
-            {addButtonLabel}
-          </Button>
-        </div>
-      )}
-
-      <div className="overflow-x-auto">
+    <div className={className}>
+      <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -51,37 +43,36 @@ export function DataTable<T>({
                   {column.header}
                 </TableHead>
               ))}
-              {onDelete && <TableHead className="w-20">操作</TableHead>}
+              <TableHead className="w-[80px]">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.map((item) => (
+            {data.map((item, rowIndex) => (
               <TableRow key={getRowId(item)}>
-                {columns.map((column, index) => (
-                  <TableCell key={index} className={column.className}>
-                    {typeof column.accessor === "function"
-                      ? column.accessor(item)
-                      : (item[column.accessor] as React.ReactNode)}
+                {columns.map((column, colIndex) => (
+                  <TableCell key={colIndex} className={column.className}>
+                    {column.accessor(item, rowIndex)}
                   </TableCell>
                 ))}
-                {onDelete && (
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onDelete(getRowId(item))}
-                      disabled={isDeleteDisabled ? isDeleteDisabled(item) : false}
-                      aria-label="削除"
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </TableCell>
-                )}
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onDelete(getRowId(item))}
+                    disabled={isDeleteDisabled ? isDeleteDisabled(item) : false}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+      <Button variant="outline" size="sm" onClick={onAdd} className="mt-4">
+        <Plus className="mr-2 h-4 w-4" />
+        {addButtonLabel}
+      </Button>
     </div>
   )
 }

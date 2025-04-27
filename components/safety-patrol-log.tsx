@@ -524,7 +524,7 @@ export function SafetyPatrolLog() {
                                       {currentPatrol.photos.length > 0 ? (
                                         currentPatrol.photos.map((photo: string, index: number) => (
                                           <Badge key={index} variant="outline" className="flex items-center gap-1">
-                                            <Image className="h-3 w-3 mr-1" />
+                                            <ImageIcon className="h-3 w-3 mr-1" />
                                             {photo}
                                           </Badge>
                                         ))

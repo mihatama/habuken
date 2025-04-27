@@ -4,9 +4,13 @@ import type * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Calendar, Users, Wrench, Truck, Car, ClipboardList, FileCheck, Briefcase } from "lucide-react"
+import { Calendar, Users, Wrench, Truck, Car, ClipboardList, FileCheck, Briefcase, Settings } from "lucide-react"
 
-export function MainNav({ className, isAdmin, ...props }: React.HTMLAttributes<HTMLElement> & { isAdmin?: boolean }) {
+export function MainNav({
+  className,
+  isAdmin = true,
+  ...props
+}: React.HTMLAttributes<HTMLElement> & { isAdmin?: boolean }) {
   const pathname = usePathname()
 
   return (
@@ -32,10 +36,10 @@ export function MainNav({ className, isAdmin, ...props }: React.HTMLAttributes<H
         <span>案件登録</span>
       </Link>
       <Link
-        href="/staff"
+        href="/master/staff"
         className={cn(
           "flex items-center text-sm font-medium transition-colors hover:text-primary",
-          pathname === "/staff" ? "text-primary" : "text-muted-foreground",
+          pathname === "/master/staff" || pathname === "/staff" ? "text-primary" : "text-muted-foreground",
         )}
       >
         <Users className="w-4 h-4 mr-2" />
@@ -93,13 +97,14 @@ export function MainNav({ className, isAdmin, ...props }: React.HTMLAttributes<H
       </Link>
       {isAdmin && (
         <Link
-          href="/admin/users"
+          href="/settings"
           className={cn(
             "flex items-center text-sm font-medium transition-colors hover:text-primary",
-            pathname === "/admin/users" ? "text-primary" : "text-muted-foreground",
+            pathname === "/settings" ? "text-primary" : "text-muted-foreground",
           )}
         >
-          ユーザー管理
+          <Settings className="w-4 h-4 mr-2" />
+          <span>設定</span>
         </Link>
       )}
     </nav>

@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Check, X, AlertCircle, Calendar, Clock } from "lucide-react"
+import { Plus, Check, X, Calendar, Clock } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -391,7 +391,6 @@ export function LeaveRequestManagement() {
                         )}
                         {request.status === "rejected" && (
                           <Button variant="outline" size="sm" className="text-xs">
-                            <AlertCircle className="h-3 w-3 mr-1" />
                             否認理由を表示
                           </Button>
                         )}

@@ -1,80 +1,58 @@
 "use client"
 
 import type React from "react"
-import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 
-type FormFieldProps = {
+// TextField component props
+interface TextFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   id: string
   label: string
-  required?: boolean
   error?: string
-  children?: React.ReactNode
-}
-
-export function FormField({ id, label, required, error, children }: FormFieldProps) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor={id}>
-        {label} {required && <span className="text-red-500">*</span>}
-      </Label>
-      {children}
-      {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
-    </div>
-  )
-}
-
-type TextFieldProps = {
-  id: string
-  label: string
-  value: string
-  onChange: (value: string) => void
-  placeholder?: string
   required?: boolean
-  error?: string
-  type?: string
-  className?: string
 }
 
-export function TextField({
-  id,
-  label,
-  value,
-  onChange,
-  placeholder,
-  required,
-  error,
-  type = "text",
-  className,
-}: TextFieldProps) {
-  return (
-    <FormField id={id} label={label} required={required} error={error}>
-      <Input
-        id={id}
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={`${error ? "border-red-500" : ""} ${className || ""}`}
-      />
-    </FormField>
-  )
-}
-
-type SelectFieldProps = {
+// SelectField component props
+interface SelectFieldProps {
   id: string
   label: string
   value: string
   onChange: (value: string) => void
   options: { value: string; label: string }[]
   placeholder?: string
-  required?: boolean
   error?: string
+  required?: boolean
   icon?: React.ReactNode
   className?: string
 }
 
+// TextField component
+export function TextField({ id, label, error, required, className, ...props }: TextFieldProps) {
+  return (
+    <div className={cn("grid gap-2", className)}>
+      <Label htmlFor={id} className="flex items-center">
+        {label}
+        {required && <span className="text-red-500 ml-1">*</span>}
+      </Label>
+      <Input
+        id={id}
+        className={cn(error && "border-red-500 focus-visible:ring-red-500")}
+        aria-invalid={!!error}
+        aria-describedby={error ? `${id}-error` : undefined}
+        {...props}
+      />
+      {error && (
+        <p id={`${id}-error`} className="text-sm text-red-500">
+          {error}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// SelectField component
 export function SelectField({
   id,
   label,
@@ -82,20 +60,26 @@ export function SelectField({
   onChange,
   options,
   placeholder,
-  required,
   error,
+  required,
   icon,
   className,
 }: SelectFieldProps) {
   return (
-    <FormField id={id} label={label} required={required} error={error}>
+    <div className={cn("grid gap-2", className)}>
+      <Label htmlFor={id} className="flex items-center">
+        {label}
+        {required && <span className="text-red-500 ml-1">*</span>}
+      </Label>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger
           id={id}
-          className={`${error ? "border-red-500" : ""} ${className || ""} ${icon ? "flex items-center" : ""}`}
+          className={cn(error && "border-red-500 focus-visible:ring-red-500", icon && "pl-8")}
+          aria-invalid={!!error}
+          aria-describedby={error ? `${id}-error` : undefined}
         >
-          {icon}
-          <SelectValue placeholder={placeholder} className={icon ? "ml-2" : ""} />
+          {icon && <span className="absolute left-2.5">{icon}</span>}
+          <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
           {options.map((option) => (
@@ -105,6 +89,11 @@ export function SelectField({
           ))}
         </SelectContent>
       </Select>
-    </FormField>
+      {error && (
+        <p id={`${id}-error`} className="text-sm text-red-500">
+          {error}
+        </p>
+      )}
+    </div>
   )
 }

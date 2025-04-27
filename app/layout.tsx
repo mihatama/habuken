@@ -1,5 +1,5 @@
 import type React from "react"
-import "@/app/globals.css"
+import "./globals.css"
 import type { Metadata } from "next"
 import { Inter, Noto_Serif_JP } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -23,7 +23,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ja" suppressHydrationWarning>
       <body className={`${inter.className} ${notoSerifJP.variable}`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <div className="relative flex min-h-screen flex-col">{children}</div>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

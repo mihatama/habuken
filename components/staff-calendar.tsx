@@ -227,14 +227,16 @@ export function StaffCalendar({
         />
       </div>
 
-      <StaffAssignmentDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        eventData={selectedEvent}
-        onEventAdd={handleEventAdd}
-        onEventUpdate={handleEventUpdate}
-        onEventDelete={handleEventDelete}
-      />
+      {isDialogOpen && (
+        <StaffAssignmentDialog
+          open={isDialogOpen}
+          onOpenChange={setIsDialogOpen}
+          eventData={selectedEvent}
+          onEventAdd={handleEventAdd}
+          onEventUpdate={handleEventUpdate}
+          onEventDelete={handleEventDelete}
+        />
+      )}
     </div>
   )
 }

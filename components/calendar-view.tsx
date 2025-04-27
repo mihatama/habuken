@@ -1,11 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ProjectCalendar } from "@/components/project-calendar"
 import { StaffCalendar } from "@/components/staff-calendar"
-import { ToolCalendar } from "@/components/tool-calendar"
+import { ToolCalendar } from "./tool-calendar"
 
 type CalendarViewProps = {
   activeView?: string
@@ -17,12 +17,9 @@ export function CalendarView({ activeView = "project", timeframe = "month" }: Ca
 
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <CardTitle>カレンダー</CardTitle>
-      </CardHeader>
-      <CardContent>
+      <CardContent className="p-0 sm:p-6">
         <Tabs defaultValue={view} onValueChange={setView}>
-          <TabsList className="mb-4">
+          <TabsList className="mb-4 w-full justify-start">
             <TabsTrigger value="project">案件別</TabsTrigger>
             <TabsTrigger value="staff">スタッフ別</TabsTrigger>
             <TabsTrigger value="machinery">重機</TabsTrigger>

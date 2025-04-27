@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
 export async function middleware(req: NextRequest) {
-  // すべてのリクエストを許可
+  // すべてのリクエストを許可（認証チェックなし）
   return NextResponse.next()
 }
 

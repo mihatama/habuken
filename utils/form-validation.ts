@@ -1,8 +1,24 @@
-import { z } from "zod"
+import * as z from "zod"
 
-export type ValidationErrors = Record<string, string>
+// Define the validation schema for the inspection form
+export const inspectionFormSchema = z.object({
+  projectId: z.string().min(1, { message: "工事名を選択してください" }),
+  date: z.string().min(1, { message: "日付を入力してください" }),
+  inspector: z.string().min(1, { message: "点検者名を入力してください" }),
+  weather: z.string().optional(),
+  generalNotes: z.string().optional(),
+})
 
-export function validateWithSchema<T>(schema: z.ZodType<T>, data: any): { isValid: boolean; errors: ValidationErrors } {
+// Define the ValidationErrors type
+export type ValidationErrors = {
+  [key: string]: string
+}
+
+// Validate data against a schema
+export function validateWithSchema<T>(
+  schema: z.ZodSchema<T>,
+  data: any,
+): { isValid: boolean; errors: ValidationErrors } {
   try {
     schema.parse(data)
     return { isValid: true, errors: {} }
@@ -10,28 +26,13 @@ export function validateWithSchema<T>(schema: z.ZodType<T>, data: any): { isVali
     if (error instanceof z.ZodError) {
       const errors: ValidationErrors = {}
       error.errors.forEach((err) => {
-        if (err.path[0]) {
-          errors[err.path[0].toString()] = err.message
+        if (err.path.length > 0) {
+          const path = err.path[0].toString()
+          errors[path] = err.message
         }
       })
       return { isValid: false, errors }
     }
-    return { isValid: false, errors: { _form: "検証中にエラーが発生しました" } }
+    return { isValid: false, errors: { _form: "入力内容に問題があります" } }
   }
 }
-
-// 安全点検フォームのスキーマ
-export const inspectionFormSchema = z.object({
-  projectId: z.string().min(1, "工事名を選択してください"),
-  date: z.string().min(1, "日付を入力してください"),
-  inspector: z.string().min(1, "点検者名を入力してください"),
-  weather: z.string(),
-  generalNotes: z.string().optional(),
-})
-
-// 日報フォームのスキーマ
-export const dailyReportFormSchema = z.object({
-  projectId: z.string().min(1, "工事名を選択してください"),
-  date: z.string().min(1, "日付を入力してください"),
-  weather: z.string(),
-})
