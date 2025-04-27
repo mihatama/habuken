@@ -9,28 +9,16 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { fetchDataFromTable } from "@/lib/supabase/supabaseClient"
-
-// イベントの型定義
-interface CalendarEvent {
-  id: number
-  title: string
-  start: Date
-  end: Date
-  description?: string
-  projectId?: number
-  staffIds?: string[]
-  toolIds?: string[]
-  allDay?: boolean
-}
+import type { ClientCalendarEvent } from "@/types"
 
 // ダイアログのprops型定義
 interface StaffAssignmentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  eventData: CalendarEvent | null
-  onEventAdd?: (event: CalendarEvent) => void
-  onEventUpdate?: (event: CalendarEvent) => void
-  onEventDelete?: (eventId: number) => void
+  eventData: ClientCalendarEvent | null
+  onEventAdd?: (event: ClientCalendarEvent) => void
+  onEventUpdate?: (event: ClientCalendarEvent) => void
+  onEventDelete?: (eventId: string) => void
 }
 
 export function StaffAssignmentDialog({
@@ -112,9 +100,9 @@ export function StaffAssignmentDialog({
       setEndTime(formatTimeForInput(end))
 
       // プロジェクト、スタッフ、ツールを設定
-      setSelectedProject(eventData.projectId?.toString() || "")
+      setSelectedProject(eventData.projectId || "")
       setSelectedStaff(eventData.staffIds || [])
-      setSelectedTools(eventData.toolIds || [])
+      setSelectedTools(eventData.resourceIds || [])
       setIsAllDay(eventData.allDay || false)
     }
   }, [eventData])
@@ -152,20 +140,21 @@ export function StaffAssignmentDialog({
     }
 
     // イベントデータを作成
-    const updatedEvent: CalendarEvent = {
-      id: eventData?.id || 0,
+    const updatedEvent: ClientCalendarEvent = {
+      id: eventData?.id || "",
       title,
       start,
       end,
       description,
-      projectId: selectedProject ? Number(selectedProject) : undefined,
+      projectId: selectedProject || undefined,
       staffIds: selectedStaff.length > 0 ? selectedStaff : undefined,
-      toolIds: selectedTools.length > 0 ? selectedTools : undefined,
+      resourceIds: selectedTools.length > 0 ? selectedTools : undefined,
       allDay: isAllDay,
+      eventType: eventData?.eventType || "general",
     }
 
     // 新規作成または更新
-    if (eventData?.id === 0 || !eventData?.id) {
+    if (!eventData?.id) {
       if (onEventAdd) onEventAdd(updatedEvent)
     } else {
       if (onEventUpdate) onEventUpdate(updatedEvent)
@@ -177,7 +166,7 @@ export function StaffAssignmentDialog({
 
   // 削除ボタンをクリックしたときのハンドラ
   const handleDelete = () => {
-    if (eventData?.id && eventData.id > 0) {
+    if (eventData?.id) {
       if (window.confirm("このイベントを削除してもよろしいですか？")) {
         if (onEventDelete) onEventDelete(eventData.id)
         onOpenChange(false)
@@ -223,7 +212,7 @@ export function StaffAssignmentDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>{eventData?.id && eventData.id > 0 ? "イベントを編集" : "新規イベント"}</DialogTitle>
+          <DialogTitle>{eventData?.id ? "イベントを編集" : "新規イベント"}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
@@ -352,7 +341,7 @@ export function StaffAssignmentDialog({
         </div>
         <DialogFooter className="flex justify-between">
           <div>
-            {eventData?.id && eventData.id > 0 && (
+            {eventData?.id && (
               <Button variant="destructive" onClick={handleDelete}>
                 削除
               </Button>

@@ -34,6 +34,13 @@ import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
 import { Loader2, PlusCircle, Trash2, UserCog } from "lucide-react"
+import {
+  type User,
+  type UserRole,
+  type CreateUserPayload,
+  USER_ROLE_DISPLAY_NAMES,
+  USER_ROLE_BADGE_VARIANTS,
+} from "@/types/models/user"
 
 // ユーザー作成フォームのバリデーションスキーマを修正
 const userFormSchema = z.object({
@@ -43,24 +50,12 @@ const userFormSchema = z.object({
     .min(3, { message: "ユーザーIDは3文字以上である必要があります" })
     .regex(/^[a-zA-Z0-9_-]+$/, { message: "ユーザーIDは英数字、アンダースコア、ハイフンのみ使用できます" }),
   fullName: z.string().min(2, { message: "名前は2文字以上である必要があります" }),
-  role: z.string({ required_error: "ロールを選択してください" }),
+  role: z.enum(["admin", "manager", "staff", "user"] as const, { required_error: "ロールを選択してください" }),
   department: z.string().optional(),
   position: z.string().optional(),
 })
 
-type UserFormValues = z.infer<typeof userFormSchema>
-
-// ユーザー型定義
-type User = {
-  id: string
-  email: string
-  full_name: string
-  position: string | null
-  department: string | null
-  created_at: string
-  roles: string[]
-  user_id?: string
-}
+type UserFormValues = Omit<CreateUserPayload, "role"> & { role: UserRole }
 
 export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
   const { toast } = useToast()
@@ -80,7 +75,7 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
       email: "",
       userId: "",
       fullName: "",
-      role: "",
+      role: "user",
       department: "",
       position: "",
     },
@@ -183,17 +178,8 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
   }
 
   // ロールの色を取得
-  function getRoleBadgeVariant(role: string) {
-    switch (role) {
-      case "admin":
-        return "destructive"
-      case "manager":
-        return "default"
-      case "staff":
-        return "secondary"
-      default:
-        return "outline"
-    }
+  function getRoleBadgeVariant(role: UserRole) {
+    return USER_ROLE_BADGE_VARIANTS[role] as any
   }
 
   return (
@@ -345,14 +331,8 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {user.roles.map((role) => (
-                        <Badge key={role} variant={getRoleBadgeVariant(role) as any}>
-                          {role === "admin"
-                            ? "管理者"
-                            : role === "manager"
-                              ? "マネージャー"
-                              : role === "staff"
-                                ? "スタッフ"
-                                : "一般ユーザー"}
+                        <Badge key={role} variant={getRoleBadgeVariant(role as UserRole) as any}>
+                          {USER_ROLE_DISPLAY_NAMES[role as UserRole]}
                         </Badge>
                       ))}
                     </div>

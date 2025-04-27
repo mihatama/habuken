@@ -3,9 +3,10 @@
 import { createServerSupabaseClient } from "@/lib/supabase"
 import { revalidatePath } from "next/cache"
 import { v4 as uuidv4 } from "uuid"
+import { type ApiResponse, type CreateUserResponse, type GetUsersResponse, getErrorMessage } from "@/types"
 
 // ユーザー作成用の関数
-export async function createUser(formData: FormData) {
+export async function createUser(formData: FormData): Promise<ApiResponse<CreateUserResponse>> {
   try {
     const supabase = createServerSupabaseClient()
 
@@ -126,18 +127,18 @@ export async function createUser(formData: FormData) {
     }
 
     revalidatePath("/admin/users")
-    return { success: true, userId: userData.user.id }
+    return { success: true, data: { userId: userData.user.id } }
   } catch (error) {
     console.error("ユーザー作成中のエラー:", error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : "不明なエラーが発生しました",
+      error: getErrorMessage(error),
     }
   }
 }
 
 // ユーザー一覧取得
-export async function getUsers() {
+export async function getUsers(): Promise<GetUsersResponse["users"]> {
   try {
     const supabase = createServerSupabaseClient()
 
@@ -178,7 +179,7 @@ export async function getUsers() {
 }
 
 // ユーザー削除
-export async function deleteUser(userId: string) {
+export async function deleteUser(userId: string): Promise<ApiResponse> {
   try {
     const supabase = createServerSupabaseClient()
 
@@ -245,13 +246,13 @@ export async function deleteUser(userId: string) {
     console.error("ユーザー削除中のエラー:", error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : "不明なエラーが発生しました",
+      error: getErrorMessage(error),
     }
   }
 }
 
 // ユーザーロール更新
-export async function updateUserRole(userId: string, role: string) {
+export async function updateUserRole(userId: string, role: string): Promise<ApiResponse> {
   try {
     const supabase = createServerSupabaseClient()
 
@@ -316,7 +317,7 @@ export async function updateUserRole(userId: string, role: string) {
     console.error("ロール更新中のエラー:", error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : "不明なエラーが発生しました",
+      error: getErrorMessage(error),
     }
   }
 }

@@ -11,20 +11,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Plus, Edit, Trash2 } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { toast } from "@/components/ui/use-toast"
-
-type HeavyMachinery = {
-  id: string
-  name: string
-  type: string
-  location: string
-  last_inspection_date: string | null
-  ownership_type: "自社保有" | "リース" | "その他"
-  daily_rate: number | null
-  weekly_rate: number | null
-  monthly_rate: number | null
-  created_at: string
-  updated_at: string
-}
+import {
+  type HeavyMachinery,
+  type ResourceFormValues,
+  initialResourceFormValues,
+  formValuesToResource,
+  OwnershipType,
+  getErrorMessage,
+} from "@/types"
 
 export function HeavyMachineryManagement() {
   const [open, setOpen] = useState(false)
@@ -34,16 +28,7 @@ export function HeavyMachineryManagement() {
   const [currentMachine, setCurrentMachine] = useState<HeavyMachinery | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const [newMachine, setNewMachine] = useState({
-    name: "",
-    type: "",
-    location: "",
-    last_inspection_date: "",
-    ownership_type: "自社保有" as const,
-    daily_rate: "",
-    weekly_rate: "",
-    monthly_rate: "",
-  })
+  const [newMachine, setNewMachine] = useState<ResourceFormValues>(initialResourceFormValues)
 
   const supabase = createClientComponentClient()
 
@@ -62,7 +47,7 @@ export function HeavyMachineryManagement() {
       console.error("重機データの取得エラー:", error)
       toast({
         title: "エラー",
-        description: "重機データの取得に失敗しました",
+        description: getErrorMessage(error),
         variant: "destructive",
       })
     } finally {
@@ -78,19 +63,9 @@ export function HeavyMachineryManagement() {
   // 重機の追加
   const handleAddMachine = async () => {
     try {
-      const { data, error } = await supabase
-        .from("heavy_machinery")
-        .insert({
-          name: newMachine.name,
-          type: newMachine.type,
-          location: newMachine.location,
-          last_inspection_date: newMachine.last_inspection_date || null,
-          ownership_type: newMachine.ownership_type,
-          daily_rate: newMachine.daily_rate ? Number.parseFloat(newMachine.daily_rate) : null,
-          weekly_rate: newMachine.weekly_rate ? Number.parseFloat(newMachine.weekly_rate) : null,
-          monthly_rate: newMachine.monthly_rate ? Number.parseFloat(newMachine.monthly_rate) : null,
-        })
-        .select()
+      const resourceData = formValuesToResource(newMachine)
+
+      const { data, error } = await supabase.from("heavy_machinery").insert(resourceData).select()
 
       if (error) throw error
 
@@ -100,22 +75,13 @@ export function HeavyMachineryManagement() {
       })
 
       setOpen(false)
-      setNewMachine({
-        name: "",
-        type: "",
-        location: "",
-        last_inspection_date: "",
-        ownership_type: "自社保有",
-        daily_rate: "",
-        weekly_rate: "",
-        monthly_rate: "",
-      })
+      setNewMachine(initialResourceFormValues)
       fetchMachinery()
     } catch (error) {
       console.error("重機追加エラー:", error)
       toast({
         title: "エラー",
-        description: "重機の追加に失敗しました",
+        description: getErrorMessage(error),
         variant: "destructive",
       })
     }
@@ -155,7 +121,7 @@ export function HeavyMachineryManagement() {
       console.error("重機更新エラー:", error)
       toast({
         title: "エラー",
-        description: "重機情報の更新に失敗しました",
+        description: getErrorMessage(error),
         variant: "destructive",
       })
     }
@@ -180,7 +146,7 @@ export function HeavyMachineryManagement() {
       console.error("重機削除エラー:", error)
       toast({
         title: "エラー",
-        description: "重機の削除に失敗しました",
+        description: getErrorMessage(error),
         variant: "destructive",
       })
     }
@@ -191,7 +157,7 @@ export function HeavyMachineryManagement() {
     (machine) =>
       machine.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       machine.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      machine.location.toLowerCase().includes(searchTerm.toLowerCase()),
+      (machine.location && machine.location.toLowerCase().includes(searchTerm.toLowerCase())),
   )
 
   return (
@@ -273,17 +239,15 @@ export function HeavyMachineryManagement() {
                 <Label htmlFor="ownership">所有形態</Label>
                 <Select
                   value={newMachine.ownership_type}
-                  onValueChange={(value: "自社保有" | "リース" | "その他") =>
-                    setNewMachine({ ...newMachine, ownership_type: value })
-                  }
+                  onValueChange={(value: OwnershipType) => setNewMachine({ ...newMachine, ownership_type: value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="所有形態を選択" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="自社保有">自社保有</SelectItem>
-                    <SelectItem value="リース">リース</SelectItem>
-                    <SelectItem value="その他">その他</SelectItem>
+                    <SelectItem value={OwnershipType.OwnedByCompany}>{OwnershipType.OwnedByCompany}</SelectItem>
+                    <SelectItem value={OwnershipType.Leased}>{OwnershipType.Leased}</SelectItem>
+                    <SelectItem value={OwnershipType.Other}>{OwnershipType.Other}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -362,9 +326,9 @@ export function HeavyMachineryManagement() {
                   <TableCell>
                     <Badge
                       variant={
-                        machine.ownership_type === "自社保有"
+                        machine.ownership_type === OwnershipType.OwnedByCompany
                           ? "default"
-                          : machine.ownership_type === "リース"
+                          : machine.ownership_type === OwnershipType.Leased
                             ? "outline"
                             : "secondary"
                       }
@@ -433,7 +397,7 @@ export function HeavyMachineryManagement() {
                                 <Label htmlFor="edit-location">配置場所</Label>
                                 <Input
                                   id="edit-location"
-                                  value={currentMachine.location}
+                                  value={currentMachine.location || ""}
                                   onChange={(e) => setCurrentMachine({ ...currentMachine, location: e.target.value })}
                                 />
                               </div>
@@ -456,7 +420,7 @@ export function HeavyMachineryManagement() {
                                 <Label htmlFor="edit-ownership">所有形態</Label>
                                 <Select
                                   value={currentMachine.ownership_type}
-                                  onValueChange={(value: "自社保有" | "リース" | "その他") =>
+                                  onValueChange={(value: OwnershipType) =>
                                     setCurrentMachine({ ...currentMachine, ownership_type: value })
                                   }
                                 >
@@ -464,9 +428,11 @@ export function HeavyMachineryManagement() {
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="自社保有">自社保有</SelectItem>
-                                    <SelectItem value="リース">リース</SelectItem>
-                                    <SelectItem value="その他">その他</SelectItem>
+                                    <SelectItem value={OwnershipType.OwnedByCompany}>
+                                      {OwnershipType.OwnedByCompany}
+                                    </SelectItem>
+                                    <SelectItem value={OwnershipType.Leased}>{OwnershipType.Leased}</SelectItem>
+                                    <SelectItem value={OwnershipType.Other}>{OwnershipType.Other}</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>

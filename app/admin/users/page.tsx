@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { UserManagement } from "@/components/user-management"
+import type { User } from "@/types/models/user"
 
 export const metadata: Metadata = {
   title: "ユーザー管理 | プロジェクト管理システム",
@@ -8,7 +9,7 @@ export const metadata: Metadata = {
 }
 
 // サンプルユーザーデータ
-const sampleUsers = [
+const sampleUsers: User[] = [
   {
     id: "1",
     email: "admin@example.com",

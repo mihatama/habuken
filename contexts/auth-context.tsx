@@ -2,16 +2,17 @@
 
 import { createContext, useContext, useState, useEffect } from "react"
 import type { ReactNode } from "react"
+import type { AuthUser } from "@/types/models/user"
 
 // 簡略化された認証コンテキスト型
 type AuthContextType = {
-  user: any | null
+  user: AuthUser | null
   loading: boolean
   signOut: () => void
 }
 
 // モックユーザーデータ
-const MOCK_USER = {
+const MOCK_USER: AuthUser = {
   id: "1",
   email: "yamada@example.com",
   user_metadata: {
