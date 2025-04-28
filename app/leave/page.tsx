@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
-import { DashboardLayout } from "@/components/dashboard-layout"
-import { LeaveRequestManagement } from "@/components/leave-request-management"
+import { DashboardLayout } from "../../components/dashboard-layout"
+import { LeaveRequestManagement } from "../../components/leave-request-management"
 
 export const metadata: Metadata = {
   title: "休暇申請 | 建設業務管理システム",

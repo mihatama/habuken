@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { getLeaveRequests, updateLeaveRequest } from "@/lib/data-utils"
-import { getClientSupabase } from "@/lib/supabase/client"
+import { getLeaveRequests, updateLeaveRequest } from "../lib/data-utils"
+import { getSupabaseClient } from "../lib/supabase"
+import { v4 as uuidv4 } from "uuid"
 
 // 休暇申請データを取得するカスタムフック
 export function useLeaveRequests() {
@@ -15,7 +16,7 @@ export function useStaff() {
   return useQuery({
     queryKey: ["staff"],
     queryFn: async () => {
-      const supabase = getClientSupabase()
+      const supabase = getSupabaseClient()
       const { data, error } = await supabase.from("staff").select("*").order("full_name")
       if (error) throw error
       return data
@@ -35,9 +36,25 @@ export function useAddLeaveRequest() {
       endDate: string
       reason: string
     }) => {
-      const supabase = getClientSupabase()
+      const supabase = getSupabaseClient()
+
+      // スタッフIDを取得
+      const { data: staffData, error: staffError } = await supabase
+        .from("staff")
+        .select("id")
+        .eq("user_id", newRequest.userId)
+        .single()
+
+      if (staffError) {
+        // ユーザーIDとスタッフIDが同じと仮定
+        console.warn("スタッフデータ取得エラー、ユーザーIDをスタッフIDとして使用します:", staffError)
+      }
+
+      const staffId = staffData?.id || newRequest.userId
+
       const { error } = await supabase.from("leave_requests").insert({
-        staff_id: newRequest.userId,
+        id: uuidv4(),
+        staff_id: staffId,
         leave_type: newRequest.leaveType,
         start_date: newRequest.startDate,
         end_date: newRequest.endDate,

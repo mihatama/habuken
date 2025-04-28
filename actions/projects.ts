@@ -1,13 +1,11 @@
 "use server"
 
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { getServerSupabaseClient } from "../lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import type { Database } from "@/types/supabase"
 
 // プロジェクト一覧を取得
 export async function getProjects() {
-  const supabase = createServerActionClient<Database>({ cookies })
+  const supabase = getServerSupabaseClient()
 
   try {
     const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false })
@@ -23,7 +21,7 @@ export async function getProjects() {
 
 // プロジェクトを作成
 export async function createProject(projectData: any) {
-  const supabase = createServerActionClient<Database>({ cookies })
+  const supabase = getServerSupabaseClient()
 
   try {
     // ユーザー情報を取得
@@ -72,7 +70,7 @@ export async function createProject(projectData: any) {
 
 // プロジェクトを更新
 export async function updateProject(id: string, projectData: any) {
-  const supabase = createServerActionClient<Database>({ cookies })
+  const supabase = getServerSupabaseClient()
 
   try {
     const { data, error } = await supabase
@@ -98,7 +96,7 @@ export async function updateProject(id: string, projectData: any) {
 
 // プロジェクトを削除
 export async function deleteProject(id: string) {
-  const supabase = createServerActionClient<Database>({ cookies })
+  const supabase = getServerSupabaseClient()
 
   try {
     // 関連する割り当てを削除

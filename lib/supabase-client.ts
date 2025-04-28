@@ -1,6 +1,10 @@
-// lib/supabase-client.ts
-// This file is deprecated. All functions have been moved to lib/supabase/operations.ts
+/**
+ * @deprecated このファイルは非推奨です。代わりに ./supabase からインポートしてください。
+ * 例: import { fetchData, insertData } from "./supabase";
+ */
 
-import { fetchData, insertData, updateData, deleteData } from "@/lib/supabase/operations"
+import { fetchData, insertData, updateData, deleteData } from "./supabase"
+
+console.warn("lib/supabase-client.ts は非推奨です。代わりに ./supabase からインポートしてください。")
 
 export { fetchData, insertData, updateData, deleteData }

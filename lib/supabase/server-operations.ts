@@ -3,7 +3,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/supabase"
-import { getServerSupabaseClient } from "./server"
+import { getServerSupabaseClient, type ServerClientType } from "./server"
 
 export interface ServerQueryOptions {
   select?: string
@@ -11,7 +11,7 @@ export interface ServerQueryOptions {
   filters?: Record<string, any>
   limit?: number
   page?: number
-  clientType?: "server" | "action"
+  clientType?: ServerClientType
   client?: SupabaseClient<Database>
 }
 
@@ -76,7 +76,7 @@ export async function insertServerData<T = any>(
   tableName: string,
   data: any,
   options: {
-    clientType?: "server" | "action"
+    clientType?: ServerClientType
     returning?: string
     client?: SupabaseClient<Database>
   } = {},
@@ -107,7 +107,7 @@ export async function updateServerData<T = any>(
   id: string,
   data: any,
   options: {
-    clientType?: "server" | "action"
+    clientType?: ServerClientType
     idField?: string
     returning?: string
     client?: SupabaseClient<Database>
@@ -138,7 +138,7 @@ export async function deleteServerData(
   tableName: string,
   id: string,
   options: {
-    clientType?: "server" | "action"
+    clientType?: ServerClientType
     idField?: string
     client?: SupabaseClient<Database>
   } = {},

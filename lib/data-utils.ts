@@ -1,45 +1,132 @@
-import { fetchData, insertData, deleteData } from "@/lib/supabase-client"
-import type { SupabaseClient } from "@supabase/supabase-js"
-import type { Database } from "@/types/supabase"
-import { getClientSupabase } from "@/lib/supabase/client"
+import { getSupabaseClient } from "./supabase"
+
+// データを取得する汎用関数
+async function fetchData(
+  tableName: string,
+  options: {
+    select?: string
+    filters?: Record<string, any>
+    order?: { column: string; ascending: boolean }
+    limit?: number
+  } = {},
+) {
+  const { select = "*", filters, order, limit } = options
+  const supabase = getSupabaseClient()
+
+  try {
+    let query = supabase.from(tableName).select(select, { count: "exact" })
+
+    // フィルターの適用
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          if (typeof value === "string" && value.includes("%")) {
+            query = query.ilike(key, value)
+          } else {
+            query = query.eq(key, value)
+          }
+        }
+      })
+    }
+
+    // 並び順の適用
+    if (order) {
+      query = query.order(order.column, { ascending: order.ascending })
+    }
+
+    // 件数制限の適用
+    if (limit) {
+      query = query.limit(limit)
+    }
+
+    const { data, error, count } = await query
+
+    if (error) {
+      console.error(`Error fetching data from ${tableName}:`, error)
+      throw error
+    }
+
+    return { data: data || [], count }
+  } catch (error) {
+    console.error(`Error in fetchData for ${tableName}:`, error)
+    throw error
+  }
+}
+
+// データを挿入する汎用関数
+async function insertData(tableName: string, data: any, options: { returning?: string } = {}) {
+  const { returning = "*" } = options
+  const supabase = getSupabaseClient()
+
+  try {
+    const { data: result, error } = await supabase.from(tableName).insert(data).select(returning)
+
+    if (error) {
+      console.error(`Error inserting data into ${tableName}:`, error)
+      throw error
+    }
+
+    return result || []
+  } catch (error) {
+    console.error(`Error in insertData for ${tableName}:`, error)
+    throw error
+  }
+}
+
+// データを削除する汎用関数
+async function deleteData(tableName: string, id: string, options: { idField?: string } = {}) {
+  const { idField = "id" } = options
+  const supabase = getSupabaseClient()
+
+  try {
+    const { error } = await supabase.from(tableName).delete().eq(idField, id)
+
+    if (error) {
+      console.error(`Error deleting data from ${tableName}:`, error)
+      throw error
+    }
+
+    return true
+  } catch (error) {
+    console.error(`Error in deleteData for ${tableName}:`, error)
+    throw error
+  }
+}
 
 // スタッフデータの取得
-export async function getStaff(client?: SupabaseClient<Database>) {
+export async function getStaff() {
   const { data } = await fetchData("staff", {
     order: { column: "full_name", ascending: true },
-    client,
   })
 
   return data
 }
 
 // スタッフの削除
-export async function deleteStaff(id: string, client?: SupabaseClient<Database>) {
-  return deleteData("staff", id, { client })
+export async function deleteStaff(id: string) {
+  return deleteData("staff", id)
 }
 
 // プロジェクトデータの取得
-export async function getProjects(client?: SupabaseClient<Database>) {
+export async function getProjects() {
   const { data } = await fetchData("projects", {
     order: { column: "name", ascending: true },
-    client,
   })
 
   return data
 }
 
 // 工具データの取得
-export async function getTools(client?: SupabaseClient<Database>) {
+export async function getTools() {
   try {
     // まず、resourcesテーブルのスキーマを確認するためにデータを1件取得
-    const { data: columns } = await fetchData("resources", { limit: 1, client })
+    const { data: columns } = await fetchData("resources", { limit: 1 })
 
     // テーブルにtype列がある場合
     if (columns && columns.length > 0 && "type" in columns[0]) {
       const { data } = await fetchData("resources", {
         filters: { type: "工具" },
         order: { column: "name", ascending: true },
-        client,
       })
 
       return data
@@ -50,7 +137,6 @@ export async function getTools(client?: SupabaseClient<Database>) {
       const { data } = await fetchData("resources", {
         filters: { resource_type: "工具" },
         order: { column: "name", ascending: true },
-        client,
       })
 
       return data
@@ -60,7 +146,6 @@ export async function getTools(client?: SupabaseClient<Database>) {
     else {
       const { data } = await fetchData("resources", {
         order: { column: "name", ascending: true },
-        client,
       })
 
       return data
@@ -71,31 +156,57 @@ export async function getTools(client?: SupabaseClient<Database>) {
   }
 }
 
-// 休暇データの取得
-export async function getVacations(client?: SupabaseClient<Database>) {
+// 休暇データの取得（leave_requestsテーブルを使用）
+export async function getVacations() {
   try {
-    const { data } = await fetchData("vacations", {
-      select: `
+    const supabase = getSupabaseClient()
+    const { data, error } = await supabase
+      .from("leave_requests")
+      .select(`
         id,
         staff_id,
-        date,
-        type,
-        staff:staff_id (
-          id,
-          full_name
-        )
-      `,
-      order: { column: "date", ascending: false },
-      client,
+        start_date,
+        end_date,
+        reason,
+        status
+      `)
+      .order("start_date", { ascending: false })
+
+    if (error) throw error
+
+    if (!data || data.length === 0) {
+      return []
+    }
+
+    // スタッフIDのリストを作成
+    const staffIds = [...new Set(data.map((item) => item.staff_id).filter(Boolean))]
+
+    // スタッフデータを取得
+    const { data: staffData, error: staffError } = await supabase
+      .from("staff")
+      .select("id, full_name")
+      .in("id", staffIds)
+
+    if (staffError) {
+      console.error("スタッフデータ取得エラー:", staffError)
+      // スタッフデータの取得に失敗しても、休暇データは返す
+    }
+
+    // スタッフIDをキーとしたマップを作成
+    const staffMap = new Map()
+    staffData?.forEach((staff) => {
+      staffMap.set(staff.id, staff.full_name)
     })
 
     // データを整形
-    return data.map((item: any) => ({
+    return data.map((item) => ({
       id: item.id,
       staffId: item.staff_id,
-      staffName: item.staff?.full_name || "不明",
-      date: new Date(item.date),
-      type: item.type,
+      staffName: staffMap.get(item.staff_id) || "不明",
+      startDate: item.start_date,
+      endDate: item.end_date,
+      reason: item.reason,
+      status: item.status,
     }))
   } catch (error) {
     console.error("休暇データ取得エラー:", error)
@@ -103,11 +214,13 @@ export async function getVacations(client?: SupabaseClient<Database>) {
   }
 }
 
-// 休暇申請データを取得する関数 - リレーションシップを使用せずに修正
-export async function getLeaveRequests(client = getClientSupabase()) {
+// 休暇申請データを取得する関数
+export async function getLeaveRequests() {
   try {
-    // まず休暇申請データを取得
-    const { data: leaveRequests, error: leaveError } = await client
+    const supabase = getSupabaseClient()
+
+    // 休暇申請データを取得
+    const { data: leaveRequests, error: leaveError } = await supabase
       .from("leave_requests")
       .select("*")
       .order("created_at", { ascending: false })
@@ -122,7 +235,10 @@ export async function getLeaveRequests(client = getClientSupabase()) {
     const staffIds = [...new Set(leaveRequests.map((request) => request.staff_id).filter(Boolean))]
 
     // スタッフデータを別途取得
-    const { data: staffData, error: staffError } = await client.from("staff").select("id, full_name").in("id", staffIds)
+    const { data: staffData, error: staffError } = await supabase
+      .from("staff")
+      .select("id, full_name")
+      .in("id", staffIds)
 
     if (staffError) throw staffError
 
@@ -146,54 +262,60 @@ export async function getLeaveRequests(client = getClientSupabase()) {
 }
 
 // 休暇申請を更新する関数
-export async function updateLeaveRequest(
-  request: { id: string; status: "approved" | "rejected"; rejectReason?: string },
-  client = getClientSupabase(),
-) {
-  const { error } = await client
-    .from("leave_requests")
-    .update({
-      status: request.status,
-      reject_reason: request.rejectReason || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", request.id)
+export async function updateLeaveRequest({
+  id,
+  status,
+  rejectReason,
+}: {
+  id: string
+  status: "approved" | "rejected"
+  rejectReason?: string
+}) {
+  try {
+    const supabase = getSupabaseClient()
 
-  if (error) {
+    const { error } = await supabase
+      .from("leave_requests")
+      .update({
+        status,
+        reject_reason: rejectReason || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+
+    if (error) {
+      throw new Error(`休暇申請更新エラー: ${error.message}`)
+    }
+
+    return { id, status }
+  } catch (error) {
     console.error("休暇申請更新エラー:", error)
     throw error
   }
-
-  return true
 }
 
 // 承認された休暇申請から休暇データを追加
-export async function addVacationFromApprovedRequest(approvedRequest: any, client?: SupabaseClient<Database>) {
-  // 開始日から終了日までの各日を追加
-  const startDate = new Date(approvedRequest.startDate)
-  const endDate = new Date(approvedRequest.endDate)
-  const currentDate = new Date(startDate)
+export async function addVacationFromApprovedRequest(approvedRequest: any) {
+  try {
+    const supabase = getSupabaseClient()
 
-  while (currentDate <= endDate) {
-    try {
-      // 休暇データを追加
-      await insertData(
-        "vacations",
-        {
-          staff_id: approvedRequest.userId,
-          date: new Date(currentDate).toISOString().split("T")[0],
-          type: getLeaveTypeName(approvedRequest.leaveType),
-          created_at: new Date().toISOString(),
-        },
-        { client },
-      )
-    } catch (error) {
-      console.error("休暇データ追加エラー:", error)
-      // エラーがあっても処理を続行
+    // 休暇申請を承認済みに更新
+    const { error } = await supabase
+      .from("leave_requests")
+      .update({
+        status: "approved",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", approvedRequest.id)
+
+    if (error) {
+      throw new Error(`休暇申請更新エラー: ${error.message}`)
     }
 
-    // 次の日に進める
-    currentDate.setDate(currentDate.getDate() + 1)
+    return { id: approvedRequest.id, status: "approved" }
+  } catch (error) {
+    console.error("休暇データ追加エラー:", error)
+    throw error
   }
 }
 
@@ -214,13 +336,17 @@ export function getLeaveTypeName(type: string) {
 }
 
 // 作業日報データの取得
-export async function getDailyReports(client?: SupabaseClient<Database>) {
+export async function getDailyReports() {
   try {
+    const supabase = getSupabaseClient()
+
     // 日報データを取得
-    const { data: reports } = await fetchData("daily_reports", {
-      order: { column: "created_at", ascending: false },
-      client,
-    })
+    const { data: reports, error } = await supabase
+      .from("daily_reports")
+      .select("*")
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
 
     if (!reports || reports.length === 0) {
       return []
@@ -231,16 +357,14 @@ export async function getDailyReports(client?: SupabaseClient<Database>) {
     const projectIds = [...new Set(reports.map((report: any) => report.project_id).filter(Boolean))]
 
     // スタッフデータを取得
-    const { data: staffData } = await fetchData("staff", {
-      select: "id, full_name",
-      client,
-    })
+    const { data: staffData, error: staffError } = await supabase.from("staff").select("id, full_name")
+
+    if (staffError) throw staffError
 
     // プロジェクトデータを取得
-    const { data: projectsData } = await fetchData("projects", {
-      select: "id, name",
-      client,
-    })
+    const { data: projectsData, error: projectError } = await supabase.from("projects").select("id, name")
+
+    if (projectError) throw projectError
 
     // スタッフIDとプロジェクトIDをキーとしたマップを作成
     const staffMap = new Map()

@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "../components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -11,19 +11,19 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
+} from "../components/ui/dialog"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../components/ui/form"
+import { Input } from "../components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
+import { Textarea } from "../components/ui/textarea"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { useAddLeaveRequest, useLeaveRequests, useUpdateLeaveRequest } from "@/hooks/use-leave-requests"
+import { useAddLeaveRequest, useLeaveRequests, useUpdateLeaveRequest } from "../hooks/use-leave-requests"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
-import { useToast } from "@/components/ui/use-toast"
-import { getClientSupabase } from "@/lib/supabase/client" // 相対パスを絶対パスに変更
+import { useToast } from "../components/ui/use-toast"
+import { getSupabaseClient } from "../lib/supabase" // 修正: 相対パスに変更
 
 // フォームのバリデーションスキーマ
 const formSchema = z.object({
@@ -75,7 +75,7 @@ export function LeaveRequestManagement() {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       // Supabaseクライアントを取得
-      const supabase = getClientSupabase()
+      const supabase = getSupabaseClient()
 
       // 現在のユーザー情報を取得
       const {

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { getClientSupabase } from "@/lib/supabase/client" // 相対パスを絶対パスに変更
+import { getSupabaseClient } from "../../lib/supabase"
 
 /**
  * Supabaseからデータを取得するカスタムフック
@@ -19,7 +19,7 @@ export function useSupabaseQuery<T = any>(
   return useQuery({
     queryKey,
     queryFn: async () => {
-      const supabase = getClientSupabase()
+      const supabase = getSupabaseClient()
       let query = supabase.from(tableName).select(select)
 
       if (filters) {
@@ -54,7 +54,7 @@ export function useSupabaseInsert<T = any>(tableName: string) {
 
   return useMutation({
     mutationFn: async (data: Partial<T>) => {
-      const supabase = getClientSupabase()
+      const supabase = getSupabaseClient()
       const { data: result, error } = await supabase.from(tableName).insert(data).select()
 
       if (error) {
@@ -77,7 +77,7 @@ export function useSupabaseUpdate<T = any>(tableName: string) {
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<T> }) => {
-      const supabase = getClientSupabase()
+      const supabase = getSupabaseClient()
       const { data: result, error } = await supabase.from(tableName).update(data).eq("id", id).select()
 
       if (error) {
@@ -100,7 +100,7 @@ export function useSupabaseDelete(tableName: string) {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const supabase = getClientSupabase()
+      const supabase = getSupabaseClient()
       const { error } = await supabase.from(tableName).delete().eq("id", id)
 
       if (error) {

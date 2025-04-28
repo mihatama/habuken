@@ -1,6 +1,6 @@
 "use server"
 
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { getServerSupabaseClient } from "../lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
 // 型定義
@@ -21,7 +21,7 @@ export interface CalendarEvent {
 // イベント作成
 export async function createCalendarEvent(eventData: Omit<CalendarEvent, "id" | "created_at" | "updated_at">) {
   try {
-    const supabase = createServerSupabaseClient()
+    const supabase = getServerSupabaseClient()
 
     const { data, error } = await supabase
       .from("shifts")
@@ -53,7 +53,7 @@ export async function updateCalendarEvent(
   eventData: Partial<Omit<CalendarEvent, "id" | "created_at" | "updated_at">>,
 ) {
   try {
-    const supabase = createServerSupabaseClient()
+    const supabase = getServerSupabaseClient()
 
     const updateData: any = {}
 
@@ -83,7 +83,7 @@ export async function updateCalendarEvent(
 // イベント削除
 export async function deleteCalendarEvent(eventId: string) {
   try {
-    const supabase = createServerSupabaseClient()
+    const supabase = getServerSupabaseClient()
 
     const { error } = await supabase.from("shifts").delete().eq("id", eventId)
 
@@ -107,7 +107,7 @@ export async function getCalendarEvents(filters?: {
   eventType?: "project" | "staff" | "tool" | "general"
 }) {
   try {
-    const supabase = createServerSupabaseClient()
+    const supabase = getServerSupabaseClient()
 
     // リレーションシップを使わずに基本的なイベントデータを取得
     let query = supabase.from("shifts").select("*")
@@ -226,7 +226,7 @@ export async function createMultipleAssignmentEvent({
   event_type?: "project" | "staff" | "tool" | "general"
 }) {
   try {
-    const supabase = createServerSupabaseClient()
+    const supabase = getServerSupabaseClient()
     const {
       data: { user },
     } = await supabase.auth.getUser()

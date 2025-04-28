@@ -1,19 +1,15 @@
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/supabase"
+import { getSupabaseClient } from "./client"
 
 export type QueryOptions = {
   select?: string
   filters?: Record<string, any>
   order?: { column: string; ascending: boolean }
   range?: { from: number; to: number }
-}
-
-/**
- * クライアントコンポーネント用のSupabaseクライアントを取得
- */
-export function getClientSupabase(): SupabaseClient<Database> {
-  return createClientComponentClient<Database>()
+  limit?: number
+  page?: number
+  client?: SupabaseClient<Database>
 }
 
 /**
@@ -21,38 +17,60 @@ export function getClientSupabase(): SupabaseClient<Database> {
  */
 export async function fetchData<T = any>(
   tableName: string,
-  options: QueryOptions,
+  options: QueryOptions = {},
 ): Promise<{ data: T[]; count: number | null }> {
-  const { select = "*", filters, order, range } = options
+  const { select = "*", filters, order, range, limit, page, client } = options
 
-  const supabase = getClientSupabase()
+  // クライアントが提供されている場合はそれを使用、そうでなければデフォルトのクライアントを取得
+  const supabase = client || getSupabaseClient()
 
-  let query = supabase.from(tableName).select(select, { count: "exact" })
+  try {
+    let query = supabase.from(tableName).select(select, { count: "exact" })
 
-  if (filters) {
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        query = query.eq(key, value)
+    // フィルターの適用
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          if (typeof value === "string" && value.includes("%")) {
+            query = query.ilike(key, value)
+          } else {
+            query = query.eq(key, value)
+          }
+        }
+      })
+    }
+
+    // 並び順の適用
+    if (order) {
+      query = query.order(order.column, { ascending: order.ascending })
+    }
+
+    // 範囲指定の適用
+    if (range) {
+      query = query.range(range.from, range.to)
+    }
+
+    // ページネーションの適用
+    if (limit) {
+      query = query.limit(limit)
+
+      if (page && page > 1) {
+        query = query.range((page - 1) * limit, page * limit - 1)
       }
-    })
-  }
+    }
 
-  if (order) {
-    query = query.order(order.column, { ascending: order.ascending })
-  }
+    const { data, error, count } = await query
 
-  if (range) {
-    query = query.range(range.from, range.to)
-  }
+    if (error) {
+      console.error(`Error fetching data from ${tableName}:`, error)
+      throw error
+    }
 
-  const { data, error, count } = await query
-
-  if (error) {
-    console.error(`Error fetching data from ${tableName}:`, error)
+    return { data: (data || []) as T[], count }
+  } catch (error) {
+    console.error(`Error in fetchData for ${tableName}:`, error)
     throw error
   }
-
-  return { data: data || [], count }
 }
 
 /**
@@ -61,19 +79,24 @@ export async function fetchData<T = any>(
 export async function insertData<T = any>(
   tableName: string,
   data: any,
-  options: { returning?: "minimal" | "representation"; client?: SupabaseClient<Database> } = {},
+  options: { returning?: string; client?: SupabaseClient<Database> } = {},
 ): Promise<T[]> {
-  const { returning = "representation" } = options
-  const supabase = getClientSupabase()
+  const { returning = "*", client } = options
+  const supabase = client || getSupabaseClient()
 
-  const { data: result, error } = await supabase.from(tableName).insert(data).select()
+  try {
+    const { data: result, error } = await supabase.from(tableName).insert(data).select(returning)
 
-  if (error) {
-    console.error(`Error inserting data into ${tableName}:`, error)
+    if (error) {
+      console.error(`Error inserting data into ${tableName}:`, error)
+      throw error
+    }
+
+    return (result || []) as T[]
+  } catch (error) {
+    console.error(`Error in insertData for ${tableName}:`, error)
     throw error
   }
-
-  return (result || []) as T[]
 }
 
 /**
@@ -83,19 +106,24 @@ export async function updateData<T = any>(
   tableName: string,
   id: string,
   data: any,
-  options: { idField?: string; client?: SupabaseClient<Database> } = {},
+  options: { idField?: string; returning?: string; client?: SupabaseClient<Database> } = {},
 ): Promise<T[]> {
-  const { idField = "id" } = options
-  const supabase = getClientSupabase()
+  const { idField = "id", returning = "*", client } = options
+  const supabase = client || getSupabaseClient()
 
-  const { data: result, error } = await supabase.from(tableName).update(data).eq(idField, id).select()
+  try {
+    const { data: result, error } = await supabase.from(tableName).update(data).eq(idField, id).select(returning)
 
-  if (error) {
-    console.error(`Error updating data in ${tableName}:`, error)
+    if (error) {
+      console.error(`Error updating data in ${tableName}:`, error)
+      throw error
+    }
+
+    return (result || []) as T[]
+  } catch (error) {
+    console.error(`Error in updateData for ${tableName}:`, error)
     throw error
   }
-
-  return (result || []) as T[]
 }
 
 /**
@@ -106,15 +134,20 @@ export async function deleteData(
   id: string,
   options: { idField?: string; client?: SupabaseClient<Database> } = {},
 ): Promise<boolean> {
-  const { idField = "id" } = options
-  const supabase = getClientSupabase()
+  const { idField = "id", client } = options
+  const supabase = client || getSupabaseClient()
 
-  const { error } = await supabase.from(tableName).delete().eq(idField, id)
+  try {
+    const { error } = await supabase.from(tableName).delete().eq(idField, id)
 
-  if (error) {
-    console.error(`Error deleting data from ${tableName}:`, error)
+    if (error) {
+      console.error(`Error deleting data from ${tableName}:`, error)
+      throw error
+    }
+
+    return true
+  } catch (error) {
+    console.error(`Error in deleteData for ${tableName}:`, error)
     throw error
   }
-
-  return true
 }

@@ -2,12 +2,12 @@
 
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Button } from "./ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
+import { Input } from "./ui/input"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table"
 import { Trash2, Loader2, Calendar } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "../hooks/use-toast"
 import { createClient } from "@supabase/supabase-js"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
@@ -64,23 +64,23 @@ export function VacationList() {
     queryKey: ["vacations"],
     queryFn: async () => {
       try {
-        // まず休暇データを取得
-        const { data: vacationData, error: vacationError } = await supabase
-          .from("vacations")
+        // leave_requestsテーブルから休暇データを取得
+        const { data: leaveRequestsData, error: leaveRequestsError } = await supabase
+          .from("leave_requests")
           .select("*")
           .order("start_date", { ascending: false })
 
-        if (vacationError) {
-          console.error("休暇データ取得エラー:", vacationError)
-          throw vacationError
+        if (leaveRequestsError) {
+          console.error("休暇データ取得エラー:", leaveRequestsError)
+          throw leaveRequestsError
         }
 
-        if (!vacationData || vacationData.length === 0) {
+        if (!leaveRequestsData || leaveRequestsData.length === 0) {
           return []
         }
 
         // スタッフIDのリストを作成
-        const staffIds = [...new Set(vacationData.map((vacation) => vacation.staff_id).filter(Boolean))]
+        const staffIds = [...new Set(leaveRequestsData.map((request) => request.staff_id).filter(Boolean))]
 
         // スタッフデータを取得
         const { data: staffData, error: staffError } = await supabase
@@ -100,9 +100,9 @@ export function VacationList() {
         })
 
         // データを整形
-        return vacationData.map((vacation) => ({
-          ...vacation,
-          staff_name: staffMap.get(vacation.staff_id) || "不明",
+        return leaveRequestsData.map((request) => ({
+          ...request,
+          staff_name: staffMap.get(request.staff_id) || "不明",
         }))
       } catch (error) {
         console.error("休暇取得エラー:", error)
@@ -119,7 +119,7 @@ export function VacationList() {
   // 休暇を削除するミューテーション
   const deleteVacationMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("vacations").delete().eq("id", id)
+      const { error } = await supabase.from("leave_requests").delete().eq("id", id)
       if (error) throw error
       return id
     },

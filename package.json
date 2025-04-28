@@ -68,10 +68,10 @@
     "moment": "latest",
     "@aws-amplify/ui-react": "latest",
     "@supabase/auth-helpers-nextjs": "latest",
-    "uuid": "latest",
     "@tanstack/react-query-devtools": "latest",
     "zustand": "latest",
-    "@tanstack/react-table": "latest"
+    "@tanstack/react-table": "latest",
+    "uuid": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
