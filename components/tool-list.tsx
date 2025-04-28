@@ -3,19 +3,17 @@
 import { useState, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Plus, Pencil, Trash2 } from "lucide-react"
+import { Plus, Pencil, Trash2, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { toast } from "@/components/ui/use-toast"
-import { createClient } from "@supabase/supabase-js"
+import { useToast } from "@/hooks/use-toast"
+import { getSupabaseClient } from "@/lib/supabase/supabaseClient"
 
 export function ToolList() {
-  const [projects, setProjects] = useState<any[]>([])
-  const [staff, setStaff] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -27,25 +25,19 @@ export function ToolList() {
     location: "",
     status: "利用可能",
     last_inspection_date: "",
-    assigned_projects: [] as string[],
-    assigned_staff: [] as string[],
   })
 
   const [resourceTypeField, setResourceTypeField] = useState<string | null>("type")
 
-  // Supabaseクライアントの初期化
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
-  )
-
   const queryClient = useQueryClient()
+  const { toast } = useToast()
 
   // データ取得用のカスタムフック
   const { data: tools = [], isLoading: loading } = useQuery({
     queryKey: ["tools"],
     queryFn: async () => {
       try {
+        const supabase = getSupabaseClient()
         const { data, error } = await supabase
           .from("resources")
           .select("*")
@@ -69,6 +61,7 @@ export function ToolList() {
   // 工具追加用のミューテーション
   const addToolMutation = useMutation({
     mutationFn: async (data: any) => {
+      const supabase = getSupabaseClient()
       const { data: result, error } = await supabase.from("resources").insert(data).select()
       if (error) throw error
       return result
@@ -78,6 +71,15 @@ export function ToolList() {
       toast({
         title: "成功",
         description: "工具が正常に追加されました",
+      })
+      setIsAddDialogOpen(false)
+      setNewTool({
+        name: "",
+        type: "工具",
+        resource_type: "工具",
+        location: "",
+        status: "利用可能",
+        last_inspection_date: "",
       })
     },
     onError: (error: any) => {
@@ -93,6 +95,7 @@ export function ToolList() {
   // 工具更新用のミューテーション
   const updateToolMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const supabase = getSupabaseClient()
       const { data: result, error } = await supabase.from("resources").update(data).eq("id", id).select()
       if (error) throw error
       return result
@@ -103,6 +106,8 @@ export function ToolList() {
         title: "成功",
         description: "工具が正常に更新されました",
       })
+      setIsEditDialogOpen(false)
+      setCurrentTool(null)
     },
     onError: (error: any) => {
       toast({
@@ -117,6 +122,7 @@ export function ToolList() {
   // 工具削除用のミューテーション
   const deleteToolMutation = useMutation({
     mutationFn: async (id: string) => {
+      const supabase = getSupabaseClient()
       const { error } = await supabase.from("resources").delete().eq("id", id)
       if (error) throw error
       return id
@@ -138,11 +144,11 @@ export function ToolList() {
     },
   })
 
-  // プロジェクトとスタッフのデータ取得
+  // リソーステーブルのスキーマを確認
   useEffect(() => {
-    async function fetchRelatedData() {
+    async function checkResourceSchema() {
       try {
-        // リソーステーブルのスキーマを確認
+        const supabase = getSupabaseClient()
         const { data: columns } = await supabase.from("resources").select("*").limit(1)
 
         // 使用するフィールド名を特定
@@ -153,26 +159,13 @@ export function ToolList() {
             setResourceTypeField("resource_type")
           }
         }
-
-        // プロジェクトデータを取得
-        const { data: projectsData } = await supabase.from("projects").select("*")
-        setProjects(projectsData || [])
-
-        // スタッフデータを取得
-        const { data: staffData } = await supabase.from("staff").select("*")
-        setStaff(staffData || [])
       } catch (error) {
-        console.error("関連データ取得エラー:", error)
-        toast({
-          title: "エラー",
-          description: "関連データの取得に失敗しました",
-          variant: "destructive",
-        })
+        console.error("スキーマ確認エラー:", error)
       }
     }
 
-    fetchRelatedData()
-  }, [supabase])
+    checkResourceSchema()
+  }, [])
 
   // 検索フィルター
   const filteredTools = tools.filter(
@@ -184,6 +177,15 @@ export function ToolList() {
   // 工具の追加
   const handleAddTool = async () => {
     try {
+      if (!newTool.name) {
+        toast({
+          title: "入力エラー",
+          description: "工具名は必須です",
+          variant: "destructive",
+        })
+        return
+      }
+
       const insertData: any = {
         name: newTool.name,
         location: newTool.location,
@@ -198,37 +200,7 @@ export function ToolList() {
         insertData.resource_type = "工具"
       }
 
-      const result = await addToolMutation.mutateAsync(insertData)
-
-      if (result && result[0]) {
-        // 関連プロジェクトの登録
-        for (const projectId of newTool.assigned_projects) {
-          await supabase.from("resource_project").insert({
-            resource_id: result[0].id,
-            project_id: projectId,
-          })
-        }
-
-        // 関連スタッフの登録
-        for (const staffId of newTool.assigned_staff) {
-          await supabase.from("resource_staff").insert({
-            resource_id: result[0].id,
-            staff_id: staffId,
-          })
-        }
-      }
-
-      setIsAddDialogOpen(false)
-      setNewTool({
-        name: "",
-        type: "工具",
-        resource_type: "工具",
-        location: "",
-        status: "利用可能",
-        last_inspection_date: "",
-        assigned_projects: [],
-        assigned_staff: [],
-      })
+      await addToolMutation.mutateAsync(insertData)
     } catch (error) {
       console.error("工具追加エラー:", error)
     }
@@ -239,6 +211,15 @@ export function ToolList() {
     if (!currentTool) return
 
     try {
+      if (!currentTool.name) {
+        toast({
+          title: "入力エラー",
+          description: "工具名は必須です",
+          variant: "destructive",
+        })
+        return
+      }
+
       const updateData: any = {
         name: currentTool.name,
         location: currentTool.location,
@@ -251,9 +232,6 @@ export function ToolList() {
         id: currentTool.id,
         data: updateData,
       })
-
-      setIsEditDialogOpen(false)
-      setCurrentTool(null)
     } catch (error) {
       console.error("工具更新エラー:", error)
     }
@@ -264,11 +242,6 @@ export function ToolList() {
     if (!confirm("この工具を削除してもよろしいですか？")) return
 
     try {
-      // 関連データを先に削除
-      await supabase.from("resource_project").delete().eq("resource_id", id)
-      await supabase.from("resource_staff").delete().eq("resource_id", id)
-
-      // 工具を削除
       await deleteToolMutation.mutateAsync(id)
     } catch (error) {
       console.error("工具削除エラー:", error)
@@ -288,30 +261,17 @@ export function ToolList() {
     }
   }
 
-  // ツールに紐づくプロジェクトを取得
-  const getToolProjects = async (toolId: string) => {
-    const { data } = await supabase.from("resource_project").select("project_id").eq("resource_id", toolId)
-
-    if (!data || data.length === 0) return []
-
-    const projectIds = data.map((item) => item.project_id)
-    return projects.filter((project) => projectIds.includes(project.id))
-  }
-
-  // ツールに紐づくスタッフを取得
-  const getToolStaff = async (toolId: string) => {
-    const { data } = await supabase.from("resource_staff").select("staff_id").eq("resource_id", toolId)
-
-    if (!data || data.length === 0) return []
-
-    const staffIds = data.map((item) => item.staff_id)
-    return staff.filter((s) => staffIds.includes(s.id))
+  // 日付をフォーマットする関数
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "-"
+    const date = new Date(dateString)
+    return date.toLocaleDateString("ja-JP")
   }
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <div className="flex items-center gap-4"></div>
+        <CardTitle>工具一覧</CardTitle>
         <div className="flex items-center space-x-2">
           <Input
             placeholder="検索..."
@@ -369,71 +329,13 @@ export function ToolList() {
                     onChange={(e) => setNewTool({ ...newTool, last_inspection_date: e.target.value })}
                   />
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="assignedProjects">使用案件</Label>
-                  <div className="flex flex-col gap-2 max-h-[150px] overflow-y-auto">
-                    {projects.map((project) => (
-                      <div key={project.id} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id={`project-${project.id}`}
-                          checked={newTool.assigned_projects.includes(project.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setNewTool({
-                                ...newTool,
-                                assigned_projects: [...newTool.assigned_projects, project.id],
-                              })
-                            } else {
-                              setNewTool({
-                                ...newTool,
-                                assigned_projects: newTool.assigned_projects.filter((id) => id !== project.id),
-                              })
-                            }
-                          }}
-                          className="h-4 w-4 rounded border-gray-300"
-                        />
-                        <label htmlFor={`project-${project.id}`} className="text-sm">
-                          {project.name}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="assignedStaff">担当スタッフ</Label>
-                  <div className="flex flex-col gap-2 max-h-[150px] overflow-y-auto">
-                    {staff.map((s) => (
-                      <div key={s.id} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id={`staff-${s.id}`}
-                          checked={newTool.assigned_staff.includes(s.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setNewTool({
-                                ...newTool,
-                                assigned_staff: [...newTool.assigned_staff, s.id],
-                              })
-                            } else {
-                              setNewTool({
-                                ...newTool,
-                                assigned_staff: newTool.assigned_staff.filter((id) => id !== s.id),
-                              })
-                            }
-                          }}
-                          className="h-4 w-4 rounded border-gray-300"
-                        />
-                        <label htmlFor={`staff-${s.id}`} className="text-sm">
-                          {s.full_name}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </div>
               <DialogFooter>
-                <Button type="submit" onClick={handleAddTool}>
+                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                  キャンセル
+                </Button>
+                <Button type="submit" onClick={handleAddTool} disabled={addToolMutation.isPending}>
+                  {addToolMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   追加
                 </Button>
               </DialogFooter>
@@ -448,7 +350,7 @@ export function ToolList() {
               <TableHead>名称</TableHead>
               <TableHead>保管場所</TableHead>
               <TableHead>状態</TableHead>
-              <TableHead>関連情報</TableHead>
+              <TableHead>最終メンテナンス日</TableHead>
               <TableHead className="text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
@@ -471,12 +373,7 @@ export function ToolList() {
                   <TableCell className="font-medium">{tool.name}</TableCell>
                   <TableCell>{tool.location || "-"}</TableCell>
                   <TableCell>{getStatusBadge(tool.status || "利用可能")}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-2">
-                      <div className="flex flex-wrap gap-1">{/* プロジェクト情報は必要に応じて非同期で取得 */}</div>
-                      <div className="flex flex-wrap gap-1">{/* スタッフ情報は必要に応じて非同期で取得 */}</div>
-                    </div>
-                  </TableCell>
+                  <TableCell>{tool.last_inspection_date ? formatDate(tool.last_inspection_date) : "-"}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end space-x-2">
                       <Dialog
@@ -554,7 +451,11 @@ export function ToolList() {
                             </div>
                           )}
                           <DialogFooter>
-                            <Button type="submit" onClick={handleEditTool}>
+                            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                              キャンセル
+                            </Button>
+                            <Button type="submit" onClick={handleEditTool} disabled={updateToolMutation.isPending}>
+                              {updateToolMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                               保存
                             </Button>
                           </DialogFooter>

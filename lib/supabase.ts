@@ -1,29 +1,22 @@
-import { createClient } from "@supabase/supabase-js"
+import { getClientSupabase, getServerSupabase } from "./supabase/client"
 
-// シングルトンパターンでSupabaseクライアントを管理
-let supabaseClient: ReturnType<typeof createClient> | null = null
+// このファイルは非推奨です。代わりに lib/supabase/client.ts を使用してください
 
-// クライアント側でSupabaseクライアントを取得する関数
+// 後方互換性のための関数
 export function getSupabaseClient() {
-  if (supabaseClient) return supabaseClient
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-
-  supabaseClient = createClient(supabaseUrl, supabaseAnonKey)
-  return supabaseClient
+  return getClientSupabase()
 }
 
-// サーバー側でSupabaseクライアントを取得する関数
+// サーバー側でSupabaseクライアントを取得する関数も同様に転送
 export function getServerSupabaseClient() {
-  const supabaseUrl = process.env.SUPABASE_URL || ""
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-
-  return createClient(supabaseUrl, supabaseServiceKey)
+  return getServerSupabase()
 }
 
 // 型定義のエクスポート
 export type SupabaseClientType = ReturnType<typeof getSupabaseClient>
+
+// シングルトンパターンを使用してSupabaseクライアントを取得
+export const supabase = getClientSupabase()
 
 // データを取得する汎用関数
 async function fetchData(

@@ -3,7 +3,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/supabase"
-import { getServerSupabaseClient, type ServerClientType } from "./server"
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 
 export interface ServerQueryOptions {
   select?: string
@@ -11,8 +12,12 @@ export interface ServerQueryOptions {
   filters?: Record<string, any>
   limit?: number
   page?: number
-  clientType?: ServerClientType
   client?: SupabaseClient<Database>
+}
+
+// 一時的なサーバークライアント取得関数
+function getTemporaryServerClient(): SupabaseClient<Database> {
+  return createServerComponentClient<Database>({ cookies })
 }
 
 /**
@@ -22,10 +27,10 @@ export async function fetchServerData<T = any>(
   tableName: string,
   options: ServerQueryOptions = {},
 ): Promise<{ data: T[]; count: number | null }> {
-  const { select = "*", order, filters = {}, limit, page, clientType = "server", client } = options
+  const { select = "*", order, filters = {}, limit, page, client } = options
 
-  // クライアントが提供されている場合はそれを使用、そうでなければ適切なクライアントを取得
-  const supabase = client || getServerSupabaseClient(clientType)
+  // クライアントが提供されている場合はそれを使用、そうでなければ一時的なクライアントを作成
+  const supabase = client || getTemporaryServerClient()
 
   try {
     let query = supabase.from(tableName).select(select, { count: "exact" })
@@ -76,13 +81,12 @@ export async function insertServerData<T = any>(
   tableName: string,
   data: any,
   options: {
-    clientType?: ServerClientType
     returning?: string
     client?: SupabaseClient<Database>
   } = {},
 ): Promise<T[]> {
-  const { clientType = "server", returning = "*", client } = options
-  const supabase = client || getServerSupabaseClient(clientType)
+  const { returning = "*", client } = options
+  const supabase = client || getTemporaryServerClient()
 
   try {
     const { data: result, error } = await supabase.from(tableName).insert(data).select(returning)
@@ -107,14 +111,13 @@ export async function updateServerData<T = any>(
   id: string,
   data: any,
   options: {
-    clientType?: ServerClientType
     idField?: string
     returning?: string
     client?: SupabaseClient<Database>
   } = {},
 ): Promise<T[]> {
-  const { clientType = "server", idField = "id", returning = "*", client } = options
-  const supabase = client || getServerSupabaseClient(clientType)
+  const { idField = "id", returning = "*", client } = options
+  const supabase = client || getTemporaryServerClient()
 
   try {
     const { data: result, error } = await supabase.from(tableName).update(data).eq(idField, id).select(returning)
@@ -138,13 +141,12 @@ export async function deleteServerData(
   tableName: string,
   id: string,
   options: {
-    clientType?: ServerClientType
     idField?: string
     client?: SupabaseClient<Database>
   } = {},
 ): Promise<boolean> {
-  const { clientType = "server", idField = "id", client } = options
-  const supabase = client || getServerSupabaseClient(clientType)
+  const { idField = "id", client } = options
+  const supabase = client || getTemporaryServerClient()
 
   try {
     const { error } = await supabase.from(tableName).delete().eq(idField, id)

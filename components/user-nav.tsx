@@ -13,11 +13,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/contexts/auth-context"
+
+// モックユーザー
+const mockUser = {
+  id: "1",
+  email: "yamada@example.com",
+  user_metadata: {
+    full_name: "山田太郎",
+    role: "admin",
+  },
+}
 
 export function UserNav() {
   const router = useRouter()
-  const { user, signOut } = useAuth()
 
   // ナビゲーション関数をメモ化
   const navigateToProfile = useCallback(() => {
@@ -32,9 +40,14 @@ export function UserNav() {
     router.push("/dashboard")
   }, [router])
 
-  // ユーザーがない場合はデフォルト値を使用
-  const userName = user?.user_metadata?.full_name || "ゲストユーザー"
-  const userEmail = user?.email || "guest@example.com"
+  // ダミーのサインアウト関数
+  const signOut = useCallback(() => {
+    console.log("サインアウト機能は現在無効化されています")
+  }, [])
+
+  // ユーザー情報
+  const userName = mockUser?.user_metadata?.full_name || "ゲストユーザー"
+  const userEmail = mockUser?.email || "guest@example.com"
   // 名前の最初の文字を取得（アバターのフォールバック用）
   const nameInitial = userName.charAt(0)
 

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { getLeaveRequests, updateLeaveRequest } from "../lib/data-utils"
-import { getSupabaseClient } from "../lib/supabase"
+import { getSupabaseClient } from "../lib/supabase/client"
 import { v4 as uuidv4 } from "uuid"
 
 // 休暇申請データを取得するカスタムフック

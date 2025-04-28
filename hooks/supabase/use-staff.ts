@@ -1,48 +1,95 @@
-import { useSupabaseQuery, useSupabaseInsert, useSupabaseUpdate, useSupabaseDelete } from "@/hooks/supabase/use-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { getSupabaseClient } from "@/lib/supabase/client"
+import { v4 as uuidv4 } from "uuid"
 
-export type Staff = {
-  id: string
-  full_name: string
-  email: string | null
-  phone: string | null
-  position: string | null
-  created_at: string
-  updated_at: string
-}
+export function useStaffList(options = {}) {
+  return useQuery({
+    queryKey: ["staff"],
+    queryFn: async () => {
+      const supabase = getSupabaseClient()
+      const { data, error } = await supabase.from("staff").select("*").order("full_name")
 
-/**
- * スタッフデータを取得するカスタムフック
- */
-export function useStaff(
-  options: {
-    filters?: Record<string, any>
-    enabled?: boolean
-  } = {},
-) {
-  return useSupabaseQuery<Staff>("staff", {
-    order: { column: "full_name", ascending: true },
+      if (error) {
+        throw error
+      }
+
+      return data || []
+    },
     ...options,
-    queryKey: ["staff", options.filters],
   })
 }
 
-/**
- * スタッフを追加するカスタムフック
- */
 export function useAddStaff() {
-  return useSupabaseInsert<Staff>("staff")
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (staffData: any) => {
+      const supabase = getSupabaseClient()
+      const { data, error } = await supabase
+        .from("staff")
+        .insert({
+          id: uuidv4(),
+          ...staffData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+
+      if (error) {
+        throw error
+      }
+
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["staff"] })
+    },
+  })
 }
 
-/**
- * スタッフを更新するカスタムフック
- */
 export function useUpdateStaff() {
-  return useSupabaseUpdate<Staff>("staff")
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const supabase = getSupabaseClient()
+      const { data: result, error } = await supabase
+        .from("staff")
+        .update({
+          ...data,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .select()
+
+      if (error) {
+        throw error
+      }
+
+      return result
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["staff"] })
+    },
+  })
 }
 
-/**
- * スタッフを削除するカスタムフック
- */
 export function useDeleteStaff() {
-  return useSupabaseDelete("staff")
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = getSupabaseClient()
+      const { error } = await supabase.from("staff").delete().eq("id", id)
+
+      if (error) {
+        throw error
+      }
+
+      return id
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["staff"] })
+    },
+  })
 }

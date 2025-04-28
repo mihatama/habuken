@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/supabase"
-import { getSupabaseClient } from "./client"
+import { getSupabaseClient } from "./supabaseClient"
 
 export type QueryOptions = {
   select?: string
@@ -12,6 +12,11 @@ export type QueryOptions = {
   client?: SupabaseClient<Database>
 }
 
+// クライアントコンポーネント用のSupabaseクライアントを取得する関数
+export function getClientSupabase(): SupabaseClient<Database> {
+  return getSupabaseClient()
+}
+
 /**
  * Supabaseからデータを取得する関数
  */
@@ -21,7 +26,7 @@ export async function fetchData<T = any>(
 ): Promise<{ data: T[]; count: number | null }> {
   const { select = "*", filters, order, range, limit, page, client } = options
 
-  // クライアントが提供されている場合はそれを使用、そうでなければデフォルトのクライアントを取得
+  // クライアントが提供されている場合はそれを使用、そうでなければシングルトンクライアントを使用
   const supabase = client || getSupabaseClient()
 
   try {

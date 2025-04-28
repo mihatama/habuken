@@ -1,4 +1,4 @@
-import { getSupabaseClient } from "./supabase"
+import { getSupabaseClient } from "./supabase/client"
 
 // データを取得する汎用関数
 async function fetchData(
@@ -216,16 +216,16 @@ export async function getVacations() {
 
 // 休暇申請データを取得する関数
 export async function getLeaveRequests() {
-  try {
-    const supabase = getSupabaseClient()
+  const supabase = getSupabaseClient()
 
-    // 休暇申請データを取得
-    const { data: leaveRequests, error: leaveError } = await supabase
+  try {
+    // まず、leave_requestsテーブルからデータを取得
+    const { data: leaveRequests, error } = await supabase
       .from("leave_requests")
       .select("*")
       .order("created_at", { ascending: false })
 
-    if (leaveError) throw leaveError
+    if (error) throw error
 
     if (!leaveRequests || leaveRequests.length === 0) {
       return []
@@ -234,13 +234,16 @@ export async function getLeaveRequests() {
     // スタッフIDのリストを作成
     const staffIds = [...new Set(leaveRequests.map((request) => request.staff_id).filter(Boolean))]
 
-    // スタッフデータを別途取得
+    // スタッフデータを別のクエリで取得
     const { data: staffData, error: staffError } = await supabase
       .from("staff")
       .select("id, full_name")
       .in("id", staffIds)
 
-    if (staffError) throw staffError
+    if (staffError) {
+      console.error("スタッフデータ取得エラー:", staffError)
+      // スタッフデータの取得に失敗しても、休暇申請データは返す
+    }
 
     // スタッフIDをキーとしたマップを作成
     const staffMap = new Map()
@@ -248,11 +251,11 @@ export async function getLeaveRequests() {
       staffMap.set(staff.id, staff.full_name)
     })
 
-    // データ形式を整形
+    // データを整形して返す
     return leaveRequests.map((request) => ({
       ...request,
       staff: {
-        name: staffMap.get(request.staff_id) || "不明",
+        full_name: staffMap.get(request.staff_id) || "不明",
       },
     }))
   } catch (error) {
@@ -262,32 +265,20 @@ export async function getLeaveRequests() {
 }
 
 // 休暇申請を更新する関数
-export async function updateLeaveRequest({
-  id,
-  status,
-  rejectReason,
-}: {
-  id: string
-  status: "approved" | "rejected"
-  rejectReason?: string
-}) {
-  try {
-    const supabase = getSupabaseClient()
+export async function updateLeaveRequest({ id, status }: { id: string; status: "approved" | "rejected" }) {
+  const supabase = getSupabaseClient()
 
+  try {
     const { error } = await supabase
       .from("leave_requests")
       .update({
         status,
-        reject_reason: rejectReason || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
 
-    if (error) {
-      throw new Error(`休暇申請更新エラー: ${error.message}`)
-    }
-
-    return { id, status }
+    if (error) throw error
+    return true
   } catch (error) {
     console.error("休暇申請更新エラー:", error)
     throw error
