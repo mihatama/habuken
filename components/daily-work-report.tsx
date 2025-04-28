@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createClient } from "@supabase/supabase-js"
 import { toast } from "@/components/ui/use-toast"
-import { getDailyReports } from "@/lib/data-utils"
+import { getDailyReportsData } from "@/lib/supabase-utils" // 修正: getDailyReportsData を使用
 import { DailyReportFormDialog } from "./daily-report-form-dialog"
 
 export function DailyWorkReport() {
@@ -31,8 +31,8 @@ export function DailyWorkReport() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      // 作業日報データを取得
-      const reportsData = await getDailyReports(supabase)
+      // 作業日報データを取得 (修正: getDailyReportsData を使用)
+      const reportsData = await getDailyReportsData()
       setReports(reportsData)
 
       // プロジェクトデータを取得
@@ -56,7 +56,7 @@ export function DailyWorkReport() {
 
   useEffect(() => {
     fetchData()
-  }, [supabase])
+  }, [])
 
   const filteredReports = reports.filter(
     (report) =>

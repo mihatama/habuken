@@ -4,199 +4,166 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/data-table"
-import { type OwnershipType, ResourceStatus } from "@/types/enums"
-import { getClientSupabase } from "@/lib/supabase-utils"
-import { useToast } from "@/hooks/use-toast"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { HeavyMachineryForm } from "./heavy-machinery-form"
+import { getHeavyMachineryList } from "@/lib/supabase-utils"
+import { Badge } from "@/components/ui/badge"
+import { Search } from "lucide-react"
 
-// 重機データの型定義
 interface HeavyMachinery {
   id: string
   name: string
-  type: string
   model: string
+  type: string
+  serial_number: string
   manufacturer: string
-  year: number
-  status: ResourceStatus
-  ownership: OwnershipType
-  last_maintenance: string
-  next_maintenance: string
+  purchase_date: string
+  status: string
+  notes: string
 }
 
 export function HeavyMachineryManagement() {
-  const [heavyMachinery, setHeavyMachinery] = useState<HeavyMachinery[]>([])
-  const [newMachinery, setNewMachinery] = useState<Partial<HeavyMachinery>>({})
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [machinery, setMachinery] = useState<HeavyMachinery[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [isLoading, setIsLoading] = useState(true)
-  const { toast } = useToast()
 
-  // 重機データを取得
-  const fetchHeavyMachinery = async () => {
-    setIsLoading(true)
+  const fetchMachinery = async () => {
+    setLoading(true)
     try {
-      const supabase = getClientSupabase()
-      const { data, error } = await supabase
-        .from("heavy_machinery")
-        .select("*")
-        .order("created_at", { ascending: false })
-
-      if (error) throw error
-
-      setHeavyMachinery(data || [])
+      const data = await getHeavyMachineryList()
+      setMachinery(data)
     } catch (error) {
-      console.error("重機データ取得エラー:", error)
-      toast({
-        title: "エラー",
-        description: "重機データの取得に失敗しました",
-        variant: "destructive",
-      })
+      console.error("重機データの取得に失敗しました:", error)
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
-  // 初回レンダリング時にデータを取得
   useEffect(() => {
-    fetchHeavyMachinery()
+    fetchMachinery()
   }, [])
 
-  // 検索結果をフィルタリング
-  const filteredMachinery = heavyMachinery.filter(
-    (machine) =>
-      machine.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      machine.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      machine.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      machine.manufacturer.toLowerCase().includes(searchTerm.toLowerCase()),
+  const filteredMachinery = machinery.filter(
+    (m) =>
+      m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
-  // 重機の状態を更新
-  const updateMachineryStatus = async (id: string, status: ResourceStatus) => {
-    try {
-      const supabase = getClientSupabase()
-      const { error } = await supabase
-        .from("heavy_machinery")
-        .update({ status, updated_at: new Date().toISOString() })
-        .eq("id", id)
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "available":
+        return (
+          <Badge variant="outline" className="bg-green-100 text-green-800">
+            利用可能
+          </Badge>
+        )
+      case "in_use":
+        return (
+          <Badge variant="outline" className="bg-blue-100 text-blue-800">
+            使用中
+          </Badge>
+        )
+      case "maintenance":
+        return (
+          <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
+            メンテナンス中
+          </Badge>
+        )
+      case "out_of_service":
+        return (
+          <Badge variant="outline" className="bg-red-100 text-red-800">
+            使用不可
+          </Badge>
+        )
+      default:
+        return <Badge variant="outline">{status}</Badge>
+    }
+  }
 
-      if (error) throw error
-
-      // 状態を更新
-      setHeavyMachinery(heavyMachinery.map((machine) => (machine.id === id ? { ...machine, status } : machine)))
-
-      toast({
-        title: "成功",
-        description: "重機の状態を更新しました",
-      })
-    } catch (error) {
-      console.error("重機状態更新エラー:", error)
-      toast({
-        title: "エラー",
-        description: "重機の状態更新に失敗しました",
-        variant: "destructive",
-      })
+  const getTypeName = (type: string) => {
+    switch (type) {
+      case "excavator":
+        return "掘削機"
+      case "bulldozer":
+        return "ブルドーザー"
+      case "crane":
+        return "クレーン"
+      case "loader":
+        return "ローダー"
+      case "other":
+        return "その他"
+      default:
+        return type
     }
   }
 
   return (
-    <div className="container mx-auto">
-      <div className="flex justify-end mb-6">
-        <div className="flex gap-4">
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>重機一覧</CardTitle>
+        <HeavyMachineryForm onSuccess={fetchMachinery} />
+      </CardHeader>
+      <CardContent>
+        <div className="mb-4 flex items-center gap-2">
+          <Search className="h-4 w-4 text-gray-400" />
           <Input
-            placeholder="検索..."
+            placeholder="重機を検索..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-64"
+            className="max-w-sm"
           />
-          <Button onClick={() => setIsAddDialogOpen(true)}>新規重機登録</Button>
         </div>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>重機一覧</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>名称</TableHead>
-                <TableHead>種類</TableHead>
-                <TableHead>型式</TableHead>
-                <TableHead>メーカー</TableHead>
-                <TableHead>年式</TableHead>
-                <TableHead>状態</TableHead>
-                <TableHead>所有形態</TableHead>
-                <TableHead>前回点検日</TableHead>
-                <TableHead>次回点検日</TableHead>
-                <TableHead>アクション</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
+        {loading ? (
+          <div className="flex h-40 items-center justify-center">
+            <p>読み込み中...</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-4">
-                    読み込み中...
-                  </TableCell>
+                  <TableHead>名前</TableHead>
+                  <TableHead>モデル</TableHead>
+                  <TableHead>タイプ</TableHead>
+                  <TableHead>製造元</TableHead>
+                  <TableHead>シリアル番号</TableHead>
+                  <TableHead>購入日</TableHead>
+                  <TableHead>ステータス</TableHead>
+                  <TableHead className="text-right">アクション</TableHead>
                 </TableRow>
-              ) : filteredMachinery.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={10} className="text-center py-4">
-                    データがありません
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredMachinery.map((machine) => (
-                  <TableRow key={machine.id}>
-                    <TableCell className="font-medium">{machine.name}</TableCell>
-                    <TableCell>{machine.type}</TableCell>
-                    <TableCell>{machine.model}</TableCell>
-                    <TableCell>{machine.manufacturer}</TableCell>
-                    <TableCell>{machine.year}</TableCell>
-                    <TableCell>
-                      <div
-                        className={`px-2 py-1 rounded-full text-xs font-medium inline-block ${
-                          machine.status === ResourceStatus.Available
-                            ? "bg-green-100 text-green-800"
-                            : machine.status === ResourceStatus.InUse
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {machine.status}
-                      </div>
-                    </TableCell>
-                    <TableCell>{machine.ownership}</TableCell>
-                    <TableCell>{machine.last_maintenance || "-"}</TableCell>
-                    <TableCell>{machine.next_maintenance || "-"}</TableCell>
-                    <TableCell>
-                      <Select
-                        defaultValue={machine.status}
-                        onValueChange={(value) => updateMachineryStatus(machine.id, value as ResourceStatus)}
-                      >
-                        <SelectTrigger className="w-[130px]">
-                          <SelectValue placeholder="状態を変更" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={ResourceStatus.Available}>利用可能</SelectItem>
-                          <SelectItem value={ResourceStatus.InUse}>利用中</SelectItem>
-                          <SelectItem value={ResourceStatus.UnderMaintenance}>メンテナンス中</SelectItem>
-                        </SelectContent>
-                      </Select>
+              </TableHeader>
+              <TableBody>
+                {filteredMachinery.length > 0 ? (
+                  filteredMachinery.map((m) => (
+                    <TableRow key={m.id}>
+                      <TableCell className="font-medium">{m.name}</TableCell>
+                      <TableCell>{m.model}</TableCell>
+                      <TableCell>{getTypeName(m.type)}</TableCell>
+                      <TableCell>{m.manufacturer}</TableCell>
+                      <TableCell>{m.serial_number}</TableCell>
+                      <TableCell>{m.purchase_date}</TableCell>
+                      <TableCell>{getStatusBadge(m.status)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm">
+                          詳細
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-24 text-center">
+                      重機が見つかりません
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* 重機登録フォーム */}
-      <HeavyMachineryForm open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} onSuccess={fetchHeavyMachinery} />
-    </div>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

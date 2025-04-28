@@ -7,9 +7,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { useToast } from "@/hooks/use-toast"
+import { Badge } from "@/components/ui/badge"
+import { ImageIcon } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
 import { useQuery } from "@tanstack/react-query"
-import { createClient } from "@supabase/supabase-js"
+import { fetchClientData, insertClientData } from "@/lib/supabase-utils"
 
 interface DailyReportFormProps {
   open: boolean
@@ -20,8 +22,6 @@ interface DailyReportFormProps {
 export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyReportFormProps) {
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
   const [formData, setFormData] = useState({
     projectId: "",
@@ -37,8 +37,7 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
   const { data: projects = [] } = useQuery({
     queryKey: ["projects"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("projects").select("*")
-      if (error) throw error
+      const { data } = await fetchClientData("projects")
       return data || []
     },
   })
@@ -46,8 +45,7 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
   const { data: staff = [] } = useQuery({
     queryKey: ["staff"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("staff").select("*")
-      if (error) throw error
+      const { data } = await fetchClientData("staff")
       return data || []
     },
   })
@@ -65,22 +63,18 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
     try {
       setIsSubmitting(true)
 
-      const { data, error } = await supabase
-        .from("daily_reports")
-        .insert({
-          project_id: formData.projectId,
-          staff_id: formData.userId,
-          work_date: formData.workDate,
-          weather: formData.weather,
-          work_content: formData.workContentText,
-          speech_recognition_raw: formData.speechRecognitionRaw,
-          photos: formData.photos,
-          status: "pending",
-          created_at: new Date().toISOString(),
-        })
-        .select()
-
-      if (error) throw error
+      // 日報データを追加
+      await insertClientData("daily_reports", {
+        project_id: formData.projectId,
+        staff_id: formData.userId,
+        work_date: formData.workDate,
+        weather: formData.weather,
+        work_content: formData.workContentText,
+        speech_recognition_raw: formData.speechRecognitionRaw,
+        photos: formData.photos,
+        status: "pending",
+        created_at: new Date().toISOString(),
+      })
 
       toast({
         title: "成功",
@@ -216,8 +210,9 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
             </div>
             <div className="flex flex-wrap gap-2 mt-2">
               {formData.photos.map((photo, index) => (
-                <div key={index} className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-md">
-                  <span className="text-sm">{photo}</span>
+                <Badge key={index} variant="outline" className="flex items-center gap-1">
+                  <ImageIcon className="h-3 w-3 mr-1" />
+                  {photo}
                   <button
                     type="button"
                     className="ml-1 rounded-full hover:bg-muted p-1"
@@ -230,7 +225,7 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
                   >
                     ×
                   </button>
-                </div>
+                </Badge>
               ))}
             </div>
           </div>

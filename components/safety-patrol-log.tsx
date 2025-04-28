@@ -10,76 +10,9 @@ import { Plus, Check, X, AlertTriangle, Calendar, ImageIcon } from "lucide-react
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SafetyPatrolForm } from "./safety-patrol-form"
-
-// 安全巡視日誌のモックデータ
-const initialPatrols = [
-  {
-    id: 1,
-    projectId: 1,
-    projectName: "羽布ビル新築工事",
-    patrolDate: new Date(2025, 3, 15),
-    inspectorId: 1,
-    inspectorName: "羽布太郎",
-    checklistJson: {
-      machines: "good",
-      protectiveGear: "good",
-      waste: "good",
-      noise: "good",
-      scaffolding: "warning",
-      electricity: "good",
-      fire: "good",
-      signage: "good",
-    },
-    comment: "足場の一部に手すりの緩みがあります。明日までに修正予定です。",
-    photos: ["足場写真1.jpg", "足場写真2.jpg"],
-    status: "approved",
-    createdAt: new Date(2025, 3, 15, 16, 30),
-  },
-  {
-    id: 2,
-    projectId: 2,
-    projectName: "羽布マンション改修工事",
-    patrolDate: new Date(2025, 3, 16),
-    inspectorId: 3,
-    inspectorName: "羽布花子",
-    checklistJson: {
-      machines: "good",
-      protectiveGear: "warning",
-      waste: "good",
-      noise: "good",
-      scaffolding: "good",
-      electricity: "good",
-      fire: "good",
-      signage: "warning",
-    },
-    comment: "一部作業員のヘルメット着用が不十分でした。注意喚起を行いました。安全標識の追加設置も必要です。",
-    photos: ["ヘルメット着用状況.jpg", "安全標識設置場所.jpg"],
-    status: "approved",
-    createdAt: new Date(2025, 3, 16, 17, 15),
-  },
-  {
-    id: 3,
-    projectId: 3,
-    projectName: "羽布橋梁補修工事",
-    patrolDate: new Date(2025, 4, 5),
-    inspectorId: 6,
-    inspectorName: "羽布五郎",
-    checklistJson: {
-      machines: "good",
-      protectiveGear: "good",
-      waste: "warning",
-      noise: "good",
-      scaffolding: "good",
-      electricity: "danger",
-      fire: "good",
-      signage: "good",
-    },
-    comment: "仮設電源の配線に問題があり、早急な対応が必要です。廃棄物の分別も徹底してください。",
-    photos: ["電源配線.jpg", "廃棄物置き場.jpg"],
-    status: "pending",
-    createdAt: new Date(2025, 4, 5, 15, 45),
-  },
-]
+import { useToast } from "@/components/ui/use-toast"
+import { fetchClientData, updateClientData } from "@/lib/supabase-utils"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 
 // チェックリスト項目の定義
 const checklistItems = [
@@ -94,40 +27,100 @@ const checklistItems = [
 ]
 
 export function SafetyPatrolLog() {
-  const [patrols, setPatrols] = useState(initialPatrols)
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [currentPatrol, setCurrentPatrol] = useState<any>(null)
   const [activeTab, setActiveTab] = useState("all")
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
+
+  // 安全パトロールデータを取得
+  const { data: patrols = [], isLoading } = useQuery({
+    queryKey: ["safetyPatrols"],
+    queryFn: async () => {
+      try {
+        // 安全パトロールデータを取得
+        const { data } = await fetchClientData("safety_patrols", {
+          join: [
+            { table: "projects", on: "project_id", select: ["name as projectName"] },
+            { table: "staff", on: "inspector_id", select: ["full_name as inspectorName"] },
+          ],
+        })
+        return data || []
+      } catch (error) {
+        console.error("安全パトロールデータ取得エラー:", error)
+        toast({
+          title: "エラー",
+          description: "安全パトロールデータの取得に失敗しました",
+          variant: "destructive",
+        })
+        return []
+      }
+    },
+  })
 
   const filteredPatrols = patrols.filter(
     (patrol) =>
-      (patrol.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        patrol.inspectorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        patrol.comment.toLowerCase().includes(searchTerm.toLowerCase())) &&
+      (patrol.projectName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        patrol.inspectorName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        patrol.comment?.toLowerCase().includes(searchTerm.toLowerCase())) &&
       (activeTab === "all" ||
         (activeTab === "pending" && patrol.status === "pending") ||
         (activeTab === "approved" && patrol.status === "approved")),
   )
 
   const handleAddPatrolSuccess = () => {
-    // 実際のアプリケーションではここでデータを再取得する
-    // 今回はモックデータを使用しているため、特に何もしない
+    // データを再取得
+    queryClient.invalidateQueries({ queryKey: ["safetyPatrols"] })
   }
 
-  const handleApprovePatrol = (patrolId: number) => {
-    const updatedPatrols = patrols.map((patrol) =>
-      patrol.id === patrolId ? { ...patrol, status: "approved" } : patrol,
-    )
-    setPatrols(updatedPatrols)
+  const handleApprovePatrol = async (patrolId: string) => {
+    try {
+      await updateClientData("safety_patrols", patrolId, {
+        status: "approved",
+        updated_at: new Date().toISOString(),
+      })
+
+      toast({
+        title: "成功",
+        description: "安全パトロールを承認しました",
+      })
+
+      // データを再取得
+      queryClient.invalidateQueries({ queryKey: ["safetyPatrols"] })
+    } catch (error) {
+      console.error("安全パトロール承認エラー:", error)
+      toast({
+        title: "エラー",
+        description: "安全パトロールの承認に失敗しました",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleRejectPatrol = (patrolId: number) => {
-    const updatedPatrols = patrols.map((patrol) =>
-      patrol.id === patrolId ? { ...patrol, status: "rejected" } : patrol,
-    )
-    setPatrols(updatedPatrols)
+  const handleRejectPatrol = async (patrolId: string) => {
+    try {
+      await updateClientData("safety_patrols", patrolId, {
+        status: "rejected",
+        updated_at: new Date().toISOString(),
+      })
+
+      toast({
+        title: "成功",
+        description: "安全パトロールを差し戻しました",
+      })
+
+      // データを再取得
+      queryClient.invalidateQueries({ queryKey: ["safetyPatrols"] })
+    } catch (error) {
+      console.error("安全パトロール差し戻しエラー:", error)
+      toast({
+        title: "エラー",
+        description: "安全パトロールの差し戻しに失敗しました",
+        variant: "destructive",
+      })
+    }
   }
 
   const getChecklistStatusBadge = (status: string) => {
@@ -157,14 +150,16 @@ export function SafetyPatrolLog() {
   }
 
   const countIssues = (patrol: any) => {
-    const checklist = patrol.checklistJson
+    const checklist = patrol.checklist_json
     let warningCount = 0
     let dangerCount = 0
 
-    Object.values(checklist).forEach((status: any) => {
-      if (status === "warning") warningCount++
-      if (status === "danger") dangerCount++
-    })
+    if (checklist) {
+      Object.values(checklist).forEach((status: any) => {
+        if (status === "warning") warningCount++
+        if (status === "danger") dangerCount++
+      })
+    }
 
     return { warningCount, dangerCount }
   }
@@ -212,172 +207,183 @@ export function SafetyPatrolLog() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPatrols.map((patrol) => {
-                  const { warningCount, dangerCount } = countIssues(patrol)
-                  return (
-                    <TableRow key={patrol.id}>
-                      <TableCell className="font-medium">{patrol.projectName}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                          <span>{patrol.patrolDate.toLocaleDateString()}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>{patrol.inspectorName}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          {dangerCount > 0 && (
-                            <Badge className="bg-red-500">
-                              <AlertTriangle className="h-3 w-3 mr-1" />
-                              危険: {dangerCount}
-                            </Badge>
-                          )}
-                          {warningCount > 0 && (
-                            <Badge className="bg-yellow-500">
-                              <AlertTriangle className="h-3 w-3 mr-1" />
-                              注意: {warningCount}
-                            </Badge>
-                          )}
-                          {dangerCount === 0 && warningCount === 0 && (
-                            <Badge className="bg-green-500">
-                              <Check className="h-3 w-3 mr-1" />
-                              良好
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="max-w-[200px] truncate">{patrol.comment}</TableCell>
-                      <TableCell>{getStatusBadge(patrol.status)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end space-x-2">
-                          <Dialog
-                            open={isViewDialogOpen && currentPatrol?.id === patrol.id}
-                            onOpenChange={(open) => {
-                              setIsViewDialogOpen(open)
-                              if (open) setCurrentPatrol(patrol)
-                            }}
-                          >
-                            <DialogTrigger asChild>
-                              <Button
-                                variant="outline"
-                                onClick={() => {
-                                  setCurrentPatrol(patrol)
-                                  setIsViewDialogOpen(true)
-                                }}
-                              >
-                                詳細
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-3xl">
-                              <DialogHeader>
-                                <DialogTitle>安全・環境巡視日誌詳細</DialogTitle>
-                              </DialogHeader>
-                              {currentPatrol && (
-                                <div className="grid gap-4 py-4">
-                                  <div className="grid grid-cols-2 gap-4">
-                                    <div className="border rounded-md p-4">
-                                      <h3 className="text-sm font-medium text-muted-foreground mb-1">対象工事</h3>
-                                      <p className="font-medium">{currentPatrol.projectName}</p>
-                                    </div>
-                                    <div className="border rounded-md p-4">
-                                      <h3 className="text-sm font-medium text-muted-foreground mb-1">巡視者</h3>
-                                      <p className="font-medium">{currentPatrol.inspectorName}</p>
-                                    </div>
-                                  </div>
-                                  <div className="border rounded-md p-4">
-                                    <h3 className="text-sm font-medium text-muted-foreground mb-1">巡視日</h3>
-                                    <p className="font-medium">{currentPatrol.patrolDate.toLocaleDateString()}</p>
-                                  </div>
-                                  <div className="border rounded-md p-4">
-                                    <h3 className="text-sm font-medium text-muted-foreground mb-1">チェックリスト</h3>
-                                    <div className="grid grid-cols-2 gap-4 mt-2">
-                                      {checklistItems.map((item) => (
-                                        <div key={item.id} className="flex justify-between items-center">
-                                          <span>{item.label}</span>
-                                          {getChecklistStatusBadge((currentPatrol.checklistJson as any)[item.id])}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                  <div className="border rounded-md p-4">
-                                    <h3 className="text-sm font-medium text-muted-foreground mb-1">コメント</h3>
-                                    <p>{currentPatrol.comment}</p>
-                                  </div>
-                                  <div className="border rounded-md p-4">
-                                    <h3 className="text-sm font-medium text-muted-foreground mb-1">添付写真</h3>
-                                    <div className="flex flex-wrap gap-2 mt-2">
-                                      {currentPatrol.photos.length > 0 ? (
-                                        currentPatrol.photos.map((photo: string, index: number) => (
-                                          <Badge key={index} variant="outline" className="flex items-center gap-1">
-                                            <ImageIcon className="h-3 w-3 mr-1" />
-                                            {photo}
-                                          </Badge>
-                                        ))
-                                      ) : (
-                                        <p className="text-sm text-muted-foreground">添付写真はありません</p>
-                                      )}
-                                    </div>
-                                  </div>
-                                  {currentPatrol.status === "pending" && (
-                                    <div className="flex justify-end space-x-2 mt-4">
-                                      <Button
-                                        variant="outline"
-                                        className="bg-red-50 hover:bg-red-100 text-red-600"
-                                        onClick={() => {
-                                          handleRejectPatrol(currentPatrol.id)
-                                          setIsViewDialogOpen(false)
-                                        }}
-                                      >
-                                        <X className="h-4 w-4 mr-2" />
-                                        差戻し
-                                      </Button>
-                                      <Button
-                                        className="bg-green-600 hover:bg-green-700"
-                                        onClick={() => {
-                                          handleApprovePatrol(currentPatrol.id)
-                                          setIsViewDialogOpen(false)
-                                        }}
-                                      >
-                                        <Check className="h-4 w-4 mr-2" />
-                                        承認
-                                      </Button>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </DialogContent>
-                          </Dialog>
-                          {patrol.status === "pending" && (
-                            <div className="flex space-x-2">
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="bg-red-50 hover:bg-red-100 text-red-600"
-                                onClick={() => handleRejectPatrol(patrol.id)}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="bg-green-50 hover:bg-green-100 text-green-600"
-                                onClick={() => handleApprovePatrol(patrol.id)}
-                              >
-                                <Check className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-                {filteredPatrols.length === 0 && (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-4">
+                      読み込み中...
+                    </TableCell>
+                  </TableRow>
+                ) : filteredPatrols.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
                       該当する巡視日誌はありません
                     </TableCell>
                   </TableRow>
+                ) : (
+                  filteredPatrols.map((patrol) => {
+                    const { warningCount, dangerCount } = countIssues(patrol)
+                    return (
+                      <TableRow key={patrol.id}>
+                        <TableCell className="font-medium">{patrol.projectName}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+                            <span>{new Date(patrol.patrol_date).toLocaleDateString()}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>{patrol.inspectorName}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            {dangerCount > 0 && (
+                              <Badge className="bg-red-500">
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                危険: {dangerCount}
+                              </Badge>
+                            )}
+                            {warningCount > 0 && (
+                              <Badge className="bg-yellow-500">
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                注意: {warningCount}
+                              </Badge>
+                            )}
+                            {dangerCount === 0 && warningCount === 0 && (
+                              <Badge className="bg-green-500">
+                                <Check className="h-3 w-3 mr-1" />
+                                良好
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate">{patrol.comment}</TableCell>
+                        <TableCell>{getStatusBadge(patrol.status)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end space-x-2">
+                            <Dialog
+                              open={isViewDialogOpen && currentPatrol?.id === patrol.id}
+                              onOpenChange={(open) => {
+                                setIsViewDialogOpen(open)
+                                if (open) setCurrentPatrol(patrol)
+                              }}
+                            >
+                              <DialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setCurrentPatrol(patrol)
+                                    setIsViewDialogOpen(true)
+                                  }}
+                                >
+                                  詳細
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-3xl">
+                                <DialogHeader>
+                                  <DialogTitle>安全・環境巡視日誌詳細</DialogTitle>
+                                </DialogHeader>
+                                {currentPatrol && (
+                                  <div className="grid gap-4 py-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <div className="border rounded-md p-4">
+                                        <h3 className="text-sm font-medium text-muted-foreground mb-1">対象工事</h3>
+                                        <p className="font-medium">{currentPatrol.projectName}</p>
+                                      </div>
+                                      <div className="border rounded-md p-4">
+                                        <h3 className="text-sm font-medium text-muted-foreground mb-1">巡視者</h3>
+                                        <p className="font-medium">{currentPatrol.inspectorName}</p>
+                                      </div>
+                                    </div>
+                                    <div className="border rounded-md p-4">
+                                      <h3 className="text-sm font-medium text-muted-foreground mb-1">巡視日</h3>
+                                      <p className="font-medium">
+                                        {new Date(currentPatrol.patrol_date).toLocaleDateString()}
+                                      </p>
+                                    </div>
+                                    <div className="border rounded-md p-4">
+                                      <h3 className="text-sm font-medium text-muted-foreground mb-1">チェックリスト</h3>
+                                      <div className="grid grid-cols-2 gap-4 mt-2">
+                                        {checklistItems.map((item) => (
+                                          <div key={item.id} className="flex justify-between items-center">
+                                            <span>{item.label}</span>
+                                            {getChecklistStatusBadge(
+                                              (currentPatrol.checklist_json as any)?.[item.id] || "good",
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                    <div className="border rounded-md p-4">
+                                      <h3 className="text-sm font-medium text-muted-foreground mb-1">コメント</h3>
+                                      <p>{currentPatrol.comment}</p>
+                                    </div>
+                                    <div className="border rounded-md p-4">
+                                      <h3 className="text-sm font-medium text-muted-foreground mb-1">添付写真</h3>
+                                      <div className="flex flex-wrap gap-2 mt-2">
+                                        {currentPatrol.photos && currentPatrol.photos.length > 0 ? (
+                                          currentPatrol.photos.map((photo: string, index: number) => (
+                                            <Badge key={index} variant="outline" className="flex items-center gap-1">
+                                              <ImageIcon className="h-3 w-3 mr-1" />
+                                              {photo}
+                                            </Badge>
+                                          ))
+                                        ) : (
+                                          <p className="text-sm text-muted-foreground">添付写真はありません</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {currentPatrol.status === "pending" && (
+                                      <div className="flex justify-end space-x-2 mt-4">
+                                        <Button
+                                          variant="outline"
+                                          className="bg-red-50 hover:bg-red-100 text-red-600"
+                                          onClick={() => {
+                                            handleRejectPatrol(currentPatrol.id)
+                                            setIsViewDialogOpen(false)
+                                          }}
+                                        >
+                                          <X className="h-4 w-4 mr-2" />
+                                          差戻し
+                                        </Button>
+                                        <Button
+                                          className="bg-green-600 hover:bg-green-700"
+                                          onClick={() => {
+                                            handleApprovePatrol(currentPatrol.id)
+                                            setIsViewDialogOpen(false)
+                                          }}
+                                        >
+                                          <Check className="h-4 w-4 mr-2" />
+                                          承認
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </DialogContent>
+                            </Dialog>
+                            {patrol.status === "pending" && (
+                              <div className="flex space-x-2">
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="bg-red-50 hover:bg-red-100 text-red-600"
+                                  onClick={() => handleRejectPatrol(patrol.id)}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="bg-green-50 hover:bg-green-100 text-green-600"
+                                  onClick={() => handleApprovePatrol(patrol.id)}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
                 )}
               </TableBody>
             </Table>

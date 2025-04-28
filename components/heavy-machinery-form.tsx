@@ -1,100 +1,93 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useToast } from "@/hooks/use-toast"
-import { getClientSupabase } from "@/lib/supabase-utils"
-import { OwnershipType, ResourceStatus } from "@/types/enums"
+import { createHeavyMachinery } from "@/lib/supabase-utils"
+import { toast } from "@/components/ui/use-toast"
+import { Textarea } from "@/components/ui/textarea"
 
 interface HeavyMachineryFormProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
   onSuccess?: () => void
 }
 
-export function HeavyMachineryForm({ open, onOpenChange, onSuccess }: HeavyMachineryFormProps) {
-  const { toast } = useToast()
+export function HeavyMachineryForm({ onSuccess }: HeavyMachineryFormProps) {
+  const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-
   const [formData, setFormData] = useState({
     name: "",
-    type: "",
     model: "",
+    type: "",
+    serialNumber: "",
     manufacturer: "",
-    year: new Date().getFullYear(),
-    status: ResourceStatus.Available,
-    ownership: OwnershipType.OwnedByCompany,
-    last_maintenance: "",
-    next_maintenance: "",
+    purchaseDate: "",
+    status: "available",
+    notes: "",
   })
 
-  const handleSubmit = async () => {
-    if (!formData.name || !formData.type || !formData.model || !formData.manufacturer) {
-      toast({
-        title: "入力エラー",
-        description: "名称、種類、型式、メーカーは必須項目です",
-        variant: "destructive",
-      })
-      return
-    }
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
 
     try {
-      setIsSubmitting(true)
-      const supabase = getClientSupabase()
+      // Validate form data
+      if (!formData.name || !formData.model || !formData.type) {
+        throw new Error("名前、モデル、タイプは必須です")
+      }
 
-      const { data, error } = await supabase
-        .from("heavy_machinery")
-        .insert({
-          name: formData.name,
-          type: formData.type,
-          model: formData.model,
-          manufacturer: formData.manufacturer,
-          year: formData.year,
-          status: formData.status,
-          ownership: formData.ownership,
-          last_maintenance: formData.last_maintenance || null,
-          next_maintenance: formData.next_maintenance || null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .select()
-
-      if (error) throw error
+      // Create heavy machinery in database
+      await createHeavyMachinery({
+        name: formData.name,
+        model: formData.model,
+        type: formData.type,
+        serial_number: formData.serialNumber,
+        manufacturer: formData.manufacturer,
+        purchase_date: formData.purchaseDate,
+        status: formData.status,
+        notes: formData.notes,
+      })
 
       toast({
-        title: "成功",
-        description: "重機を登録しました",
+        title: "重機を登録しました",
+        description: `${formData.name}が登録されました`,
       })
 
-      // フォームをリセット
+      // Reset form and close dialog
       setFormData({
         name: "",
-        type: "",
         model: "",
+        type: "",
+        serialNumber: "",
         manufacturer: "",
-        year: new Date().getFullYear(),
-        status: ResourceStatus.Available,
-        ownership: OwnershipType.OwnedByCompany,
-        last_maintenance: "",
-        next_maintenance: "",
+        purchaseDate: "",
+        status: "available",
+        notes: "",
       })
+      setOpen(false)
 
-      // ダイアログを閉じる
-      onOpenChange(false)
-
-      // 成功コールバックを呼び出す
+      // Call success callback if provided
       if (onSuccess) {
         onSuccess()
       }
     } catch (error) {
-      console.error("重機登録エラー:", error)
+      console.error("重機の登録に失敗しました:", error)
       toast({
         title: "エラー",
-        description: "重機の登録に失敗しました",
+        description: `重機の登録に失敗しました: ${error instanceof Error ? error.message : "不明なエラー"}`,
         variant: "destructive",
       })
     } finally {
@@ -103,121 +96,94 @@ export function HeavyMachineryForm({ open, onOpenChange, onSuccess }: HeavyMachi
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="default">重機を登録</Button>
+      </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>新規重機登録</DialogTitle>
+          <DialogTitle>新しい重機を登録</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
+        <form onSubmit={handleSubmit} className="space-y-4 pt-4">
           <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">名称 *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="油圧ショベル A"
-              />
+            <div className="space-y-2">
+              <Label htmlFor="name">名前 *</Label>
+              <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="type">種類 *</Label>
-              <Input
-                id="type"
-                value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                placeholder="油圧ショベル"
-              />
+            <div className="space-y-2">
+              <Label htmlFor="model">モデル *</Label>
+              <Input id="model" name="model" value={formData.model} onChange={handleChange} required />
             </div>
           </div>
+
           <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="model">型式 *</Label>
-              <Input
-                id="model"
-                value={formData.model}
-                onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                placeholder="PC200-10"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="manufacturer">メーカー *</Label>
-              <Input
-                id="manufacturer"
-                value={formData.manufacturer}
-                onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
-                placeholder="コマツ"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="year">年式</Label>
-              <Input
-                id="year"
-                type="number"
-                value={formData.year}
-                onChange={(e) => setFormData({ ...formData, year: Number.parseInt(e.target.value) })}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="status">状態</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData({ ...formData, status: value as ResourceStatus })}
-              >
-                <SelectTrigger id="status">
-                  <SelectValue placeholder="状態を選択" />
+            <div className="space-y-2">
+              <Label htmlFor="type">タイプ *</Label>
+              <Select value={formData.type} onValueChange={(value) => handleSelectChange("type", value)}>
+                <SelectTrigger id="type">
+                  <SelectValue placeholder="タイプを選択" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ResourceStatus.Available}>利用可能</SelectItem>
-                  <SelectItem value={ResourceStatus.InUse}>利用中</SelectItem>
-                  <SelectItem value={ResourceStatus.UnderMaintenance}>メンテナンス中</SelectItem>
+                  <SelectItem value="excavator">掘削機</SelectItem>
+                  <SelectItem value="bulldozer">ブルドーザー</SelectItem>
+                  <SelectItem value="crane">クレーン</SelectItem>
+                  <SelectItem value="loader">ローダー</SelectItem>
+                  <SelectItem value="other">その他</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="serialNumber">シリアル番号</Label>
+              <Input id="serialNumber" name="serialNumber" value={formData.serialNumber} onChange={handleChange} />
+            </div>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="ownership">所有形態</Label>
-            <Select
-              value={formData.ownership}
-              onValueChange={(value) => setFormData({ ...formData, ownership: value as OwnershipType })}
-            >
-              <SelectTrigger id="ownership">
-                <SelectValue placeholder="所有形態を選択" />
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="manufacturer">製造元</Label>
+              <Input id="manufacturer" name="manufacturer" value={formData.manufacturer} onChange={handleChange} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="purchaseDate">購入日</Label>
+              <Input
+                id="purchaseDate"
+                name="purchaseDate"
+                type="date"
+                value={formData.purchaseDate}
+                onChange={handleChange}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="status">ステータス</Label>
+            <Select value={formData.status} onValueChange={(value) => handleSelectChange("status", value)}>
+              <SelectTrigger id="status">
+                <SelectValue placeholder="ステータスを選択" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={OwnershipType.OwnedByCompany}>自社保有</SelectItem>
-                <SelectItem value={OwnershipType.Leased}>リース</SelectItem>
-                <SelectItem value={OwnershipType.Other}>その他</SelectItem>
+                <SelectItem value="available">利用可能</SelectItem>
+                <SelectItem value="in_use">使用中</SelectItem>
+                <SelectItem value="maintenance">メンテナンス中</SelectItem>
+                <SelectItem value="out_of_service">使用不可</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="last_maintenance">前回点検日</Label>
-              <Input
-                id="last_maintenance"
-                type="date"
-                value={formData.last_maintenance}
-                onChange={(e) => setFormData({ ...formData, last_maintenance: e.target.value })}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="next_maintenance">次回点検日</Label>
-              <Input
-                id="next_maintenance"
-                type="date"
-                value={formData.next_maintenance}
-                onChange={(e) => setFormData({ ...formData, next_maintenance: e.target.value })}
-              />
-            </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="notes">備考</Label>
+            <Textarea id="notes" name="notes" value={formData.notes} onChange={handleChange} rows={3} />
           </div>
-        </div>
-        <DialogFooter>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? "登録中..." : "登録"}
-          </Button>
-        </DialogFooter>
+
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              キャンセル
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "保存中..." : "保存"}
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   )

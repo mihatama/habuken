@@ -3,13 +3,12 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
-import { useToast } from "@/hooks/use-toast"
-import { useQuery } from "@tanstack/react-query"
-import { fetchClientData, insertClientData } from "@/lib/supabase-utils"
+import { toast } from "@/components/ui/use-toast"
+import { insertClientData } from "@/lib/supabase-utils"
 
 interface ToolFormProps {
   open: boolean
@@ -18,121 +17,70 @@ interface ToolFormProps {
 }
 
 export function ToolForm({ open, onOpenChange, onSuccess }: ToolFormProps) {
-  const { toast } = useToast()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [resourceTypeField, setResourceTypeField] = useState<string>("type")
-
+  const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
+    type: "hand_tool", // hand_tool, power_tool, equipment, other
+    model: "",
+    manufacturer: "",
+    serialNumber: "",
+    purchaseDate: "",
+    purchasePrice: "",
+    status: "available", // available, in_use, maintenance, broken
     location: "",
-    status: "利用可能",
-    last_inspection_date: "",
-    assigned_projects: [] as string[],
-    assigned_staff: [] as string[],
+    notes: "",
   })
 
-  // プロジェクトとスタッフのデータを取得
-  const { data: projects = [] } = useQuery({
-    queryKey: ["projects"],
-    queryFn: async () => {
-      const { data } = await fetchClientData("projects")
-      return data || []
-    },
-  })
-
-  const { data: staff = [] } = useQuery({
-    queryKey: ["staff"],
-    queryFn: async () => {
-      const { data } = await fetchClientData("staff")
-      return data || []
-    },
-  })
-
-  // リソーステーブルのスキーマを確認
-  useQuery({
-    queryKey: ["resourceSchema"],
-    queryFn: async () => {
-      const { data: columns } = await fetchClientData("resources", { limit: 1 })
-      if (columns && columns.length > 0) {
-        if ("type" in columns[0]) {
-          setResourceTypeField("type")
-        } else if ("resource_type" in columns[0]) {
-          setResourceTypeField("resource_type")
-        }
-      }
-      return null
-    },
-  })
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      type: "hand_tool",
+      model: "",
+      manufacturer: "",
+      serialNumber: "",
+      purchaseDate: "",
+      purchasePrice: "",
+      status: "available",
+      location: "",
+      notes: "",
+    })
+  }
 
   const handleSubmit = async () => {
     if (!formData.name) {
       toast({
         title: "入力エラー",
-        description: "備品名は必須項目です",
+        description: "備品名は必須です",
         variant: "destructive",
       })
       return
     }
 
+    setSubmitting(true)
     try {
-      setIsSubmitting(true)
-
-      const insertData: any = {
+      await insertClientData("resources", {
         name: formData.name,
-        location: formData.location,
+        type: "工具", // リソースタイプを「工具」に固定
+        resource_type: formData.type,
+        model: formData.model,
+        manufacturer: formData.manufacturer,
+        serial_number: formData.serialNumber,
+        purchase_date: formData.purchaseDate || null,
+        purchase_price: formData.purchasePrice ? Number.parseFloat(formData.purchasePrice) : null,
         status: formData.status,
-        last_inspection_date: formData.last_inspection_date || null,
-      }
-
-      // 適切なフィールド名を使用
-      if (resourceTypeField === "type") {
-        insertData.type = "工具"
-      } else if (resourceTypeField === "resource_type") {
-        insertData.resource_type = "工具"
-      }
-
-      const result = await insertClientData("resources", insertData)
-
-      if (result && result[0]) {
-        // 関連プロジェクトの登録
-        for (const projectId of formData.assigned_projects) {
-          await insertClientData("resource_project", {
-            resource_id: result[0].id,
-            project_id: projectId,
-          })
-        }
-
-        // 関連スタッフの登録
-        for (const staffId of formData.assigned_staff) {
-          await insertClientData("resource_staff", {
-            resource_id: result[0].id,
-            staff_id: staffId,
-          })
-        }
-      }
+        location: formData.location,
+        notes: formData.notes,
+        created_at: new Date().toISOString(),
+      })
 
       toast({
         title: "成功",
         description: "備品を追加しました",
       })
 
-      // フォームをリセット
-      setFormData({
-        name: "",
-        location: "",
-        status: "利用可能",
-        last_inspection_date: "",
-        assigned_projects: [],
-        assigned_staff: [],
-      })
-
-      // ダイアログを閉じる
+      resetForm()
       onOpenChange(false)
-
-      // 成功コールバックを呼び出す
-      if (onSuccess) {
-        onSuccess()
-      }
+      if (onSuccess) onSuccess()
     } catch (error) {
       console.error("備品追加エラー:", error)
       toast({
@@ -141,25 +89,107 @@ export function ToolForm({ open, onOpenChange, onSuccess }: ToolFormProps) {
         variant: "destructive",
       })
     } finally {
-      setIsSubmitting(false)
+      setSubmitting(false)
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>備品の追加</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="name">名称 *</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">備品名</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="例: 電動ドリル"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="type">備品タイプ</Label>
+              <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value })}>
+                <SelectTrigger id="type">
+                  <SelectValue placeholder="備品タイプを選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hand_tool">手工具</SelectItem>
+                  <SelectItem value="power_tool">電動工具</SelectItem>
+                  <SelectItem value="equipment">機器</SelectItem>
+                  <SelectItem value="other">その他</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="manufacturer">メーカー</Label>
+              <Input
+                id="manufacturer"
+                value={formData.manufacturer}
+                onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
+                placeholder="例: マキタ"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="model">モデル</Label>
+              <Input
+                id="model"
+                value={formData.model}
+                onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                placeholder="例: DF001G"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="serialNumber">シリアル番号</Label>
+              <Input
+                id="serialNumber"
+                value={formData.serialNumber}
+                onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
+                placeholder="例: ABC123456"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="status">状態</Label>
+              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                <SelectTrigger id="status">
+                  <SelectValue placeholder="状態を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="available">利用可能</SelectItem>
+                  <SelectItem value="in_use">使用中</SelectItem>
+                  <SelectItem value="maintenance">メンテナンス中</SelectItem>
+                  <SelectItem value="broken">故障</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="purchaseDate">購入日</Label>
+              <Input
+                id="purchaseDate"
+                type="date"
+                value={formData.purchaseDate}
+                onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="purchasePrice">購入価格</Label>
+              <Input
+                id="purchasePrice"
+                type="number"
+                value={formData.purchasePrice}
+                onChange={(e) => setFormData({ ...formData, purchasePrice: e.target.value })}
+                placeholder="例: 15000"
+              />
+            </div>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="location">保管場所</Label>
@@ -167,92 +197,25 @@ export function ToolForm({ open, onOpenChange, onSuccess }: ToolFormProps) {
               id="location"
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              placeholder="例: 倉庫A棚3"
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="status">状態</Label>
-            <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="利用可能">利用可能</SelectItem>
-                <SelectItem value="利用中">利用中</SelectItem>
-                <SelectItem value="メンテナンス中">メンテナンス中</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="lastMaintenance">最終メンテナンス日</Label>
-            <Input
-              id="lastMaintenance"
-              type="date"
-              value={formData.last_inspection_date}
-              onChange={(e) => setFormData({ ...formData, last_inspection_date: e.target.value })}
+            <Label htmlFor="notes">備考</Label>
+            <Textarea
+              id="notes"
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              placeholder="備考を入力してください"
             />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="assignedProjects">使用案件</Label>
-            <div className="flex flex-col gap-2 max-h-[150px] overflow-y-auto">
-              {projects.map((project: any) => (
-                <div key={project.id} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`project-${project.id}`}
-                    checked={formData.assigned_projects.includes(project.id)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setFormData({
-                          ...formData,
-                          assigned_projects: [...formData.assigned_projects, project.id],
-                        })
-                      } else {
-                        setFormData({
-                          ...formData,
-                          assigned_projects: formData.assigned_projects.filter((id) => id !== project.id),
-                        })
-                      }
-                    }}
-                  />
-                  <label htmlFor={`project-${project.id}`} className="text-sm">
-                    {project.name}
-                  </label>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="assignedStaff">担当スタッフ</Label>
-            <div className="flex flex-col gap-2 max-h-[150px] overflow-y-auto">
-              {staff.map((s: any) => (
-                <div key={s.id} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`staff-${s.id}`}
-                    checked={formData.assigned_staff.includes(s.id)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setFormData({
-                          ...formData,
-                          assigned_staff: [...formData.assigned_staff, s.id],
-                        })
-                      } else {
-                        setFormData({
-                          ...formData,
-                          assigned_staff: formData.assigned_staff.filter((id) => id !== s.id),
-                        })
-                      }
-                    }}
-                  />
-                  <label htmlFor={`staff-${s.id}`} className="text-sm">
-                    {s.full_name}
-                  </label>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? "追加中..." : "追加"}
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+            キャンセル
+          </Button>
+          <Button type="submit" onClick={handleSubmit} disabled={submitting}>
+            {submitting ? "保存中..." : "保存"}
           </Button>
         </DialogFooter>
       </DialogContent>

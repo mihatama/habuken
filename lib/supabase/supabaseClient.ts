@@ -1,11 +1,19 @@
-import { createClient } from "@supabase/supabase-js"
+import { createClient as supabaseCreateClient } from "@supabase/supabase-js"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 
-const supabaseClient = createClient(supabaseUrl, supabaseAnonKey)
+// 名前付きエクスポートとして createClient を追加
+export const createClient = supabaseCreateClient
+
+export const supabaseClient = supabaseCreateClient(supabaseUrl, supabaseAnonKey)
 
 export function getClientSupabase() {
+  return supabaseClient
+}
+
+// シングルトンパターンでクライアントを取得する関数
+export function getClientSupabaseSingleton() {
   return supabaseClient
 }
 

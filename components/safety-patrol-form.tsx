@@ -8,8 +8,11 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Badge } from "@/components/ui/badge"
+import { ImageIcon } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { sampleProjects, sampleStaff } from "@/data/sample-data"
+import { useQuery } from "@tanstack/react-query"
+import { fetchClientData, insertClientData } from "@/lib/supabase-utils"
 
 interface SafetyPatrolFormProps {
   open: boolean
@@ -51,6 +54,23 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
     photos: [] as string[],
   })
 
+  // プロジェクトとスタッフのデータを取得
+  const { data: projects = [] } = useQuery({
+    queryKey: ["projects"],
+    queryFn: async () => {
+      const { data } = await fetchClientData("projects")
+      return data || []
+    },
+  })
+
+  const { data: staff = [] } = useQuery({
+    queryKey: ["staff"],
+    queryFn: async () => {
+      const { data } = await fetchClientData("staff")
+      return data || []
+    },
+  })
+
   const handleSubmit = async () => {
     if (!formData.projectId || !formData.inspectorId) {
       toast({
@@ -64,32 +84,17 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
     try {
       setIsSubmitting(true)
 
-      const projectId = Number.parseInt(formData.projectId)
-      const inspectorId = Number.parseInt(formData.inspectorId)
-      const project = sampleProjects.find((p) => p.id === projectId)
-      const inspector = sampleStaff.find((s) => s.id === inspectorId)
-
-      if (!project || !inspector) {
-        throw new Error("プロジェクトまたは巡視者が見つかりません")
-      }
-
-      // 実際のアプリケーションではここでAPIリクエストを行う
-      // 今回はモックデータを使用
-      const patrol = {
-        id: Math.floor(Math.random() * 1000) + 1,
-        projectId,
-        projectName: project.name,
-        patrolDate: new Date(formData.patrolDate),
-        inspectorId,
-        inspectorName: inspector.name,
-        checklistJson: formData.checklistJson,
+      // 安全パトロールデータを追加
+      await insertClientData("safety_patrols", {
+        project_id: formData.projectId,
+        inspector_id: formData.inspectorId,
+        patrol_date: formData.patrolDate,
+        checklist_json: formData.checklistJson,
         comment: formData.comment,
         photos: formData.photos,
         status: "pending",
-        createdAt: new Date(),
-      }
-
-      console.log("新規安全パトロール:", patrol)
+        created_at: new Date().toISOString(),
+      })
 
       toast({
         title: "成功",
@@ -152,8 +157,8 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
                   <SelectValue placeholder="工事を選択" />
                 </SelectTrigger>
                 <SelectContent>
-                  {sampleProjects.map((project) => (
-                    <SelectItem key={project.id} value={project.id.toString()}>
+                  {projects.map((project: any) => (
+                    <SelectItem key={project.id} value={project.id}>
                       {project.name}
                     </SelectItem>
                   ))}
@@ -170,9 +175,9 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
                   <SelectValue placeholder="巡視者を選択" />
                 </SelectTrigger>
                 <SelectContent>
-                  {sampleStaff.map((staff) => (
-                    <SelectItem key={staff.id} value={staff.id.toString()}>
-                      {staff.name}
+                  {staff.map((s: any) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.full_name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -262,8 +267,9 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
             </div>
             <div className="flex flex-wrap gap-2 mt-2">
               {formData.photos.map((photo, index) => (
-                <div key={index} className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-md">
-                  <span className="text-sm">{photo}</span>
+                <Badge key={index} variant="outline" className="flex items-center gap-1">
+                  <ImageIcon className="h-3 w-3 mr-1" />
+                  {photo}
                   <button
                     type="button"
                     className="ml-1 rounded-full hover:bg-muted p-1"
@@ -276,7 +282,7 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
                   >
                     ×
                   </button>
-                </div>
+                </Badge>
               ))}
             </div>
           </div>

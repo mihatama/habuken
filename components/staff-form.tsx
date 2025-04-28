@@ -1,154 +1,162 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useToast } from "@/hooks/use-toast"
-import { useAddStaff } from "@/hooks/supabase/use-staff"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { createStaff } from "@/lib/supabase-utils"
+import { toast } from "@/components/ui/use-toast"
 
 interface StaffFormProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
   onSuccess?: () => void
 }
 
-export function StaffForm({ open, onOpenChange, onSuccess }: StaffFormProps) {
-  const { toast } = useToast()
-  const addStaffMutation = useAddStaff()
-
+export function StaffForm({ onSuccess }: StaffFormProps) {
+  const [open, setOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
-    full_name: "",
-    email: "",
-    phone: "",
+    name: "",
     position: "",
     department: "",
-    hire_date: "",
+    employeeId: "",
+    contactNumber: "",
+    email: "",
+    status: "active",
   })
 
-  const handleSubmit = async () => {
-    if (!formData.full_name) {
-      toast({
-        title: "入力エラー",
-        description: "名前は必須項目です",
-        variant: "destructive",
-      })
-      return
-    }
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
 
     try {
-      await addStaffMutation.mutateAsync({
-        full_name: formData.full_name,
-        email: formData.email || null,
-        phone: formData.phone || null,
-        position: formData.position || null,
-        department: formData.department || null,
-        hire_date: formData.hire_date || null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+      // Validate form data
+      if (!formData.name || !formData.position || !formData.employeeId) {
+        throw new Error("名前、役職、従業員IDは必須です")
+      }
+
+      // Create staff in database
+      await createStaff({
+        name: formData.name,
+        position: formData.position,
+        department: formData.department,
+        employee_id: formData.employeeId,
+        contact_number: formData.contactNumber,
+        email: formData.email,
+        status: formData.status,
       })
 
       toast({
-        title: "成功",
-        description: "スタッフを追加しました",
+        title: "スタッフを追加しました",
+        description: `${formData.name}さんがスタッフとして登録されました`,
       })
 
-      // フォームをリセット
+      // Reset form and close dialog
       setFormData({
-        full_name: "",
-        email: "",
-        phone: "",
+        name: "",
         position: "",
         department: "",
-        hire_date: "",
+        employeeId: "",
+        contactNumber: "",
+        email: "",
+        status: "active",
       })
+      setOpen(false)
 
-      // ダイアログを閉じる
-      onOpenChange(false)
-
-      // 成功コールバックを呼び出す
+      // Call success callback if provided
       if (onSuccess) {
         onSuccess()
       }
     } catch (error) {
-      console.error("スタッフ追加エラー:", error)
+      console.error("スタッフの追加に失敗しました:", error)
       toast({
         title: "エラー",
-        description: "スタッフの追加に失敗しました",
+        description: `スタッフの追加に失敗しました: ${error instanceof Error ? error.message : "不明なエラー"}`,
         variant: "destructive",
       })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="default">スタッフを追加</Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>スタッフ追加</DialogTitle>
+          <DialogTitle>新しいスタッフを追加</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="full_name">名前 *</Label>
-            <Input
-              id="full_name"
-              value={formData.full_name}
-              onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-              placeholder="山田 太郎"
-            />
+        <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">名前 *</Label>
+              <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="employeeId">従業員ID *</Label>
+              <Input id="employeeId" name="employeeId" value={formData.employeeId} onChange={handleChange} required />
+            </div>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="email">メールアドレス</Label>
-            <Input
-              id="email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              placeholder="example@company.com"
-            />
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="position">役職 *</Label>
+              <Input id="position" name="position" value={formData.position} onChange={handleChange} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="department">部署</Label>
+              <Input id="department" name="department" value={formData.department} onChange={handleChange} />
+            </div>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="phone">電話番号</Label>
-            <Input
-              id="phone"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              placeholder="090-1234-5678"
-            />
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="contactNumber">連絡先</Label>
+              <Input id="contactNumber" name="contactNumber" value={formData.contactNumber} onChange={handleChange} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">メールアドレス</Label>
+              <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} />
+            </div>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="position">役職</Label>
-            <Input
-              id="position"
-              value={formData.position}
-              onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-              placeholder="現場監督"
-            />
+
+          <div className="space-y-2">
+            <Label htmlFor="status">ステータス</Label>
+            <Select value={formData.status} onValueChange={(value) => handleSelectChange("status", value)}>
+              <SelectTrigger id="status">
+                <SelectValue placeholder="ステータスを選択" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">在籍中</SelectItem>
+                <SelectItem value="leave">休職中</SelectItem>
+                <SelectItem value="retired">退職</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="department">部署</Label>
-            <Input
-              id="department"
-              value={formData.department}
-              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-              placeholder="工事部"
-            />
+
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              キャンセル
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "保存中..." : "保存"}
+            </Button>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="hire_date">入社日</Label>
-            <Input
-              id="hire_date"
-              type="date"
-              value={formData.hire_date}
-              onChange={(e) => setFormData({ ...formData, hire_date: e.target.value })}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button onClick={handleSubmit} disabled={addStaffMutation.isPending}>
-            {addStaffMutation.isPending ? "追加中..." : "追加"}
-          </Button>
-        </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )
