@@ -11,8 +11,15 @@ import { Label } from "@/components/ui/label"
 import { Plus, Pencil, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/components/ui/use-toast"
-import { fetchClientData, insertClientData, updateClientData, deleteClientData } from "@/lib/supabase-utils"
-import { getClientSupabase } from "@/lib/supabase-client"
+import {
+  fetchClientData,
+  insertClientData,
+  updateClientData,
+  deleteClientData,
+  getClientSupabase,
+} from "@/lib/supabase-utils"
+// 古いインポート文を削除
+// import { getClientSupabase } from "@/lib/supabase-client"
 
 export function ToolList() {
   const [projects, setProjects] = useState<any[]>([])

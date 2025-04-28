@@ -322,18 +322,3 @@ export async function deleteServerData(
   const supabase = client || getServerSupabase(clientType)
   return deleteData(supabase, tableName, id, { idField })
 }
-
-// ===== 後方互換性のためのエイリアス =====
-
-// クライアント側のエイリアス
-export const getSupabaseClient = getClientSupabase
-export const getClientSupabaseInstance = getClientSupabase
-
-// サーバー側のエイリアス
-export const getServerSupabaseClient = getServerSupabase
-
-// データアクセス関数のエイリアス
-export const fetchDataClient = fetchClientData
-export const insertDataClient = insertClientData
-export const updateDataClient = updateClientData
-export const deleteDataClient = deleteClientData

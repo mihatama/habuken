@@ -1,5 +1,4 @@
-// サンプルデータを提供しつつ、実際のデータはSupabaseから取得します
-// これらのデータは開発時やフォールバック用に使用されます
+// 不要なコメントを削除
 
 export const sampleProjects = [
   {
@@ -106,7 +105,6 @@ export const sampleTools = [
   },
 ]
 
-// 必要に応じて他のサンプルデータも追加できます
 export const sampleVehicles = [
   {
     id: "1",

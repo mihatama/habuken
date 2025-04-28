@@ -1,4 +1,4 @@
-import { getClientSupabase } from "../lib/supabase-utils"
+import { getClientSupabase } from "@/lib/supabase-utils"
 
 // データを取得する汎用関数
 async function fetchData(

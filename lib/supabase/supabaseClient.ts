@@ -1,6 +1,4 @@
-// 絶対パスのインポートを修正
-// @/lib/supabase/index から直接インポートするのではなく
-// @/lib/supabase から必要な関数をインポート
+// このファイルは lib/supabase-utils.ts に統合されているため、シンプルな転送ファイルに変更
 
 import {
   getClientSupabase,
@@ -8,7 +6,7 @@ import {
   insertClientData,
   updateClientData,
   deleteClientData,
-} from "@/lib/supabase"
+} from "@/lib/supabase-utils"
 
 // 後方互換性のために既存の関数名を維持
 export function getClientSupabaseInstance() {

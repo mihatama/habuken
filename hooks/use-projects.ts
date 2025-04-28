@@ -2,8 +2,15 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useToast } from "@/hooks/use-toast"
-import { fetchClientData, insertClientData, updateClientData, deleteClientData } from "@/lib/supabase-utils"
-import { getClientSupabase } from "@/lib/supabase-client"
+import {
+  fetchClientData,
+  insertClientData,
+  updateClientData,
+  deleteClientData,
+  getClientSupabase,
+} from "@/lib/supabase-utils"
+// 古いインポート文を削除
+// import { getClientSupabase } from "@/lib/supabase-client"
 
 // プロジェクト一覧を取得するフック
 export function useProjects() {

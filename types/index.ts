@@ -1,10 +1,7 @@
-// 列挙型のエクスポート
-export * from "./enums"
+// 不要なコメントを削除
 
-// モデル型のエクスポート
+export * from "./enums"
 export * from "./models/resource"
 export * from "./models/project"
 export * from "./models/calendar"
-
-// API型のエクスポート
 export * from "./api"

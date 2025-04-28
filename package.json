@@ -71,10 +71,7 @@
     "@tanstack/react-query-devtools": "latest",
     "zustand": "latest",
     "@tanstack/react-table": "latest",
-    "uuid": "latest",
-    "fs": "latest",
-    "path": "latest",
-    "util": "latest"
+    "uuid": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
