@@ -1,17 +1,29 @@
 // lib/supabase.ts
-// 相対パスのインポートを絶対パスに変更
-import { getClientSupabase, fetchData, insertData, updateData, deleteData } from "@/lib/supabase/operations"
-import { getServerSupabase } from "@/lib/supabase/operations"
+// Supabase関連の全ての機能をエクスポートするメインファイル
 
-// 既存の関数をエクスポート
+// クライアント作成関数をエクスポート
 export {
   getClientSupabase,
+  getClientSupabaseInstance,
+  getServerSupabase,
+  createServerClient,
+  getSupabaseClient,
+  getActionSupabase,
+  createServerSupabaseClient,
+} from "@/lib/supabase/client"
+
+// データ操作関数をエクスポート
+export {
   fetchData,
   insertData,
   updateData,
   deleteData,
-  getServerSupabase,
-  getServerSupabase as createServerSupabaseClient,
-}
+  fetchDataFromTable,
+  insertDataToTable,
+  updateDataInTable,
+  deleteDataFromTable,
+  type QueryOptions,
+} from "@/lib/supabase/operations"
 
-// 追加の関数やエイリアスがあればここに追加
+// カスタムフックをエクスポート（もし存在する場合）
+export * from "@/lib/supabase/hooks"
