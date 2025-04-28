@@ -2,8 +2,10 @@
 const nextConfig = {
   reactStrictMode: true,
 
-  // Enable static export to avoid prerendering issues
-  output: "export",
+  // Disable App Router to use only Pages Router
+  experimental: {
+    appDir: false,
+  },
 
   // Enable image optimization (removing unoptimized: true)
   images: {
@@ -20,11 +22,6 @@ const nextConfig = {
   },
   typescript: {
     ignoreBuildErrors: true,
-  },
-
-  // Disable the CSR bailout warning for useSearchParams
-  experimental: {
-    missingSuspenseWithCSRBailout: false,
   },
 
   // Add security headers
