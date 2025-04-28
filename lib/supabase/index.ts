@@ -1,34 +1,17 @@
 /**
- * Supabaseクライアントとデータ操作のメインエントリーポイント
+ * Supabaseクライアントのメインエントリーポイント
  *
- * このファイルは、クライアント側とサーバー側の両方で使用される
- * Supabase関連の関数をエクスポートします。
- *
- * クライアント側では:
- * - getSupabaseClient(): クライアントコンポーネント用のSupabaseクライアント
- * - データ操作関数 (fetchData, insertData, updateData, deleteData)
- *
- * サーバー側では:
- * - getServerSupabaseClient(): サーバーコンポーネント用のSupabaseクライアント
- * - サーバー専用のデータ操作関数
+ * このファイルは、クライアントとサーバーの両方のSupabaseクライアントへのアクセスを提供します。
+ * - クライアントコンポーネント: `getSupabaseClient()`を使用
+ * - サーバーコンポーネント: `getServerSupabaseClient()`を使用（別途インポート）
  */
 
-// クライアント側の関数をエクスポート
-export {
-  getSupabaseClient,
-  getSupabaseClientInstance,
-  type SupabaseClientType,
-} from "./client"
+// 既存のsupabase.tsからクライアント関数をインポート
+import { getSupabaseClient, getClientSupabase, getClientSupabaseInstance } from "../supabase"
+export { getSupabaseClient, getClientSupabase, getClientSupabaseInstance }
 
-// データ操作関数をエクスポート
-export {
-  fetchData,
-  insertData,
-  updateData,
-  deleteData,
-  type QueryOptions,
-} from "./operations"
+// 型定義のエクスポート
+export type { SupabaseClientType } from "../supabase"
 
-// サーバー側の関数は直接インポートする必要があります
-// import { getServerSupabaseClient } from "./server";
-// import { fetchServerData } from "./server-operations";
+// データ操作関数のエクスポート
+export { fetchData, insertData, updateData, deleteData } from "../supabase"

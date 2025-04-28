@@ -1,27 +1,33 @@
-import type { SupabaseClient } from "@supabase/supabase-js"
-import type { Database } from "@/types/supabase"
 import { getSupabaseClient } from "./client"
+import type { SupabaseClientType } from "./client"
 
-export type QueryOptions = {
+/**
+ * データ取得オプション
+ */
+export interface FetchDataOptions {
   select?: string
   filters?: Record<string, any>
   order?: { column: string; ascending: boolean }
-  range?: { from: number; to: number }
   limit?: number
   page?: number
-  client?: SupabaseClient<Database>
+  pageSize?: number
 }
 
 /**
- * Supabaseからデータを取得する関数
+ * データを取得する汎用関数
+ *
+ * @param tableName テーブル名
+ * @param options 取得オプション
+ * @param client Supabaseクライアント（省略可）
+ * @returns 取得結果
  */
 export async function fetchData<T = any>(
   tableName: string,
-  options: QueryOptions = {},
-): Promise<{ data: T[]; count: number | null }> {
-  const { select = "*", filters, order, range, limit, page, client } = options
+  options: FetchDataOptions = {},
+  client?: SupabaseClientType,
+) {
+  const { select = "*", filters, order, limit, page, pageSize = 10 } = options
 
-  // クライアントが提供されている場合はそれを使用、そうでなければデフォルトのクライアントを取得
   const supabase = client || getSupabaseClient()
 
   try {
@@ -45,18 +51,13 @@ export async function fetchData<T = any>(
       query = query.order(order.column, { ascending: order.ascending })
     }
 
-    // 範囲指定の適用
-    if (range) {
-      query = query.range(range.from, range.to)
-    }
-
     // ページネーションの適用
-    if (limit) {
+    if (page !== undefined && pageSize) {
+      const from = (page - 1) * pageSize
+      const to = from + pageSize - 1
+      query = query.range(from, to)
+    } else if (limit) {
       query = query.limit(limit)
-
-      if (page && page > 1) {
-        query = query.range((page - 1) * limit, page * limit - 1)
-      }
     }
 
     const { data, error, count } = await query
@@ -66,7 +67,13 @@ export async function fetchData<T = any>(
       throw error
     }
 
-    return { data: (data || []) as T[], count }
+    return {
+      data: data as T[],
+      count: count || 0,
+      page: page,
+      pageSize: pageSize,
+      totalPages: count ? Math.ceil(count / pageSize) : 0,
+    }
   } catch (error) {
     console.error(`Error in fetchData for ${tableName}:`, error)
     throw error
@@ -74,14 +81,21 @@ export async function fetchData<T = any>(
 }
 
 /**
- * Supabaseにデータを挿入する関数
+ * データを挿入する汎用関数
+ *
+ * @param tableName テーブル名
+ * @param data 挿入するデータ
+ * @param options オプション
+ * @param client Supabaseクライアント（省略可）
+ * @returns 挿入結果
  */
 export async function insertData<T = any>(
   tableName: string,
   data: any,
-  options: { returning?: string; client?: SupabaseClient<Database> } = {},
-): Promise<T[]> {
-  const { returning = "*", client } = options
+  options: { returning?: string } = {},
+  client?: SupabaseClientType,
+) {
+  const { returning = "*" } = options
   const supabase = client || getSupabaseClient()
 
   try {
@@ -92,7 +106,7 @@ export async function insertData<T = any>(
       throw error
     }
 
-    return (result || []) as T[]
+    return result as T[]
   } catch (error) {
     console.error(`Error in insertData for ${tableName}:`, error)
     throw error
@@ -100,15 +114,23 @@ export async function insertData<T = any>(
 }
 
 /**
- * Supabaseのデータを更新する関数
+ * データを更新する汎用関数
+ *
+ * @param tableName テーブル名
+ * @param id 更新対象のID
+ * @param data 更新データ
+ * @param options オプション
+ * @param client Supabaseクライアント（省略可）
+ * @returns 更新結果
  */
 export async function updateData<T = any>(
   tableName: string,
-  id: string,
+  id: string | number,
   data: any,
-  options: { idField?: string; returning?: string; client?: SupabaseClient<Database> } = {},
-): Promise<T[]> {
-  const { idField = "id", returning = "*", client } = options
+  options: { idField?: string; returning?: string } = {},
+  client?: SupabaseClientType,
+) {
+  const { idField = "id", returning = "*" } = options
   const supabase = client || getSupabaseClient()
 
   try {
@@ -119,7 +141,7 @@ export async function updateData<T = any>(
       throw error
     }
 
-    return (result || []) as T[]
+    return result as T[]
   } catch (error) {
     console.error(`Error in updateData for ${tableName}:`, error)
     throw error
@@ -127,14 +149,21 @@ export async function updateData<T = any>(
 }
 
 /**
- * Supabaseのデータを削除する関数
+ * データを削除する汎用関数
+ *
+ * @param tableName テーブル名
+ * @param id 削除対象のID
+ * @param options オプション
+ * @param client Supabaseクライアント（省略可）
+ * @returns 削除成功フラグ
  */
 export async function deleteData(
   tableName: string,
-  id: string,
-  options: { idField?: string; client?: SupabaseClient<Database> } = {},
-): Promise<boolean> {
-  const { idField = "id", client } = options
+  id: string | number,
+  options: { idField?: string } = {},
+  client?: SupabaseClientType,
+) {
+  const { idField = "id" } = options
   const supabase = client || getSupabaseClient()
 
   try {

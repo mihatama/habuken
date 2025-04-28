@@ -1,6 +1,6 @@
 /**
  * @deprecated このファイルは非推奨です。代わりに ./supabase からインポートしてください。
- * 例: import { fetchData, insertData } from "./supabase";
+ * 例: import { fetchData, insertData, updateData, deleteData } from "./supabase";
  */
 
 import { fetchData, insertData, updateData, deleteData } from "./supabase"
