@@ -2,13 +2,16 @@
 const nextConfig = {
   reactStrictMode: true,
 
-  // Enable image optimization (removing unoptimized: true)
+  // Enable static export to avoid prerendering issues
+  output: "export",
+
+  // Enable image optimization
   images: {
-    unoptimized: true,
-    domains: ["v0.blob.com"], // Add any domains you need for external images
+    unoptimized: true, // Required for 'export'
+    domains: ["v0.blob.com"],
   },
 
-  // Remove trailing slash (not needed for Vercel)
+  // Remove trailing slash
   trailingSlash: false,
 
   // Enable build-time checks for better quality
@@ -19,12 +22,7 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
 
-  // Disable the CSR bailout warning for useSearchParams
-  experimental: {
-    missingSuspenseWithCSRBailout: false,
-  },
-
-  // Add security headers
+  // Add security headers (these won't be applied in static export mode)
   async headers() {
     return [
       {
