@@ -1,95 +1,67 @@
 "use server"
 
-import { revalidatePath } from "next/cache"
-import { v4 as uuidv4 } from "uuid"
-import { getServerSupabase } from "@/lib/supabase/client"
+import { getServerSupabaseClient } from "../lib/supabase/server"
 
-// リソース一覧を取得
-export async function getResources(resourceType: string) {
-  const supabase = getServerSupabase()
+// スタッフ一覧を取得
+export async function getStaff() {
+  const supabase = getServerSupabaseClient()
 
   try {
-    // リソース情報を取得
-    const { data, error } = await supabase.from(resourceType).select("*").order("created_at", { ascending: false })
+    const { data, error } = await supabase.from("staff").select("*").order("full_name", { ascending: true })
 
     if (error) throw error
 
     return { success: true, data }
   } catch (error: any) {
-    console.error(`${resourceType}取得エラー:`, error)
+    console.error("スタッフ取得エラー:", error)
     return { success: false, error: error.message }
   }
 }
 
-// リソースを作成
-export async function createResource(resourceType: string, resourceData: any) {
-  const supabase = getServerSupabase()
+// 重機一覧を取得
+export async function getHeavyMachinery() {
+  const supabase = getServerSupabaseClient()
 
   try {
-    // リソースを追加
-    const { data, error } = await supabase
-      .from(resourceType)
-      .insert({
-        id: uuidv4(),
-        ...resourceData,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select()
+    const { data, error } = await supabase.from("heavy_machinery").select("*").order("name", { ascending: true })
 
     if (error) throw error
-
-    // キャッシュを再検証
-    revalidatePath(`/master/${resourceType}`)
 
     return { success: true, data }
   } catch (error: any) {
-    console.error(`${resourceType}作成エラー:`, error)
+    console.error("重機取得エラー:", error)
     return { success: false, error: error.message }
   }
 }
 
-// リソースを更新
-export async function updateResource(resourceType: string, id: string, resourceData: any) {
-  const supabase = getServerSupabase()
+// 車両一覧を取得
+export async function getVehicles() {
+  const supabase = getServerSupabaseClient()
 
   try {
-    const { data, error } = await supabase
-      .from(resourceType)
-      .update({
-        ...resourceData,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id)
-      .select()
+    const { data, error } = await supabase.from("vehicles").select("*").order("name", { ascending: true })
 
     if (error) throw error
-
-    // キャッシュを再検証
-    revalidatePath(`/master/${resourceType}`)
 
     return { success: true, data }
   } catch (error: any) {
-    console.error(`${resourceType}更新エラー:`, error)
+    console.error("車両取得エラー:", error)
     return { success: false, error: error.message }
   }
 }
 
-// リソースを削除
-export async function deleteResource(resourceType: string, id: string) {
-  const supabase = getServerSupabase()
+// 備品一覧を取得
+export async function getTools() {
+  const supabase = getServerSupabaseClient()
 
   try {
-    const { error } = await supabase.from(resourceType).delete().eq("id", id)
+    const { data, error } = await supabase.from("tools").select("*").order("name", { ascending: true })
 
     if (error) throw error
 
-    // キャッシュを再検証
-    revalidatePath(`/master/${resourceType}`)
-
-    return { success: true }
+    return { success: true, data }
   } catch (error: any) {
-    console.error(`${resourceType}削除エラー:`, error)
+    console.error("備品取得エラー:", error)
     return { success: false, error: error.message }
   }
 }

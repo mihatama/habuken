@@ -1,13 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // SSR enabled by default (removing output: "export")
 
-  // Enable image optimization
+  // Enable image optimization (removing unoptimized: true)
   images: {
-    domains: ["v0.blob.com"],
+    unoptimized: true,
+    domains: ["v0.blob.com"], // Add any domains you need for external images
   },
 
-  // Remove trailing slash
+  // Remove trailing slash (not needed for Vercel)
   trailingSlash: false,
 
   // Enable build-time checks for better quality

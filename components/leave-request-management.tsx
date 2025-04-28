@@ -23,7 +23,7 @@ import { useAddLeaveRequest, useLeaveRequests, useUpdateLeaveRequest } from "../
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
 import { useToast } from "../components/ui/use-toast"
-import { getSupabaseClient } from "../lib/supabase/client" // 修正: 新しいインポートパスに変更
+import { getSupabaseClient } from "../lib/supabase" // 修正: 相対パスに変更
 
 // フォームのバリデーションスキーマ
 const formSchema = z.object({
@@ -51,7 +51,7 @@ type LeaveRequest = {
   status: "pending" | "approved" | "rejected"
   created_at: string
   staff?: {
-    full_name: string
+    name: string
   }
 }
 
@@ -250,7 +250,7 @@ export function LeaveRequestManagement() {
                       : "その他"}
               </CardTitle>
               <CardDescription>
-                {request.staff?.full_name || "名前なし"} -
+                {request.staff?.name || "名前なし"} -
                 {request.status === "pending" ? "審査中" : request.status === "approved" ? "承認済" : "却下"}
               </CardDescription>
             </CardHeader>

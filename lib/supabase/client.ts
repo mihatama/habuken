@@ -1,82 +1,59 @@
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { createClient } from "@supabase/supabase-js"
 import type { SupabaseClient } from "@supabase/supabase-js"
-import type { Database } from "@/types/supabase"
+import type { Database } from "../../types/supabase"
 
-// シングルトンインスタンスを保持する変数
-let clientInstance: SupabaseClient<Database> | null = null
-let serverInstance: ReturnType<typeof createClient> | null = null
+// エクスポートする型定義
+export type SupabaseClientType = SupabaseClient<Database>
 
-// 一貫したストレージキー
-export const STORAGE_KEY = "supabase-auth-token"
+// シングルトンパターンのためのクライアントインスタンス
+let clientSupabaseInstance: SupabaseClientType | null = null
 
 /**
- * クライアント側のSupabaseクライアントのシングルトンインスタンスを取得する関数
+ * クライアントコンポーネント用のSupabaseクライアントを取得
+ * 'use client'ディレクティブを持つコンポーネントで使用
  */
-export function getClientSupabase(): SupabaseClient<Database> {
+export function getSupabaseClient(): SupabaseClientType {
   if (typeof window === "undefined") {
-    throw new Error("getClientSupabase should only be called in client components")
+    console.warn("getSupabaseClient is being called on the server side. This may cause issues.")
   }
 
-  if (!clientInstance) {
-    console.log("[Supabase] Creating new client instance")
-    clientInstance = createClientComponentClient<Database>({
-      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      options: {
-        auth: {
-          persistSession: true,
-          storageKey: STORAGE_KEY,
-          detectSessionInUrl: true,
-          flowType: "pkce",
-        },
-        global: {
-          headers: {
-            "x-application-name": "construction-management-client",
-          },
-        },
-      },
-    })
-  } else {
-    console.log("[Supabase] Reusing existing client instance")
-  }
-  return clientInstance
+  // Next.jsの認証ヘルパーを使用（セッション管理を自動化）
+  return createClientComponentClient<Database>()
 }
 
 /**
- * サーバー側のSupabaseクライアントのシングルトンインスタンスを取得する関数
+ * クライアントコンポーネント用のSupabaseクライアント（シングルトンパターン）
+ * パフォーマンスが重要な場合や、特定のケースで使用
  */
-export function getServerSupabase() {
-  if (typeof window !== "undefined") {
-    throw new Error("getServerSupabase should only be called in server components or actions")
+export function getSupabaseClientInstance(): SupabaseClientType {
+  if (typeof window === "undefined") {
+    console.warn("getSupabaseClientInstance is being called on the server side. This may cause issues.")
   }
 
-  if (!serverInstance) {
-    console.log("[Supabase] Creating new server instance")
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-    const supabaseKey =
-      process.env.SUPABASE_SERVICE_ROLE_KEY ||
-      process.env.SUPABASE_ANON_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-      ""
-
-    serverInstance = createClient(supabaseUrl, supabaseKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-      },
-      global: {
-        headers: {
-          "x-application-name": "construction-management-server",
-        },
-      },
-    })
-  } else {
-    console.log("[Supabase] Reusing existing server instance")
+  if (clientSupabaseInstance) {
+    return clientSupabaseInstance
   }
-  return serverInstance
+
+  clientSupabaseInstance = createClientComponentClient<Database>()
+  return clientSupabaseInstance
 }
 
-// 後方互換性のための関数
-export const getSupabaseClient = getClientSupabase
+/**
+ * 環境変数を使用して直接Supabaseクライアントを作成
+ * 注意: このメソッドはセッション管理を自動化しません
+ * @deprecated 特殊なケース以外では getSupabaseClient() を使用してください
+ */
+export function createDirectClient(): SupabaseClientType {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("Missing Supabase environment variables")
+  }
+
+  return createClientComponentClient<Database>()
+}
+
+// 後方互換性のためのエイリアス
+export const getClientSupabase = getSupabaseClient
+export const getClientSupabaseInstance = getSupabaseClientInstance

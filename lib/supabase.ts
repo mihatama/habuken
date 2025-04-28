@@ -1,25 +1,51 @@
-import { getClientSupabase, getServerSupabase } from "./supabase/client"
+import { createClient } from "@supabase/supabase-js"
+import type { SupabaseClient } from "@supabase/supabase-js"
 
-// このファイルは非推奨です。代わりに lib/supabase/client.ts を使用してください
+// クライアント側のシングルトンインスタンス
+let supabaseClientInstance: SupabaseClient | null = null
 
-// 後方互換性のための関数
-export function getSupabaseClient() {
-  return getClientSupabase()
+// クライアント側でSupabaseクライアントを取得する関数
+export function getSupabaseClient(): SupabaseClient {
+  if (supabaseClientInstance) {
+    return supabaseClientInstance
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+
+  // 新しいクライアントを作成する前にログを出力
+  console.log("Creating new Supabase client")
+
+  // 新しいクライアントを作成して変数に保存
+  supabaseClientInstance = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      storageKey: "supabase-auth", // 一貫したストレージキーを使用
+    },
+  })
+
+  return supabaseClientInstance
 }
 
-// サーバー側でSupabaseクライアントを取得する関数も同様に転送
+// サーバー側でSupabaseクライアントを取得する関数
 export function getServerSupabaseClient() {
-  return getServerSupabase()
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+
+  return createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  })
 }
 
 // 型定義のエクスポート
 export type SupabaseClientType = ReturnType<typeof getSupabaseClient>
 
-// シングルトンパターンを使用してSupabaseクライアントを取得
-export const supabase = getClientSupabase()
-
 // データを取得する汎用関数
-async function fetchData(
+export async function fetchData(
   tableName: string,
   options: {
     select?: string
@@ -72,7 +98,7 @@ async function fetchData(
 }
 
 // データを挿入する汎用関数
-async function insertData(tableName: string, data: any, options: { returning?: string } = {}) {
+export async function insertData(tableName: string, data: any, options: { returning?: string } = {}) {
   const { returning = "*" } = options
   const supabase = getSupabaseClient()
 
@@ -92,7 +118,7 @@ async function insertData(tableName: string, data: any, options: { returning?: s
 }
 
 // データを更新する汎用関数
-async function updateData(tableName: string, id: string, data: any, options: { idField?: string } = {}) {
+export async function updateData(tableName: string, id: string, data: any, options: { idField?: string } = {}) {
   const { idField = "id" } = options
   const supabase = getSupabaseClient()
 
@@ -112,7 +138,7 @@ async function updateData(tableName: string, id: string, data: any, options: { i
 }
 
 // データを削除する汎用関数
-async function deleteData(tableName: string, id: string, options: { idField?: string } = {}) {
+export async function deleteData(tableName: string, id: string, options: { idField?: string } = {}) {
   const { idField = "id" } = options
   const supabase = getSupabaseClient()
 
@@ -131,4 +157,6 @@ async function deleteData(tableName: string, id: string, options: { idField?: st
   }
 }
 
-export { fetchData, insertData, updateData, deleteData }
+// 後方互換性のためのエイリアス
+export const getClientSupabase = getSupabaseClient
+export const getClientSupabaseInstance = getSupabaseClient

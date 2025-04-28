@@ -61,12 +61,16 @@
     "aws-amplify": "latest",
     "@aws-amplify/core": "latest",
     "@supabase/supabase-js": "latest",
+    "@tanstack/react-query": "latest",
+    "immer": "latest",
+    "use-sync-external-store": "latest",
     "react-big-calendar": "latest",
     "moment": "latest",
     "@aws-amplify/ui-react": "latest",
     "@supabase/auth-helpers-nextjs": "latest",
+    "@tanstack/react-query-devtools": "latest",
+    "zustand": "latest",
     "@tanstack/react-table": "latest",
-    "@tanstack/react-query": "latest",
     "uuid": "latest"
   },
   "devDependencies": {

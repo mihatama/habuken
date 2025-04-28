@@ -16,21 +16,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { useProjects, useCreateProject, useUpdateProject, useDeleteProject } from "@/hooks/use-projects"
 import { useStaff, useHeavyMachinery, useVehicles, useTools } from "@/hooks/use-resources"
-
-// モックユーザー
-const mockUser = {
-  id: "1",
-  email: "yamada@example.com",
-  user_metadata: {
-    full_name: "山田太郎",
-    role: "admin",
-  },
-}
+import { useAuth } from "@/contexts/auth-context"
 
 export function ProjectList() {
   const { toast } = useToast()
-  // 認証コンテキストの代わりにモックユーザーを使用
-  const user = mockUser
+  const { user } = useAuth()
 
   // React Queryフックを使用してデータを取得
   const { data: projects = [], isLoading: dataLoading } = useProjects()
@@ -673,7 +663,6 @@ export function ProjectList() {
                   <TabsContent value="tools" className="border rounded-md p-4">
                     <div className="flex items-center space-x-2 mb-4">
                       <Search className="h-4 w-4 text-muted-foreground" />
-                      <Input placeholder="備品を検索（名前、保管場所など）" />
                       <Input
                         placeholder="備品を検索（名前、保管場所など）"
                         value={searchTools}

@@ -1,41 +1,36 @@
-import type { SupabaseClient } from "@supabase/supabase-js"
-import type { Database } from "@/types/supabase"
-import { getClientSupabase } from "./client"
+// 絶対パスのインポートを修正
+// @/lib/supabase/index から直接インポートするのではなく
+// @/lib/supabase/operations から必要な関数をインポート
 
-/**
- * Supabaseクライアントのシングルトンインスタンスを取得する関数
- * アプリケーション全体で単一のインスタンスを使用することで、
- * 複数のGoTrueClientインスタンスが作成される問題を回避します
- */
-export function getSupabaseClient(): SupabaseClient<Database> {
+import { getClientSupabase, fetchData, insertData, updateData, deleteData } from "@/lib/supabase/operations"
+
+// 後方互換性のために既存の関数名を維持
+export function getClientSupabaseInstance() {
   return getClientSupabase()
 }
 
-// 後方互換性のための関数
-export const getClientSupabaseInstance = getSupabaseClient
-
-async function fetchDataFromTable(tableName: string, options: any) {
-  const supabase = getSupabaseClient()
-  let query = supabase.from(tableName).select()
-
-  if (options.filters) {
-    Object.entries(options.filters).forEach(([key, value]) => {
-      query = query.eq(key, value)
-    })
-  }
-
-  if (options.order) {
-    query = query.order(options.order.column, { ascending: options.order.ascending })
-  }
-
-  const { data, error } = await query
-
-  if (error) {
-    console.error("Error fetching data:", error)
-    return { data: null, error }
-  }
-
-  return { data, error: null }
+// 既存の関数を新しい実装にマッピング
+export async function fetchDataFromTable(
+  tableName: string,
+  options: {
+    select?: string
+    order?: { column: string; ascending: boolean }
+    filters?: Record<string, any>
+    limit?: number
+    page?: number
+  } = {},
+) {
+  return fetchData(tableName, options)
 }
 
-export { fetchDataFromTable }
+export async function insertDataToTable(tableName: string, data: any) {
+  return insertData(tableName, data)
+}
+
+export async function updateDataInTable(tableName: string, id: string, data: any) {
+  return updateData(tableName, id, data)
+}
+
+export async function deleteDataFromTable(tableName: string, id: string) {
+  return deleteData(tableName, id)
+}

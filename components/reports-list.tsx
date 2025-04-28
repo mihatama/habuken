@@ -1,126 +1,82 @@
 "use client"
 
 import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { FileText, Shield, Eye, Download, Loader2 } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useSupabaseClient } from "@/hooks/use-supabase-query"
+import { Badge } from "@/components/ui/badge"
+import { FileText, Shield, Eye, Check, X, Download } from "lucide-react"
 
-type ReportFilter = {
-  type: string
-  project: string
-  dateFrom: string
-  dateTo: string
-}
+// サンプルデータ
+const sampleReports = [
+  {
+    id: 1,
+    type: "daily",
+    projectName: "東京オフィスビル建設",
+    date: "2023-04-15",
+    createdBy: "山田太郎",
+    status: "pending",
+  },
+  {
+    id: 2,
+    type: "safety",
+    projectName: "東京オフィスビル建設",
+    date: "2023-04-15",
+    createdBy: "山田太郎",
+    status: "approved",
+  },
+  {
+    id: 3,
+    type: "daily",
+    projectName: "大阪マンション改修",
+    date: "2023-04-14",
+    createdBy: "佐藤次郎",
+    status: "rejected",
+  },
+  {
+    id: 4,
+    type: "safety",
+    projectName: "大阪マンション改修",
+    date: "2023-04-14",
+    createdBy: "佐藤次郎",
+    status: "pending",
+  },
+  {
+    id: 5,
+    type: "daily",
+    projectName: "名古屋工場建設",
+    date: "2023-04-13",
+    createdBy: "鈴木三郎",
+    status: "approved",
+  },
+]
 
 export function ReportsList() {
-  const supabase = useSupabaseClient()
-  const [filter, setFilter] = useState<ReportFilter>({
+  const [filter, setFilter] = useState({
     type: "all",
-    project: "all", // Changed from empty string to "all"
+    project: "",
     dateFrom: "",
     dateTo: "",
+    status: "all",
   })
-
-  // 日報データを取得するクエリ
-  const { data: dailyReports = [], isLoading: isDailyReportsLoading } = useQuery({
-    queryKey: ["daily_reports"],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase
-          .from("daily_reports")
-          .select("*, project_id, projects(name), submitted_by")
-          .order("report_date", { ascending: false })
-
-        if (error) throw error
-
-        // 日報データを共通フォーマットに変換
-        return (data || []).map((report) => ({
-          id: report.id,
-          type: "daily",
-          title: `日報: ${report.projects?.name || "不明"} - ${new Date(report.report_date).toLocaleDateString("ja-JP")}`,
-          project_id: report.project_id,
-          project_name: report.projects?.name || "不明",
-          date: report.report_date,
-          created_by: report.submitted_by,
-          created_at: report.created_at,
-          content: report.work_description,
-        }))
-      } catch (error) {
-        console.error("日報取得エラー:", error)
-        return []
-      }
-    },
-  })
-
-  // 安全巡視データを取得するクエリ
-  const { data: safetyReports = [], isLoading: isSafetyReportsLoading } = useQuery({
-    queryKey: ["safety_inspections"],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase
-          .from("safety_inspections")
-          .select("*, project_id, projects(name)")
-          .order("inspection_date", { ascending: false })
-
-        if (error) throw error
-
-        // 安全巡視データを共通フォーマットに変換
-        return (data || []).map((report) => ({
-          id: report.id,
-          type: "safety",
-          title: `安全巡視: ${report.projects?.name || "不明"} - ${new Date(report.inspection_date).toLocaleDateString("ja-JP")}`,
-          project_id: report.project_id,
-          project_name: report.projects?.name || "不明",
-          date: report.inspection_date,
-          created_by: report.inspector,
-          created_at: report.created_at,
-          content: report.findings,
-          status: report.status,
-        }))
-      } catch (error) {
-        console.error("安全巡視取得エラー:", error)
-        return []
-      }
-    },
-  })
-
-  // プロジェクトデータを取得するクエリ（フィルター用）
-  const { data: projects = [] } = useQuery({
-    queryKey: ["projects"],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase.from("projects").select("id, name").order("name")
-
-        if (error) throw error
-        return data || []
-      } catch (error) {
-        console.error("プロジェクト取得エラー:", error)
-        return []
-      }
-    },
-  })
-
-  // 両方のレポートを結合
-  const allReports = [...dailyReports, ...safetyReports]
 
   // フィルタリングされた報告書リスト
-  const filteredReports = allReports.filter((report) => {
+  const filteredReports = sampleReports.filter((report) => {
     // 種類フィルタ
     if (filter.type !== "all" && report.type !== filter.type) return false
 
     // プロジェクトフィルタ
-    if (filter.project !== "all" && report.project_id !== filter.project) return false // Changed from empty string check to "all" check
+    if (filter.project && !report.projectName.includes(filter.project)) return false
 
     // 日付フィルタ（開始）
     if (filter.dateFrom && new Date(report.date) < new Date(filter.dateFrom)) return false
 
     // 日付フィルタ（終了）
     if (filter.dateTo && new Date(report.date) > new Date(filter.dateTo)) return false
+
+    // ステータスフィルタ
+    if (filter.status !== "all" && report.status !== filter.status) return false
 
     return true
   })
@@ -175,32 +131,33 @@ export function ReportsList() {
     }
   }
 
-  // 日付をフォーマットする関数
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "-"
-    const date = new Date(dateString)
-    return date.toLocaleDateString("ja-JP", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    })
+  // 報告書を表示
+  const viewReport = (id: number) => {
+    console.log(`報告書 ${id} を表示`)
+    // ここで実際の表示処理を実装
+    alert(`報告書 ${id} を表示します`)
   }
 
-  // 報告書を表示
-  const viewReport = (id: string, type: string) => {
-    console.log(`報告書 ${id} (${type}) を表示`)
-    // ここで実際の表示処理を実装
-    alert(`報告書 ${id} (${type}) を表示します`)
+  // 報告書を承認
+  const approveReport = (id: number) => {
+    console.log(`報告書 ${id} を承認`)
+    // ここで実際の承認処理を実装
+    alert(`報告書 ${id} を承認しました`)
+  }
+
+  // 報告書を差戻し
+  const rejectReport = (id: number) => {
+    console.log(`報告書 ${id} を差戻し`)
+    // ここで実際の差戻し処理を実装
+    alert(`報告書 ${id} を差戻しました`)
   }
 
   // 報告書をダウンロード
-  const downloadReport = (id: string, type: string) => {
-    console.log(`報告書 ${id} (${type}) をダウンロード`)
+  const downloadReport = (id: number) => {
+    console.log(`報告書 ${id} をダウンロード`)
     // ここで実際のダウンロード処理を実装
-    alert(`報告書 ${id} (${type}) をダウンロードします`)
+    alert(`報告書 ${id} をダウンロードします`)
   }
-
-  const isLoading = isDailyReportsLoading || isSafetyReportsLoading
 
   return (
     <div className="space-y-6">
@@ -223,17 +180,24 @@ export function ReportsList() {
 
         <div>
           <label className="block text-sm font-medium mb-1">工事名</label>
-          <Select value={filter.project} onValueChange={(value) => setFilter({ ...filter, project: value })}>
+          <Input
+            value={filter.project}
+            onChange={(e) => setFilter({ ...filter, project: e.target.value })}
+            placeholder="工事名で検索"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">ステータス</label>
+          <Select value={filter.status} onValueChange={(value) => setFilter({ ...filter, status: value })}>
             <SelectTrigger>
-              <SelectValue placeholder="すべてのプロジェクト" />
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">すべてのプロジェクト</SelectItem> {/* Changed from empty string to "all" */}
-              {projects.map((project) => (
-                <SelectItem key={project.id} value={project.id}>
-                  {project.name}
-                </SelectItem>
-              ))}
+              <SelectItem value="all">すべて</SelectItem>
+              <SelectItem value="pending">承認待ち</SelectItem>
+              <SelectItem value="approved">承認済</SelectItem>
+              <SelectItem value="rejected">差戻し</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -261,36 +225,46 @@ export function ReportsList() {
               <TableHead>工事名</TableHead>
               <TableHead>日付</TableHead>
               <TableHead>作成者</TableHead>
+              <TableHead>ステータス</TableHead>
               <TableHead className="text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
-                  <div className="flex justify-center">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : filteredReports.length > 0 ? (
+            {filteredReports.length > 0 ? (
               filteredReports.map((report) => (
-                <TableRow key={`${report.type}-${report.id}`}>
+                <TableRow key={report.id}>
                   <TableCell>
                     <div className="flex items-center">
                       {getReportTypeIcon(report.type)}
                       <span className="ml-2">{getReportTypeName(report.type)}</span>
                     </div>
                   </TableCell>
-                  <TableCell>{report.project_name}</TableCell>
-                  <TableCell>{formatDate(report.date)}</TableCell>
-                  <TableCell>{report.created_by}</TableCell>
+                  <TableCell>{report.projectName}</TableCell>
+                  <TableCell>
+                    {new Date(report.date).toLocaleDateString("ja-JP", {
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                    })}
+                  </TableCell>
+                  <TableCell>{report.createdBy}</TableCell>
+                  <TableCell>{getStatusBadge(report.status)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end space-x-1">
-                      <Button variant="ghost" size="icon" onClick={() => viewReport(report.id, report.type)}>
+                      <Button variant="ghost" size="icon" onClick={() => viewReport(report.id)}>
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => downloadReport(report.id, report.type)}>
+                      {report.status === "pending" && (
+                        <>
+                          <Button variant="ghost" size="icon" onClick={() => approveReport(report.id)}>
+                            <Check className="h-4 w-4 text-green-500" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => rejectReport(report.id)}>
+                            <X className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </>
+                      )}
+                      <Button variant="ghost" size="icon" onClick={() => downloadReport(report.id)}>
                         <Download className="h-4 w-4" />
                       </Button>
                     </div>
@@ -299,7 +273,7 @@ export function ReportsList() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-4">
+                <TableCell colSpan={6} className="text-center py-4">
                   該当する報告書がありません
                 </TableCell>
               </TableRow>
