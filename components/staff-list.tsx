@@ -12,9 +12,9 @@ import { Search } from "lucide-react"
 
 interface Staff {
   id: string
-  name: string
+  full_name: string // Changed from name to full_name to match database column
   position: string
-  department: string
+  department: string | null // Make department nullable
   employee_id: string
   contact_number: string
   email: string
@@ -44,10 +44,10 @@ export function StaffList() {
 
   const filteredStaff = staff.filter(
     (s) =>
-      s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.employee_id.toLowerCase().includes(searchTerm.toLowerCase()),
+      (s.full_name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (s.position?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (s.department?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (s.employee_id?.toLowerCase() || "").includes(searchTerm.toLowerCase()),
   )
 
   const getStatusBadge = (status: string) => {
@@ -114,7 +114,7 @@ export function StaffList() {
                 {filteredStaff.length > 0 ? (
                   filteredStaff.map((s) => (
                     <TableRow key={s.id}>
-                      <TableCell className="font-medium">{s.name}</TableCell>
+                      <TableCell className="font-medium">{s.full_name}</TableCell>
                       <TableCell>{s.employee_id}</TableCell>
                       <TableCell>{s.position}</TableCell>
                       <TableCell>{s.department}</TableCell>
