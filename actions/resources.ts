@@ -1,10 +1,10 @@
 "use server"
 
-import { getServerSupabaseClient } from "../lib/supabase/server"
+import { getServerSupabase } from "../lib/supabase-utils"
 
 // スタッフ一覧を取得
 export async function getStaff() {
-  const supabase = getServerSupabaseClient()
+  const supabase = getServerSupabase()
 
   try {
     const { data, error } = await supabase.from("staff").select("*").order("full_name", { ascending: true })
@@ -20,7 +20,7 @@ export async function getStaff() {
 
 // 重機一覧を取得
 export async function getHeavyMachinery() {
-  const supabase = getServerSupabaseClient()
+  const supabase = getServerSupabase()
 
   try {
     const { data, error } = await supabase.from("heavy_machinery").select("*").order("name", { ascending: true })
@@ -36,7 +36,7 @@ export async function getHeavyMachinery() {
 
 // 車両一覧を取得
 export async function getVehicles() {
-  const supabase = getServerSupabaseClient()
+  const supabase = getServerSupabase()
 
   try {
     const { data, error } = await supabase.from("vehicles").select("*").order("name", { ascending: true })
@@ -52,7 +52,7 @@ export async function getVehicles() {
 
 // 備品一覧を取得
 export async function getTools() {
-  const supabase = getServerSupabaseClient()
+  const supabase = getServerSupabase()
 
   try {
     const { data, error } = await supabase.from("tools").select("*").order("name", { ascending: true })

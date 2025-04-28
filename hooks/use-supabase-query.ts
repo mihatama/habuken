@@ -1,13 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { getSupabaseClient, type SupabaseClientType } from "../lib/supabase"
+import { getClientSupabase } from "../lib/supabase-utils"
 
 // Supabaseクライアントの取得
 export const useSupabaseClient = () => {
-  return getSupabaseClient()
+  return getClientSupabase()
 }
 
 // データ取得用のカスタムフック
-export function useSupabaseQuery<T>(key: string[], fetcher: (client: SupabaseClientType) => Promise<T>, options = {}) {
+export function useSupabaseQuery<T>(
+  key: string[],
+  fetcher: (client: ReturnType<typeof getClientSupabase>) => Promise<T>,
+  options = {},
+) {
   const supabase = useSupabaseClient()
 
   return useQuery({
@@ -20,7 +24,7 @@ export function useSupabaseQuery<T>(key: string[], fetcher: (client: SupabaseCli
 // データ更新用のカスタムフック
 export function useSupabaseMutation<T, R>(
   key: string[],
-  mutator: (client: SupabaseClientType, data: T) => Promise<R>,
+  mutator: (client: ReturnType<typeof getClientSupabase>, data: T) => Promise<R>,
   options = {},
 ) {
   const supabase = useSupabaseClient()

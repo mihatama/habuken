@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "@/components/ui/use-toast"
-import { getClientSupabase } from "@/lib/supabase/client" // 絶対パスを使用
+import { getClientSupabase } from "../../lib/supabase-utils" // 更新: 新しいパスを使用
 
 export type Vehicle = {
   id: string

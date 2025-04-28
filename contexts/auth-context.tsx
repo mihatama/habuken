@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect } from "react"
 import type { ReactNode } from "react"
 import { useAuthStore } from "../stores/auth-store"
 import type { AuthUser } from "../types/models/user"
-import { getSupabaseClient } from "../lib/supabase"
+import { getClientSupabase } from "../lib/supabase-utils"
 
 // 認証コンテキスト型
 type AuthContextType = {
@@ -17,7 +17,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { user, isLoading: loading, setUser, setLoading, signOut: clearUser } = useAuthStore()
-  const supabase = getSupabaseClient() // シングルトンインスタンスを使用
+  const supabase = getClientSupabase() // シングルトンインスタンスを使用
 
   useEffect(() => {
     // 初期ロード時に現在のセッションを確認

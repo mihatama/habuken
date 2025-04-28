@@ -23,7 +23,7 @@ import { useAddLeaveRequest, useLeaveRequests, useUpdateLeaveRequest } from "../
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
 import { useToast } from "../components/ui/use-toast"
-import { getSupabaseClient } from "../lib/supabase" // 修正: 相対パスに変更
+import { getClientSupabase } from "../lib/supabase-utils" // 更新: 新しいパスを使用
 
 // フォームのバリデーションスキーマ
 const formSchema = z.object({
@@ -75,7 +75,7 @@ export function LeaveRequestManagement() {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       // Supabaseクライアントを取得
-      const supabase = getSupabaseClient()
+      const supabase = getClientSupabase()
 
       // 現在のユーザー情報を取得
       const {

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { getLeaveRequests, updateLeaveRequest } from "../lib/data-utils"
-import { getSupabaseClient } from "../lib/supabase"
+import { getClientSupabase } from "../lib/supabase-utils"
 import { v4 as uuidv4 } from "uuid"
 
 // 休暇申請データを取得するカスタムフック
@@ -16,7 +16,7 @@ export function useStaff() {
   return useQuery({
     queryKey: ["staff"],
     queryFn: async () => {
-      const supabase = getSupabaseClient()
+      const supabase = getClientSupabase()
       const { data, error } = await supabase.from("staff").select("*").order("full_name")
       if (error) throw error
       return data
@@ -36,7 +36,7 @@ export function useAddLeaveRequest() {
       endDate: string
       reason: string
     }) => {
-      const supabase = getSupabaseClient()
+      const supabase = getClientSupabase()
 
       // スタッフIDを取得
       const { data: staffData, error: staffError } = await supabase

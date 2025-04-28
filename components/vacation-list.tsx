@@ -8,7 +8,7 @@ import { Input } from "./ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table"
 import { Trash2, Loader2, Calendar } from "lucide-react"
 import { useToast } from "../hooks/use-toast"
-import { createClient } from "@supabase/supabase-js"
+import { getClientSupabase } from "../lib/supabase-utils" // 更新: 新しいパスを使用
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
 
@@ -23,12 +23,6 @@ interface Vacation {
   status: "pending" | "approved" | "rejected"
   [key: string]: any
 }
-
-// Supabaseクライアントの作成
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
-)
 
 // ステータスに応じたバッジスタイルを取得
 function getStatusStyle(status: string) {
@@ -58,6 +52,7 @@ export function VacationList() {
   const [searchTerm, setSearchTerm] = useState("")
   const { toast } = useToast()
   const queryClient = useQueryClient()
+  const supabase = getClientSupabase() // 更新: 新しい関数を使用
 
   // 休暇データを取得するクエリ
   const { data: vacations = [], isLoading: loading } = useQuery({

@@ -1,10 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import type { AuthUser } from "@/types/models/user"
+import { getClientSupabase } from "../lib/supabase-utils"
+import type { AuthUser } from "../types/models/user"
 
 // 認証状態を取得するカスタムフック
 export function useAuthQuery() {
-  const supabase = createClientComponentClient()
+  const supabase = getClientSupabase()
 
   return useQuery({
     queryKey: ["auth", "session"],
@@ -34,7 +34,7 @@ export function useAuthQuery() {
 
 // ログイン用のカスタムフック
 export function useLogin() {
-  const supabase = createClientComponentClient()
+  const supabase = getClientSupabase()
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -59,7 +59,7 @@ export function useLogin() {
 
 // ログアウト用のカスタムフック
 export function useLogout() {
-  const supabase = createClientComponentClient()
+  const supabase = getClientSupabase()
   const queryClient = useQueryClient()
 
   return useMutation({

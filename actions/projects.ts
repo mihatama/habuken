@@ -1,11 +1,11 @@
 "use server"
 
-import { getServerSupabaseClient } from "../lib/supabase/server"
+import { getServerSupabase } from "../lib/supabase-utils"
 import { revalidatePath } from "next/cache"
 
 // プロジェクト一覧を取得
 export async function getProjects() {
-  const supabase = getServerSupabaseClient()
+  const supabase = getServerSupabase()
 
   try {
     const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false })
@@ -21,7 +21,7 @@ export async function getProjects() {
 
 // プロジェクトを作成
 export async function createProject(projectData: any) {
-  const supabase = getServerSupabaseClient()
+  const supabase = getServerSupabase()
 
   try {
     // ユーザー情報を取得
@@ -70,7 +70,7 @@ export async function createProject(projectData: any) {
 
 // プロジェクトを更新
 export async function updateProject(id: string, projectData: any) {
-  const supabase = getServerSupabaseClient()
+  const supabase = getServerSupabase()
 
   try {
     const { data, error } = await supabase
@@ -96,7 +96,7 @@ export async function updateProject(id: string, projectData: any) {
 
 // プロジェクトを削除
 export async function deleteProject(id: string) {
-  const supabase = getServerSupabaseClient()
+  const supabase = getServerSupabase()
 
   try {
     // 関連する割り当てを削除

@@ -1,4 +1,4 @@
-import { getSupabaseClient } from "./supabase"
+import { getClientSupabase } from "../lib/supabase-utils"
 
 // データを取得する汎用関数
 async function fetchData(
@@ -11,7 +11,7 @@ async function fetchData(
   } = {},
 ) {
   const { select = "*", filters, order, limit } = options
-  const supabase = getSupabaseClient()
+  const supabase = getClientSupabase()
 
   try {
     let query = supabase.from(tableName).select(select, { count: "exact" })
@@ -56,7 +56,7 @@ async function fetchData(
 // データを挿入する汎用関数
 async function insertData(tableName: string, data: any, options: { returning?: string } = {}) {
   const { returning = "*" } = options
-  const supabase = getSupabaseClient()
+  const supabase = getClientSupabase()
 
   try {
     const { data: result, error } = await supabase.from(tableName).insert(data).select(returning)
@@ -76,7 +76,7 @@ async function insertData(tableName: string, data: any, options: { returning?: s
 // データを削除する汎用関数
 async function deleteData(tableName: string, id: string, options: { idField?: string } = {}) {
   const { idField = "id" } = options
-  const supabase = getSupabaseClient()
+  const supabase = getClientSupabase()
 
   try {
     const { error } = await supabase.from(tableName).delete().eq(idField, id)
@@ -159,7 +159,7 @@ export async function getTools() {
 // 休暇データの取得（leave_requestsテーブルを使用）
 export async function getVacations() {
   try {
-    const supabase = getSupabaseClient()
+    const supabase = getClientSupabase()
     const { data, error } = await supabase
       .from("leave_requests")
       .select(`
@@ -217,7 +217,7 @@ export async function getVacations() {
 // 休暇申請データを取得する関数
 export async function getLeaveRequests() {
   try {
-    const supabase = getSupabaseClient()
+    const supabase = getClientSupabase()
 
     // 休暇申請データを取得
     const { data: leaveRequests, error: leaveError } = await supabase
@@ -272,7 +272,7 @@ export async function updateLeaveRequest({
   rejectReason?: string
 }) {
   try {
-    const supabase = getSupabaseClient()
+    const supabase = getClientSupabase()
 
     const { error } = await supabase
       .from("leave_requests")
@@ -297,7 +297,7 @@ export async function updateLeaveRequest({
 // 承認された休暇申請から休暇データを追加
 export async function addVacationFromApprovedRequest(approvedRequest: any) {
   try {
-    const supabase = getSupabaseClient()
+    const supabase = getClientSupabase()
 
     // 休暇申請を承認済みに更新
     const { error } = await supabase
@@ -338,7 +338,7 @@ export function getLeaveTypeName(type: string) {
 // 作業日報データの取得
 export async function getDailyReports() {
   try {
-    const supabase = getSupabaseClient()
+    const supabase = getClientSupabase()
 
     // 日報データを取得
     const { data: reports, error } = await supabase

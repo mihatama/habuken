@@ -1,8 +1,14 @@
 // 絶対パスのインポートを修正
 // @/lib/supabase/index から直接インポートするのではなく
-// @/lib/supabase/operations から必要な関数をインポート
+// @/lib/supabase から必要な関数をインポート
 
-import { getClientSupabase, fetchData, insertData, updateData, deleteData } from "@/lib/supabase/operations"
+import {
+  getClientSupabase,
+  fetchClientData,
+  insertClientData,
+  updateClientData,
+  deleteClientData,
+} from "@/lib/supabase"
 
 // 後方互換性のために既存の関数名を維持
 export function getClientSupabaseInstance() {
@@ -20,17 +26,17 @@ export async function fetchDataFromTable(
     page?: number
   } = {},
 ) {
-  return fetchData(tableName, options)
+  return fetchClientData(tableName, options)
 }
 
 export async function insertDataToTable(tableName: string, data: any) {
-  return insertData(tableName, data)
+  return insertClientData(tableName, data)
 }
 
 export async function updateDataInTable(tableName: string, id: string, data: any) {
-  return updateData(tableName, id, data)
+  return updateClientData(tableName, id, data)
 }
 
 export async function deleteDataFromTable(tableName: string, id: string) {
-  return deleteData(tableName, id)
+  return deleteClientData(tableName, id)
 }

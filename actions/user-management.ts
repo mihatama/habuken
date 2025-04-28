@@ -1,6 +1,6 @@
 "use server"
 
-import { getServerSupabaseClient } from "../lib/supabase/server"
+import { getServerSupabase } from "../lib/supabase-utils"
 import { revalidatePath } from "next/cache"
 import { v4 as uuidv4 } from "uuid"
 import { type ApiResponse, type CreateUserResponse, type GetUsersResponse, getErrorMessage } from "../types"
@@ -8,7 +8,7 @@ import { type ApiResponse, type CreateUserResponse, type GetUsersResponse, getEr
 // ユーザー作成用の関数
 export async function createUser(formData: FormData): Promise<ApiResponse<CreateUserResponse>> {
   try {
-    const supabase = getServerSupabaseClient("admin")
+    const supabase = getServerSupabase("admin")
 
     // 管理者権限チェック
     const {
@@ -140,7 +140,7 @@ export async function createUser(formData: FormData): Promise<ApiResponse<Create
 // ユーザー一覧取得
 export async function getUsers(): Promise<GetUsersResponse["users"]> {
   try {
-    const supabase = getServerSupabaseClient()
+    const supabase = getServerSupabase()
 
     // プロフィールとロールを結合して取得
     const { data, error } = await supabase
@@ -181,7 +181,7 @@ export async function getUsers(): Promise<GetUsersResponse["users"]> {
 // ユーザー削除
 export async function deleteUser(userId: string): Promise<ApiResponse> {
   try {
-    const supabase = getServerSupabaseClient("admin")
+    const supabase = getServerSupabase("admin")
 
     // 管理者権限チェック
     const {
@@ -254,7 +254,7 @@ export async function deleteUser(userId: string): Promise<ApiResponse> {
 // ユーザーロール更新
 export async function updateUserRole(userId: string, role: string): Promise<ApiResponse> {
   try {
-    const supabase = getServerSupabaseClient("admin")
+    const supabase = getServerSupabase("admin")
 
     // 管理者権限チェック
     const {

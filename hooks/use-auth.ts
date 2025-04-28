@@ -3,11 +3,11 @@
 import { useEffect } from "react"
 import { useAuthStore } from "../stores/auth-store"
 import type { AuthUser } from "../types/models/user"
-import { getSupabaseClient } from "../lib/supabase"
+import { getClientSupabase } from "../lib/supabase-utils"
 
 export function useAuth() {
   const { user, isLoading, setUser, setLoading, signOut } = useAuthStore()
-  const supabase = getSupabaseClient() // シングルトンインスタンスを使用
+  const supabase = getClientSupabase() // シングルトンインスタンスを使用
 
   useEffect(() => {
     // 初期ロード時に現在のセッションを確認
