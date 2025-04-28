@@ -2,11 +2,6 @@
 const nextConfig = {
   reactStrictMode: true,
 
-  // Disable App Router to use only Pages Router
-  experimental: {
-    appDir: false,
-  },
-
   // Enable image optimization (removing unoptimized: true)
   images: {
     unoptimized: true,
@@ -22,6 +17,11 @@ const nextConfig = {
   },
   typescript: {
     ignoreBuildErrors: true,
+  },
+
+  // Disable the CSR bailout warning for useSearchParams
+  experimental: {
+    missingSuspenseWithCSRBailout: false,
   },
 
   // Add security headers
