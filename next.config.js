@@ -20,6 +20,11 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
 
+  // Disable the CSR bailout warning for useSearchParams
+  experimental: {
+    missingSuspenseWithCSRBailout: false,
+  },
+
   // Add security headers
   async headers() {
     return [

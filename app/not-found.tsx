@@ -1,4 +1,14 @@
+import { Suspense } from "react"
+
 export default function NotFound() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <NotFoundContent />
+    </Suspense>
+  )
+}
+
+function NotFoundContent() {
   return (
     <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
       <h2 className="mb-4 text-2xl font-bold">ページが見つかりません</h2>
