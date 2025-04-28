@@ -5,15 +5,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Plus, Check, X, AlertTriangle, Calendar, ImageIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { sampleProjects, sampleStaff } from "@/data/sample-data"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { SafetyPatrolForm } from "./safety-patrol-form"
 
 // 安全巡視日誌のモックデータ
 const initialPatrols = [
@@ -104,23 +100,6 @@ export function SafetyPatrolLog() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [currentPatrol, setCurrentPatrol] = useState<any>(null)
   const [activeTab, setActiveTab] = useState("all")
-  const [newPatrol, setNewPatrol] = useState({
-    projectId: "",
-    inspectorId: "",
-    patrolDate: new Date().toISOString().split("T")[0],
-    checklistJson: {
-      machines: "good",
-      protectiveGear: "good",
-      waste: "good",
-      noise: "good",
-      scaffolding: "good",
-      electricity: "good",
-      fire: "good",
-      signage: "good",
-    },
-    comment: "",
-    photos: [] as string[],
-  })
 
   const filteredPatrols = patrols.filter(
     (patrol) =>
@@ -132,49 +111,9 @@ export function SafetyPatrolLog() {
         (activeTab === "approved" && patrol.status === "approved")),
   )
 
-  const handleAddPatrol = () => {
-    if (!newPatrol.projectId || !newPatrol.inspectorId) return
-
-    const projectId = Number.parseInt(newPatrol.projectId)
-    const inspectorId = Number.parseInt(newPatrol.inspectorId)
-    const project = sampleProjects.find((p) => p.id === projectId)
-    const inspector = sampleStaff.find((s) => s.id === inspectorId)
-
-    if (!project || !inspector) return
-
-    const patrol = {
-      id: patrols.length + 1,
-      projectId,
-      projectName: project.name,
-      patrolDate: new Date(newPatrol.patrolDate),
-      inspectorId,
-      inspectorName: inspector.name,
-      checklistJson: newPatrol.checklistJson,
-      comment: newPatrol.comment,
-      photos: newPatrol.photos,
-      status: "pending",
-      createdAt: new Date(),
-    }
-
-    setPatrols([...patrols, patrol])
-    setNewPatrol({
-      projectId: "",
-      inspectorId: "",
-      patrolDate: new Date().toISOString().split("T")[0],
-      checklistJson: {
-        machines: "good",
-        protectiveGear: "good",
-        waste: "good",
-        noise: "good",
-        scaffolding: "good",
-        electricity: "good",
-        fire: "good",
-        signage: "good",
-      },
-      comment: "",
-      photos: [],
-    })
-    setIsAddDialogOpen(false)
+  const handleAddPatrolSuccess = () => {
+    // 実際のアプリケーションではここでデータを再取得する
+    // 今回はモックデータを使用しているため、特に何もしない
   }
 
   const handleApprovePatrol = (patrolId: number) => {
@@ -241,169 +180,15 @@ export function SafetyPatrolLog() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-[250px]"
           />
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                新規作成
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl">
-              <DialogHeader>
-                <DialogTitle>安全・環境巡視日誌の作成</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="projectId">対象工事</Label>
-                    <Select
-                      value={newPatrol.projectId}
-                      onValueChange={(value) => setNewPatrol({ ...newPatrol, projectId: value })}
-                    >
-                      <SelectTrigger id="projectId">
-                        <SelectValue placeholder="工事を選択" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sampleProjects.map((project) => (
-                          <SelectItem key={project.id} value={project.id.toString()}>
-                            {project.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="inspectorId">巡視者</Label>
-                    <Select
-                      value={newPatrol.inspectorId}
-                      onValueChange={(value) => setNewPatrol({ ...newPatrol, inspectorId: value })}
-                    >
-                      <SelectTrigger id="inspectorId">
-                        <SelectValue placeholder="巡視者を選択" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sampleStaff.map((staff) => (
-                          <SelectItem key={staff.id} value={staff.id.toString()}>
-                            {staff.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="patrolDate">巡視日</Label>
-                  <Input
-                    id="patrolDate"
-                    type="date"
-                    value={newPatrol.patrolDate}
-                    onChange={(e) => setNewPatrol({ ...newPatrol, patrolDate: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-4">
-                  <Label>チェックリスト</Label>
-                  <div className="border rounded-md p-4 grid gap-4">
-                    {checklistItems.map((item) => (
-                      <div key={item.id} className="grid gap-2">
-                        <Label htmlFor={item.id}>{item.label}</Label>
-                        <RadioGroup
-                          id={item.id}
-                          value={(newPatrol.checklistJson as any)[item.id]}
-                          onValueChange={(value) =>
-                            setNewPatrol({
-                              ...newPatrol,
-                              checklistJson: {
-                                ...newPatrol.checklistJson,
-                                [item.id]: value,
-                              },
-                            })
-                          }
-                          className="flex space-x-4"
-                        >
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="good" id={`${item.id}-good`} />
-                            <Label htmlFor={`${item.id}-good`} className="text-green-600">
-                              ◎ 良好
-                            </Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="warning" id={`${item.id}-warning`} />
-                            <Label htmlFor={`${item.id}-warning`} className="text-yellow-600">
-                              △ 注意
-                            </Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="danger" id={`${item.id}-danger`} />
-                            <Label htmlFor={`${item.id}-danger`} className="text-red-600">
-                              × 危険
-                            </Label>
-                          </div>
-                        </RadioGroup>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="comment">コメント</Label>
-                  <Textarea
-                    id="comment"
-                    value={newPatrol.comment}
-                    onChange={(e) => setNewPatrol({ ...newPatrol, comment: e.target.value })}
-                    placeholder="指摘事項や改善点などを入力してください"
-                    className="min-h-[100px]"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="photos">写真添付</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="photos"
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files.length > 0) {
-                          const fileNames = Array.from(e.target.files).map((file) => file.name)
-                          setNewPatrol({
-                            ...newPatrol,
-                            photos: [...newPatrol.photos, ...fileNames],
-                          })
-                        }
-                      }}
-                    />
-                  </div>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {newPatrol.photos.map((photo, index) => (
-                      <Badge key={index} variant="outline" className="flex items-center gap-1">
-                        <ImageIcon className="h-3 w-3 mr-1" />
-                        {photo}
-                        <button
-                          type="button"
-                          className="ml-1 rounded-full hover:bg-muted p-1"
-                          onClick={() =>
-                            setNewPatrol({
-                              ...newPatrol,
-                              photos: newPatrol.photos.filter((_, i) => i !== index),
-                            })
-                          }
-                        >
-                          ×
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                  キャンセル
-                </Button>
-                <Button type="submit" onClick={handleAddPatrol}>
-                  保存
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            新規作成
+          </Button>
+          <SafetyPatrolForm
+            open={isAddDialogOpen}
+            onOpenChange={setIsAddDialogOpen}
+            onSuccess={handleAddPatrolSuccess}
+          />
         </div>
       </CardHeader>
       <CardContent>

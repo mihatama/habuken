@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "../types/supabase"
+import { cookies } from "next/headers"
 
 // ===== 型定義 =====
 
@@ -63,29 +64,55 @@ export function resetClientSupabase(): void {
 
 // ===== サーバー側の関数 =====
 
-/**
- * サーバー側でSupabaseクライアントを取得する関数
- */
-export function getServerSupabase(type: ServerClientType = "server"): SupabaseClient<Database> {
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+// サーバーサイドのSupabaseクライアントを取得
+export function getServerSupabase() {
+  const cookieStore = cookies()
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-  let supabaseKey: string
-
-  if (type === "admin" || type === "service" || type === "server") {
-    // サービスロールキーを使用（管理者権限）
-    supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-  } else {
-    // 匿名キーを使用（一般ユーザー権限）
-    supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-  }
-
-  return createClient<Database>(supabaseUrl, supabaseKey, {
+  return createClient(supabaseUrl, supabaseKey, {
     auth: {
-      autoRefreshToken: false,
       persistSession: false,
     },
   })
 }
+
+// クライアントサイドのSupabaseクライアントを取得（シングルトンパターン）
+let clientSupabase: ReturnType<typeof createClient> | null = null
+
+export function getClientSupabaseSingleton() {
+  if (clientSupabase) return clientSupabase
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+  clientSupabase = createClient(supabaseUrl, supabaseKey)
+  return clientSupabase
+}
+
+/**
+ * サーバー側でSupabaseクライアントを取得する関数
+ */
+// export function getServerSupabase(type: ServerClientType = "server"): SupabaseClient<Database> {
+//   const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+
+//   let supabaseKey: string
+
+//   if (type === "admin" || type === "service" || type === "server") {
+//     // サービスロールキーを使用（管理者権限）
+//     supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+//   } else {
+//     // 匿名キーを使用（一般ユーザー権限）
+//     supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+//   }
+
+//   return createClient<Database>(supabaseUrl, supabaseKey, {
+//     auth: {
+//       autoRefreshToken: false,
+//       persistSession: false,
+//     },
+//   })
+// }
 
 // ===== 共通データアクセス関数 =====
 
@@ -222,42 +249,81 @@ export async function deleteData(
 
 // ===== クライアント側のラッパー関数 =====
 
+// クライアントサイドでデータを挿入する関数
+export async function insertClientData(table: string, data: any) {
+  const supabase = getClientSupabaseSingleton()
+  const { data: result, error } = await supabase.from(table).insert(data).select()
+
+  if (error) {
+    console.error(`Error inserting data into ${table}:`, error)
+    throw error
+  }
+
+  return result
+}
+
+// クライアントサイドでデータを更新する関数
+export async function updateClientData(table: string, id: string, data: any) {
+  const supabase = getClientSupabaseSingleton()
+  const { data: result, error } = await supabase.from(table).update(data).eq("id", id).select()
+
+  if (error) {
+    console.error(`Error updating data in ${table}:`, error)
+    throw error
+  }
+
+  return result
+}
+
+// クライアントサイドでデータを削除する関数
+export async function deleteClientData(table: string, id: string) {
+  const supabase = getClientSupabaseSingleton()
+  const { error } = await supabase.from(table).delete().eq("id", id)
+
+  if (error) {
+    console.error(`Error deleting data from ${table}:`, error)
+    throw error
+  }
+
+  return true
+}
+
 /**
  * クライアント側でデータを取得する関数
  */
 export async function fetchClientData<T = any>(tableName: string, options: DataAccessOptions = {}) {
-  const client = getClientSupabase()
+  const client = getClientSupabaseSingleton()
   return fetchData<T>(client, tableName, options)
 }
 
 /**
  * クライアント側でデータを挿入する関数
  */
-export async function insertClientData<T = any>(tableName: string, data: any, options: { returning?: string } = {}) {
-  const client = getClientSupabase()
-  return insertData<T>(client, tableName, data, options)
-}
+// export async function insertClientData<T = any>(tableName: string, data: any, options: { returning?: string } = {}) {
+//   const client = getClientSupabase()
+//   return insertData<T>(client, tableName, data, options)
+// }
 
 /**
  * クライアント側でデータを更新する関数
  */
-export async function updateClientData<T = any>(
-  tableName: string,
-  id: string | number,
-  data: any,
-  options: { idField?: string; returning?: string } = {},
-) {
-  const client = getClientSupabase()
-  return updateData<T>(client, tableName, id, data, options)
-}
+// export async function updateClientData<T = any>(
+//   tableName: string,
+//   id: string | number,
+//   data: any,
+//   options: { idField?: string; returning?: string } = {},
+// ) {
+//   const client = getClientSupabase()
+//   return updateData<T>(client, tableName, id, data, options)
+// }
 
 /**
  * クライアント側でデータを削除する関数
  */
-export async function deleteClientData(tableName: string, id: string | number, options: { idField?: string } = {}) {
-  const client = getClientSupabase()
-  return deleteData(client, tableName, id, options)
-}
+// export async function deleteClientData(tableName: string, id: string, options: { idField?: string } = {}) {
+//   const client = getClientSupabase()
+//   return deleteData(client, tableName, id, options)
+// }
 
 // ===== サーバー側のラッパー関数 =====
 
@@ -427,7 +493,7 @@ export async function getVehiclesData(options: DataAccessOptions = {}) {
  */
 export async function getLeaveRequestsData() {
   try {
-    const client = getClientSupabase()
+    const client = getClientSupabaseSingleton()
 
     // 休暇申請データを取得
     const { data: leaveRequests, error: leaveError } = await client
@@ -483,7 +549,7 @@ export async function updateLeaveRequestData({
   rejectReason?: string
 }) {
   try {
-    const client = getClientSupabase()
+    const client = getClientSupabaseSingleton()
 
     const { data, error } = await client
       .from("leave_requests")
@@ -511,7 +577,7 @@ export async function updateLeaveRequestData({
  */
 export async function getDailyReportsData() {
   try {
-    const client = getClientSupabase()
+    const client = getClientSupabaseSingleton()
 
     // 日報データを取得
     const { data: reports, error } = await client

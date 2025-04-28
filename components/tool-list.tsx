@@ -11,40 +11,24 @@ import { Label } from "@/components/ui/label"
 import { Plus, Pencil, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/components/ui/use-toast"
-import {
-  fetchClientData,
-  insertClientData,
-  updateClientData,
-  deleteClientData,
-  getClientSupabase,
-} from "@/lib/supabase-utils"
-// 古いインポート文を削除
-// import { getClientSupabase } from "@/lib/supabase-client"
+import { fetchClientData, updateClientData, deleteClientData, getClientSupabase } from "@/lib/supabase-utils"
+import { ToolForm } from "./tool-form"
 
 export function ToolList() {
-  const [projects, setProjects] = useState<any[]>([])
-  const [staff, setStaff] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [currentTool, setCurrentTool] = useState<any>(null)
-  const [newTool, setNewTool] = useState({
-    name: "",
-    type: "工具", // デフォルト値を設定
-    resource_type: "工具", // 代替フィールド
-    location: "",
-    status: "利用可能",
-    last_inspection_date: "",
-    assigned_projects: [] as string[],
-    assigned_staff: [] as string[],
-  })
-
   const [resourceTypeField, setResourceTypeField] = useState<string | null>("type")
 
   const queryClient = useQueryClient()
 
   // データ取得用のカスタムフック
-  const { data: tools = [], isLoading: loading } = useQuery({
+  const {
+    data: tools = [],
+    isLoading: loading,
+    refetch,
+  } = useQuery({
     queryKey: ["tools"],
     queryFn: async () => {
       try {
@@ -62,29 +46,6 @@ export function ToolList() {
         console.error("工具データ取得エラー:", error)
         return []
       }
-    },
-  })
-
-  // 工具追加用のミューテーション
-  const addToolMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const result = await insertClientData("resources", data)
-      return result
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tools"] })
-      toast({
-        title: "成功",
-        description: "工具が正常に追加されました",
-      })
-    },
-    onError: (error: any) => {
-      toast({
-        title: "エラー",
-        description: "工具の追加に失敗しました",
-        variant: "destructive",
-      })
-      console.error("工具追加エラー:", error)
     },
   })
 
@@ -134,11 +95,10 @@ export function ToolList() {
     },
   })
 
-  // プロジェクトとスタッフのデータ取得
+  // リソーステーブルのスキーマを確認
   useEffect(() => {
-    async function fetchRelatedData() {
+    async function checkResourceSchema() {
       try {
-        // リソーステーブルのスキーマを確認
         const { data: columns } = await fetchClientData("resources", { limit: 1 })
 
         // 使用するフィールド名を特定
@@ -149,25 +109,12 @@ export function ToolList() {
             setResourceTypeField("resource_type")
           }
         }
-
-        // プロジェクトデータを取得
-        const { data: projectsData } = await fetchClientData("projects")
-        setProjects(projectsData || [])
-
-        // スタッフデータを取得
-        const { data: staffData } = await fetchClientData("staff")
-        setStaff(staffData || [])
       } catch (error) {
-        console.error("関連データ取得エラー:", error)
-        toast({
-          title: "エラー",
-          description: "関連データの取得に失敗しました",
-          variant: "destructive",
-        })
+        console.error("スキーマ確認エラー:", error)
       }
     }
 
-    fetchRelatedData()
+    checkResourceSchema()
   }, [])
 
   // 検索フィルター
@@ -176,59 +123,6 @@ export function ToolList() {
       tool.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (tool.location && tool.location.toLowerCase().includes(searchTerm.toLowerCase())),
   )
-
-  // 工具の追加
-  const handleAddTool = async () => {
-    try {
-      const insertData: any = {
-        name: newTool.name,
-        location: newTool.location,
-        status: newTool.status,
-        last_inspection_date: newTool.last_inspection_date || null,
-      }
-
-      // 適切なフィールド名を使用
-      if (resourceTypeField === "type") {
-        insertData.type = "工具"
-      } else if (resourceTypeField === "resource_type") {
-        insertData.resource_type = "工具"
-      }
-
-      const result = await addToolMutation.mutateAsync(insertData)
-
-      if (result && result[0]) {
-        // 関連プロジェクトの登録
-        for (const projectId of newTool.assigned_projects) {
-          await insertClientData("resource_project", {
-            resource_id: result[0].id,
-            project_id: projectId,
-          })
-        }
-
-        // 関連スタッフの登録
-        for (const staffId of newTool.assigned_staff) {
-          await insertClientData("resource_staff", {
-            resource_id: result[0].id,
-            staff_id: staffId,
-          })
-        }
-      }
-
-      setIsAddDialogOpen(false)
-      setNewTool({
-        name: "",
-        type: "工具",
-        resource_type: "工具",
-        location: "",
-        status: "利用可能",
-        last_inspection_date: "",
-        assigned_projects: [],
-        assigned_staff: [],
-      })
-    } catch (error) {
-      console.error("工具追加エラー:", error)
-    }
-  }
 
   // 工具の更新
   const handleEditTool = async () => {
@@ -285,30 +179,6 @@ export function ToolList() {
     }
   }
 
-  // ツールに紐づくプロジェクトを取得
-  const getToolProjects = async (toolId: string) => {
-    const { data } = await fetchClientData("resource_project", {
-      filters: { resource_id: toolId },
-    })
-
-    if (!data || data.length === 0) return []
-
-    const projectIds = data.map((item) => item.project_id)
-    return projects.filter((project) => projectIds.includes(project.id))
-  }
-
-  // ツールに紐づくスタッフを取得
-  const getToolStaff = async (toolId: string) => {
-    const { data } = await fetchClientData("resource_staff", {
-      filters: { resource_id: toolId },
-    })
-
-    if (!data || data.length === 0) return []
-
-    const staffIds = data.map((item) => item.staff_id)
-    return staff.filter((s) => staffIds.includes(s.id))
-  }
-
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -320,126 +190,11 @@ export function ToolList() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-[250px]"
           />
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                新規追加
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>工具の追加</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">名称</Label>
-                  <Input
-                    id="name"
-                    value={newTool.name}
-                    onChange={(e) => setNewTool({ ...newTool, name: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="location">保管場所</Label>
-                  <Input
-                    id="location"
-                    value={newTool.location}
-                    onChange={(e) => setNewTool({ ...newTool, location: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="status">状態</Label>
-                  <select
-                    id="status"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={newTool.status}
-                    onChange={(e) => setNewTool({ ...newTool, status: e.target.value })}
-                  >
-                    <option>利用可能</option>
-                    <option>利用中</option>
-                    <option>メンテナンス中</option>
-                  </select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="lastMaintenance">最終メンテナンス日</Label>
-                  <Input
-                    id="lastMaintenance"
-                    type="date"
-                    value={newTool.last_inspection_date}
-                    onChange={(e) => setNewTool({ ...newTool, last_inspection_date: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="assignedProjects">使用案件</Label>
-                  <div className="flex flex-col gap-2 max-h-[150px] overflow-y-auto">
-                    {projects.map((project) => (
-                      <div key={project.id} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id={`project-${project.id}`}
-                          checked={newTool.assigned_projects.includes(project.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setNewTool({
-                                ...newTool,
-                                assigned_projects: [...newTool.assigned_projects, project.id],
-                              })
-                            } else {
-                              setNewTool({
-                                ...newTool,
-                                assigned_projects: newTool.assigned_projects.filter((id) => id !== project.id),
-                              })
-                            }
-                          }}
-                          className="h-4 w-4 rounded border-gray-300"
-                        />
-                        <label htmlFor={`project-${project.id}`} className="text-sm">
-                          {project.name}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="assignedStaff">担当スタッフ</Label>
-                  <div className="flex flex-col gap-2 max-h-[150px] overflow-y-auto">
-                    {staff.map((s) => (
-                      <div key={s.id} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id={`staff-${s.id}`}
-                          checked={newTool.assigned_staff.includes(s.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setNewTool({
-                                ...newTool,
-                                assigned_staff: [...newTool.assigned_staff, s.id],
-                              })
-                            } else {
-                              setNewTool({
-                                ...newTool,
-                                assigned_staff: newTool.assigned_staff.filter((id) => id !== s.id),
-                              })
-                            }
-                          }}
-                          className="h-4 w-4 rounded border-gray-300"
-                        />
-                        <label htmlFor={`staff-${s.id}`} className="text-sm">
-                          {s.full_name}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit" onClick={handleAddTool}>
-                  追加
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            新規追加
+          </Button>
+          <ToolForm open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} onSuccess={() => refetch()} />
         </div>
       </CardHeader>
       <CardContent>

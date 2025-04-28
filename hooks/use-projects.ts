@@ -1,15 +1,25 @@
 "use client"
 
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query"
 import { useToast } from "@/hooks/use-toast"
-import { insertClientData, deleteClientData, getClientSupabase } from "@/lib/supabase-utils"
-import { useData, useUpdateData } from "./supabase/use-data"
+import { getClientSupabase } from "@/lib/supabase-utils"
 
 // プロジェクト一覧を取得するフック
 export function useProjects() {
-  return useData("projects", {
+  const queryClient = useQueryClient()
+  const supabase = getClientSupabase()
+
+  return useQuery({
     queryKey: ["projects"],
-    order: { column: "created_at", ascending: false },
+    queryFn: async () => {
+      const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false })
+
+      if (error) throw error
+      return data || []
+    },
+    staleTime: 1000, // 1秒後にデータを古いと見なす
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   })
 }
 
@@ -17,35 +27,68 @@ export function useProjects() {
 export function useCreateProject() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
+  const supabase = getClientSupabase()
 
   return useMutation({
     mutationFn: async (projectData: any) => {
       try {
-        const data = await insertClientData("projects", projectData)
+        console.log("Creating project with data:", projectData)
 
-        // プロジェクト割り当てがある場合は保存
-        if (projectData.assignments && projectData.assignments.length > 0 && data && data.length > 0) {
-          const projectId = data[0].id
+        // プロジェクトを追加
+        const { data: projectResult, error: projectError } = await supabase
+          .from("projects")
+          .insert({
+            name: projectData.name,
+            description: projectData.description,
+            start_date: projectData.start_date,
+            end_date: projectData.end_date,
+            status: projectData.status,
+            client: projectData.client,
+            location: projectData.location,
+            created_by: projectData.created_by,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .select()
 
+        if (projectError) throw projectError
+
+        console.log("Project created:", projectResult)
+
+        // プロジェクトIDを取得
+        const projectId = projectResult[0].id
+
+        // 割り当てがある場合は保存
+        if (projectData.assignments && projectData.assignments.length > 0) {
           const assignmentsWithProjectId = projectData.assignments.map((assignment: any) => ({
             ...assignment,
             project_id: projectId,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           }))
 
-          await insertClientData("project_assignments", assignmentsWithProjectId)
+          console.log("Creating assignments:", assignmentsWithProjectId)
+
+          const { error: assignmentError } = await supabase.from("project_assignments").insert(assignmentsWithProjectId)
+
+          if (assignmentError) throw assignmentError
         }
 
-        return { success: true, data }
-      } catch (error) {
+        return { success: true, data: projectResult }
+      } catch (error: any) {
+        console.error("Project creation error:", error)
         return {
           success: false,
-          error: error instanceof Error ? error.message : "プロジェクトの作成に失敗しました",
+          error: error.message || "プロジェクトの作成に失敗しました",
         }
       }
     },
     onSuccess: (result) => {
       if (result.success) {
+        // キャッシュを無効化して再取得を強制
         queryClient.invalidateQueries({ queryKey: ["projects"] })
+        queryClient.refetchQueries({ queryKey: ["projects"] })
+
         toast({
           title: "成功",
           description: "プロジェクトが正常に作成されました",
@@ -60,6 +103,7 @@ export function useCreateProject() {
       return result
     },
     onError: (error: any) => {
+      console.error("Mutation error:", error)
       toast({
         title: "エラー",
         description: error.message || "プロジェクトの作成に失敗しました",
@@ -71,9 +115,53 @@ export function useCreateProject() {
 
 // プロジェクトを更新するフック
 export function useUpdateProject() {
-  return useUpdateData("projects", {
-    onSuccess: () => {
-      // 追加の処理が必要な場合はここに記述
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
+  const supabase = getClientSupabase()
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      try {
+        const { data: result, error } = await supabase
+          .from("projects")
+          .update({
+            ...data,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", id)
+          .select()
+
+        if (error) throw error
+        return { success: true, data: result }
+      } catch (error: any) {
+        return {
+          success: false,
+          error: error.message || "プロジェクトの更新に失敗しました",
+        }
+      }
+    },
+    onSuccess: (result) => {
+      if (result.success) {
+        queryClient.invalidateQueries({ queryKey: ["projects"] })
+        toast({
+          title: "成功",
+          description: "プロジェクトが正常に更新されました",
+        })
+      } else {
+        toast({
+          title: "エラー",
+          description: result.error || "プロジェクトの更新に失敗しました",
+          variant: "destructive",
+        })
+      }
+      return result
+    },
+    onError: (error: any) => {
+      toast({
+        title: "エラー",
+        description: error.message || "プロジェクトの更新に失敗しました",
+        variant: "destructive",
+      })
     },
   })
 }
@@ -82,21 +170,25 @@ export function useUpdateProject() {
 export function useDeleteProject() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
+  const supabase = getClientSupabase()
 
   return useMutation({
     mutationFn: async (id: string) => {
       try {
         // 関連する割り当てを先に削除
-        const supabase = getClientSupabase()
-        await supabase.from("project_assignments").delete().eq("project_id", id)
+        const { error: assignmentError } = await supabase.from("project_assignments").delete().eq("project_id", id)
+
+        if (assignmentError) throw assignmentError
 
         // プロジェクトを削除
-        await deleteClientData("projects", id)
+        const { error } = await supabase.from("projects").delete().eq("id", id)
+
+        if (error) throw error
         return { success: true }
-      } catch (error) {
+      } catch (error: any) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : "プロジェクトの削除に失敗しました",
+          error: error.message || "プロジェクトの削除に失敗しました",
         }
       }
     },

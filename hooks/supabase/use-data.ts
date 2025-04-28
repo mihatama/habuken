@@ -2,34 +2,49 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useToast } from "@/hooks/use-toast"
-import { fetchClientData, insertClientData, updateClientData, deleteClientData } from "@/lib/supabase-utils"
+import { insertClientData, updateClientData, deleteClientData } from "@/lib/supabase-utils"
+import { getClientSupabase } from "@/lib/supabase/supabaseClient"
 
 // 汎用データ取得フック
-export function useData<T = any>(
-  tableName: string,
+export function useData(
+  table: string,
   options: {
     queryKey?: any[]
-    filters?: Record<string, any>
+    select?: string
+    filters?: any[]
     order?: { column: string; ascending: boolean }
     enabled?: boolean
-    select?: (data: T[]) => any
     onError?: (error: Error) => void
   } = {},
 ) {
-  const { queryKey = [tableName], filters = {}, order, enabled = true, select, onError } = options
-  const { toast } = useToast()
+  const { queryKey = [table], select = "*", filters = [], order, enabled = true, onError } = options
 
   return useQuery({
     queryKey,
     queryFn: async () => {
-      try {
-        const { data } = await fetchClientData<T>(tableName, {
-          filters,
-          order,
-        })
-        return data
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : `${tableName}データの取得に失敗しました`
+      const supabase = getClientSupabase()
+      let query = supabase.from(table).select(select)
+
+      // フィルターを適用
+      filters.forEach((filter) => {
+        if (filter.operator === "eq") {
+          query = query.eq(filter.column, filter.value)
+        } else if (filter.operator === "in") {
+          query = query.in(filter.column, filter.value)
+        }
+        // 他のフィルター条件も必要に応じて追加
+      })
+
+      // 並び順を適用
+      if (order) {
+        query = query.order(order.column, { ascending: order.ascending })
+      }
+
+      const { data, error } = await query
+
+      if (error) {
+        const errorMessage = error instanceof Error ? error.message : `${table}データの取得に失敗しました`
+        const { toast } = useToast()
         toast({
           title: "エラー",
           description: errorMessage,
@@ -40,9 +55,13 @@ export function useData<T = any>(
         }
         throw error
       }
+
+      return data
     },
     enabled,
-    select,
+    staleTime: 1000, // 1秒間はキャッシュを新鮮と見なす（短くして頻繁に再取得）
+    refetchOnWindowFocus: true, // ウィンドウにフォーカスが戻ったときに再取得
+    refetchOnMount: true, // コンポーネントがマウントされたときに再取得
   })
 }
 

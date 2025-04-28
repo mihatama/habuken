@@ -3,43 +3,12 @@
 import { useState } from "react"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "../components/ui/dialog"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../components/ui/form"
-import { Input } from "../components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
-import { Textarea } from "../components/ui/textarea"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { useAddLeaveRequest, useLeaveRequests, useUpdateLeaveRequest } from "../hooks/use-leave-requests"
+import { Badge } from "@/components/ui/badge"
+import { useLeaveRequests, useUpdateLeaveRequest } from "../hooks/use-leave-requests"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
 import { useToast } from "../components/ui/use-toast"
-import { getClientSupabase } from "../lib/supabase-utils" // 更新: 新しいパスを使用
-
-// フォームのバリデーションスキーマ
-const formSchema = z.object({
-  leaveType: z.string({
-    required_error: "休暇タイプを選択してください",
-  }),
-  startDate: z.string({
-    required_error: "開始日を入力してください",
-  }),
-  endDate: z.string({
-    required_error: "終了日を入力してください",
-  }),
-  reason: z.string().min(5, {
-    message: "理由は5文字以上で入力してください",
-  }),
-})
+import { LeaveRequestForm } from "./leave-request-form"
 
 type LeaveRequest = {
   id: string
@@ -57,65 +26,9 @@ type LeaveRequest = {
 
 export function LeaveRequestManagement() {
   const [open, setOpen] = useState(false)
-  const { data: leaveRequests, isLoading, error } = useLeaveRequests()
-  const addLeaveRequest = useAddLeaveRequest()
+  const { data: leaveRequests, isLoading, error, refetch } = useLeaveRequests()
   const updateLeaveRequest = useUpdateLeaveRequest()
   const { toast } = useToast()
-
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      leaveType: "",
-      startDate: "",
-      endDate: "",
-      reason: "",
-    },
-  })
-
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    try {
-      // Supabaseクライアントを取得
-      const supabase = getClientSupabase()
-
-      // 現在のユーザー情報を取得
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) {
-        toast({
-          title: "エラー",
-          description: "ユーザー情報を取得できませんでした",
-          variant: "destructive",
-        })
-        return
-      }
-
-      // 休暇申請を追加
-      await addLeaveRequest.mutateAsync({
-        userId: user.id,
-        leaveType: values.leaveType,
-        startDate: values.startDate,
-        endDate: values.endDate,
-        reason: values.reason,
-      })
-
-      toast({
-        title: "申請完了",
-        description: "休暇申請が送信されました",
-      })
-
-      setOpen(false)
-      form.reset()
-    } catch (error) {
-      console.error("休暇申請エラー:", error)
-      toast({
-        title: "エラー",
-        description: "休暇申請の送信に失敗しました",
-        variant: "destructive",
-      })
-    }
-  }
 
   const handleStatusChange = async (requestId: string, newStatus: "approved" | "rejected") => {
     try {
@@ -150,90 +63,8 @@ export function LeaveRequestManagement() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">休暇申請一覧</h2>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button>新規申請</Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>休暇申請</DialogTitle>
-              <DialogDescription>
-                休暇の申請内容を入力してください。申請後は承認されるまでお待ちください。
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="leaveType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>休暇タイプ</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="休暇タイプを選択" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="annual">年次有給休暇</SelectItem>
-                          <SelectItem value="sick">病気休暇</SelectItem>
-                          <SelectItem value="special">特別休暇</SelectItem>
-                          <SelectItem value="other">その他</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="startDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>開始日</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="endDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>終了日</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="reason"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>理由</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <DialogFooter>
-                  <Button type="submit" disabled={addLeaveRequest.isPending}>
-                    {addLeaveRequest.isPending ? "送信中..." : "申請する"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => setOpen(true)}>新規申請</Button>
+        <LeaveRequestForm open={open} onOpenChange={setOpen} onSuccess={() => refetch()} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -251,7 +82,13 @@ export function LeaveRequestManagement() {
               </CardTitle>
               <CardDescription>
                 {request.staff?.name || "名前なし"} -
-                {request.status === "pending" ? "審査中" : request.status === "approved" ? "承認済" : "却下"}
+                {request.status === "pending" ? (
+                  <Badge className="bg-yellow-500 hover:bg-yellow-600">審査中</Badge>
+                ) : request.status === "approved" ? (
+                  <Badge className="bg-green-500 hover:bg-green-600">承認済</Badge>
+                ) : (
+                  <Badge className="bg-red-500 hover:bg-red-600">却下</Badge>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>

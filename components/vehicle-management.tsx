@@ -9,14 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Plus, Edit, Trash2 } from "lucide-react"
-import {
-  useVehicles,
-  useAddVehicle,
-  useUpdateVehicle,
-  useDeleteVehicle,
-  type Vehicle,
-  type VehicleInput,
-} from "@/hooks/supabase/use-vehicles"
+import { useVehicles, useUpdateVehicle, useDeleteVehicle, type Vehicle } from "@/hooks/supabase/use-vehicles"
+import { VehicleForm } from "./vehicle-form"
 
 export function VehicleManagement() {
   const [open, setOpen] = useState(false)
@@ -24,61 +18,12 @@ export function VehicleManagement() {
   const [searchTerm, setSearchTerm] = useState("")
   const [currentVehicle, setCurrentVehicle] = useState<Vehicle | null>(null)
 
-  const [newVehicle, setNewVehicle] = useState<Partial<VehicleInput>>({
-    name: "",
-    type: "",
-    location: "",
-    last_inspection_date: "",
-    ownership_type: "自社保有" as const,
-    daily_rate: null,
-    weekly_rate: null,
-    monthly_rate: null,
-  })
-
   // カスタムフックを使用してデータを取得
-  const { data: vehicles = [], isLoading: loading } = useVehicles({ searchTerm })
+  const { data: vehicles = [], isLoading: loading, refetch } = useVehicles({ searchTerm })
 
   // カスタムフックを使用してCRUD操作を実行
-  const addVehicleMutation = useAddVehicle()
   const updateVehicleMutation = useUpdateVehicle()
   const deleteVehicleMutation = useDeleteVehicle()
-
-  // 車両の追加
-  const handleAddVehicle = async () => {
-    try {
-      await addVehicleMutation.mutateAsync({
-        name: newVehicle.name || "",
-        type: newVehicle.type || "",
-        location: newVehicle.location || "",
-        last_inspection_date: newVehicle.last_inspection_date || null,
-        ownership_type: newVehicle.ownership_type || "自社保有",
-        daily_rate:
-          newVehicle.daily_rate !== null && newVehicle.daily_rate !== undefined ? Number(newVehicle.daily_rate) : null,
-        weekly_rate:
-          newVehicle.weekly_rate !== null && newVehicle.weekly_rate !== undefined
-            ? Number(newVehicle.weekly_rate)
-            : null,
-        monthly_rate:
-          newVehicle.monthly_rate !== null && newVehicle.monthly_rate !== undefined
-            ? Number(newVehicle.monthly_rate)
-            : null,
-      } as VehicleInput)
-
-      setOpen(false)
-      setNewVehicle({
-        name: "",
-        type: "",
-        location: "",
-        last_inspection_date: "",
-        ownership_type: "自社保有",
-        daily_rate: null,
-        weekly_rate: null,
-        monthly_rate: null,
-      })
-    } catch (error) {
-      // エラーはミューテーションのonErrorで処理
-    }
-  }
 
   // 車両の更新
   const handleUpdateVehicle = async () => {
@@ -133,136 +78,11 @@ export function VehicleManagement() {
             <span className="sr-only">検索</span>
           </Button>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              車両を追加
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>新規車両登録</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">車両名</Label>
-                <Input
-                  id="name"
-                  placeholder="例: トヨタ ハイエース"
-                  value={newVehicle.name || ""}
-                  onChange={(e) => setNewVehicle({ ...newVehicle, name: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="type">車両タイプ</Label>
-                <Select
-                  value={newVehicle.type || ""}
-                  onValueChange={(value) => setNewVehicle({ ...newVehicle, type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="車両タイプを選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="バン">バン</SelectItem>
-                    <SelectItem value="SUV">SUV</SelectItem>
-                    <SelectItem value="ミニバン">ミニバン</SelectItem>
-                    <SelectItem value="トラック">トラック</SelectItem>
-                    <SelectItem value="セダン">セダン</SelectItem>
-                    <SelectItem value="その他">その他</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="location">配置場所</Label>
-                <Input
-                  id="location"
-                  placeholder="例: 東京本社"
-                  value={newVehicle.location || ""}
-                  onChange={(e) => setNewVehicle({ ...newVehicle, location: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="lastMaintenance">最終点検日</Label>
-                <Input
-                  id="lastMaintenance"
-                  type="date"
-                  value={newVehicle.last_inspection_date || ""}
-                  onChange={(e) => setNewVehicle({ ...newVehicle, last_inspection_date: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="ownership">所有形態</Label>
-                <Select
-                  value={newVehicle.ownership_type || "自社保有"}
-                  onValueChange={(value: "自社保有" | "リース" | "その他") =>
-                    setNewVehicle({ ...newVehicle, ownership_type: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="所有形態を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="自社保有">自社保有</SelectItem>
-                    <SelectItem value="リース">リース</SelectItem>
-                    <SelectItem value="その他">その他</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="daily_rate">日額料金</Label>
-                  <Input
-                    id="daily_rate"
-                    type="number"
-                    placeholder="0"
-                    value={newVehicle.daily_rate === null ? "" : newVehicle.daily_rate}
-                    onChange={(e) =>
-                      setNewVehicle({
-                        ...newVehicle,
-                        daily_rate: e.target.value === "" ? null : Number(e.target.value),
-                      })
-                    }
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="weekly_rate">週額料金</Label>
-                  <Input
-                    id="weekly_rate"
-                    type="number"
-                    placeholder="0"
-                    value={newVehicle.weekly_rate === null ? "" : newVehicle.weekly_rate}
-                    onChange={(e) =>
-                      setNewVehicle({
-                        ...newVehicle,
-                        weekly_rate: e.target.value === "" ? null : Number(e.target.value),
-                      })
-                    }
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="monthly_rate">月額料金</Label>
-                  <Input
-                    id="monthly_rate"
-                    type="number"
-                    placeholder="0"
-                    value={newVehicle.monthly_rate === null ? "" : newVehicle.monthly_rate}
-                    onChange={(e) =>
-                      setNewVehicle({
-                        ...newVehicle,
-                        monthly_rate: e.target.value === "" ? null : Number(e.target.value),
-                      })
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={handleAddVehicle}>登録</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => setOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          車両を追加
+        </Button>
+        <VehicleForm open={open} onOpenChange={setOpen} onSuccess={() => refetch()} />
       </div>
 
       <div className="rounded-md border">

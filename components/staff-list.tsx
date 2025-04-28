@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Trash2, Loader2, UserPlus } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { fetchClientData, deleteClientData } from "@/lib/supabase-utils"
+import { StaffForm } from "./staff-form"
 
 // スタッフデータの型定義
 interface Staff {
@@ -22,6 +23,7 @@ interface Staff {
 
 export function StaffList() {
   const [searchTerm, setSearchTerm] = useState("")
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const { toast } = useToast()
   const queryClient = useQueryClient()
 
@@ -76,11 +78,17 @@ export function StaffList() {
   )
 
   const handleDeleteStaff = async (id: string) => {
+    if (!confirm("このスタッフを削除してもよろしいですか？")) return
+
     try {
       await deleteStaffMutation.mutateAsync(id)
     } catch (error) {
       console.error("スタッフ削除エラー:", error)
     }
+  }
+
+  const handleRefreshData = () => {
+    queryClient.invalidateQueries({ queryKey: ["staff"] })
   }
 
   return (
@@ -94,7 +102,7 @@ export function StaffList() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-[250px]"
           />
-          <Button>
+          <Button onClick={() => setIsAddDialogOpen(true)}>
             <UserPlus className="mr-2 h-4 w-4" />
             スタッフ追加
           </Button>
@@ -142,6 +150,9 @@ export function StaffList() {
           </Table>
         )}
       </CardContent>
+
+      {/* スタッフ追加フォーム */}
+      <StaffForm open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} onSuccess={handleRefreshData} />
     </Card>
   )
 }

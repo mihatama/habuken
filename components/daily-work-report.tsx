@@ -5,16 +5,14 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ImageIcon, Check, X, Sun, Cloud, CloudRain, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createClient } from "@supabase/supabase-js"
 import { toast } from "@/components/ui/use-toast"
 import { getDailyReports } from "@/lib/data-utils"
+import { DailyReportFormDialog } from "./daily-report-form-dialog"
 
 export function DailyWorkReport() {
   const [reports, setReports] = useState<any[]>([])
@@ -26,46 +24,37 @@ export function DailyWorkReport() {
   const [currentReport, setCurrentReport] = useState<any>(null)
   const [activeTab, setActiveTab] = useState("all")
   const [loading, setLoading] = useState(true)
-  const [newReport, setNewReport] = useState({
-    projectId: "",
-    userId: "",
-    workDate: new Date().toISOString().split("T")[0],
-    weather: "sunny",
-    workContentText: "",
-    speechRecognitionRaw: "",
-    photos: [] as string[],
-  })
 
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
   // データの取得
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true)
-      try {
-        // 作業日報データを取得
-        const reportsData = await getDailyReports(supabase)
-        setReports(reportsData)
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      // 作業日報データを取得
+      const reportsData = await getDailyReports(supabase)
+      setReports(reportsData)
 
-        // プロジェクトデータを取得
-        const { data: projectsData } = await supabase.from("projects").select("*")
-        setProjects(projectsData || [])
+      // プロジェクトデータを取得
+      const { data: projectsData } = await supabase.from("projects").select("*")
+      setProjects(projectsData || [])
 
-        // スタッフデータを取得
-        const { data: staffData } = await supabase.from("staff").select("*")
-        setStaff(staffData || [])
-      } catch (error) {
-        console.error("データ取得エラー:", error)
-        toast({
-          title: "エラー",
-          description: "データの取得に失敗しました",
-          variant: "destructive",
-        })
-      } finally {
-        setLoading(false)
-      }
+      // スタッフデータを取得
+      const { data: staffData } = await supabase.from("staff").select("*")
+      setStaff(staffData || [])
+    } catch (error) {
+      console.error("データ取得エラー:", error)
+      toast({
+        title: "エラー",
+        description: "データの取得に失敗しました",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
+  }
 
+  useEffect(() => {
     fetchData()
   }, [supabase])
 
@@ -78,56 +67,6 @@ export function DailyWorkReport() {
         (activeTab === "pending" && report.status === "pending") ||
         (activeTab === "approved" && report.status === "approved")),
   )
-
-  const handleAddReport = async () => {
-    if (!newReport.projectId || !newReport.userId) return
-
-    try {
-      const { data, error } = await supabase
-        .from("daily_reports")
-        .insert({
-          project_id: newReport.projectId,
-          staff_id: newReport.userId,
-          work_date: newReport.workDate,
-          weather: newReport.weather,
-          work_content: newReport.workContentText,
-          speech_recognition_raw: newReport.speechRecognitionRaw,
-          photos: newReport.photos,
-          status: "pending",
-          created_at: new Date().toISOString(),
-        })
-        .select()
-
-      if (error) throw error
-
-      toast({
-        title: "成功",
-        description: "作業日報を追加しました",
-      })
-
-      // 作業日報リストを更新
-      const reportsData = await getDailyReports(supabase)
-      setReports(reportsData)
-
-      setIsAddDialogOpen(false)
-      setNewReport({
-        projectId: "",
-        userId: "",
-        workDate: new Date().toISOString().split("T")[0],
-        weather: "sunny",
-        workContentText: "",
-        speechRecognitionRaw: "",
-        photos: [],
-      })
-    } catch (error) {
-      console.error("作業日報追加エラー:", error)
-      toast({
-        title: "エラー",
-        description: "作業日報の追加に失敗しました",
-        variant: "destructive",
-      })
-    }
-  }
 
   const handleApproveReport = async (reportId: string) => {
     try {
@@ -144,8 +83,7 @@ export function DailyWorkReport() {
       })
 
       // 作業日報リストを更新
-      const reportsData = await getDailyReports(supabase)
-      setReports(reportsData)
+      fetchData()
     } catch (error) {
       console.error("作業日報承認エラー:", error)
       toast({
@@ -171,8 +109,7 @@ export function DailyWorkReport() {
       })
 
       // 作業日報リストを更新
-      const reportsData = await getDailyReports(supabase)
-      setReports(reportsData)
+      fetchData()
     } catch (error) {
       console.error("作業日報差し戻しエラー:", error)
       toast({
@@ -220,146 +157,11 @@ export function DailyWorkReport() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-[250px]"
           />
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                新規作成
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl">
-              <DialogHeader>
-                <DialogTitle>作業日報の作成</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="projectId">工事名</Label>
-                    <Select
-                      value={newReport.projectId}
-                      onValueChange={(value) => setNewReport({ ...newReport, projectId: value })}
-                    >
-                      <SelectTrigger id="projectId">
-                        <SelectValue placeholder="工事を選択" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {projects.map((project) => (
-                          <SelectItem key={project.id} value={project.id}>
-                            {project.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="userId">作業者</Label>
-                    <Select
-                      value={newReport.userId}
-                      onValueChange={(value) => setNewReport({ ...newReport, userId: value })}
-                    >
-                      <SelectTrigger id="userId">
-                        <SelectValue placeholder="作業者を選択" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {staff.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.full_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="workDate">作業日</Label>
-                    <Input
-                      id="workDate"
-                      type="date"
-                      value={newReport.workDate}
-                      onChange={(e) => setNewReport({ ...newReport, workDate: e.target.value })}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="weather">天候</Label>
-                    <Select
-                      value={newReport.weather}
-                      onValueChange={(value) => setNewReport({ ...newReport, weather: value })}
-                    >
-                      <SelectTrigger id="weather">
-                        <SelectValue placeholder="天候を選択" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="sunny">晴れ</SelectItem>
-                        <SelectItem value="cloudy">曇り</SelectItem>
-                        <SelectItem value="rainy">雨</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="workContentText">作業内容</Label>
-                  </div>
-                  <Textarea
-                    id="workContentText"
-                    value={newReport.workContentText}
-                    onChange={(e) => setNewReport({ ...newReport, workContentText: e.target.value })}
-                    placeholder="作業内容を入力してください"
-                    className="min-h-[150px]"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="photos">写真添付</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="photos"
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files.length > 0) {
-                          const fileNames = Array.from(e.target.files).map((file) => file.name)
-                          setNewReport({
-                            ...newReport,
-                            photos: [...newReport.photos, ...fileNames],
-                          })
-                        }
-                      }}
-                    />
-                  </div>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {newReport.photos.map((photo, index) => (
-                      <Badge key={index} variant="outline" className="flex items-center gap-1">
-                        <ImageIcon className="h-3 w-3 mr-1" />
-                        {photo}
-                        <button
-                          type="button"
-                          className="ml-1 rounded-full hover:bg-muted p-1"
-                          onClick={() =>
-                            setNewReport({
-                              ...newReport,
-                              photos: newReport.photos.filter((_, i) => i !== index),
-                            })
-                          }
-                        >
-                          ×
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                  キャンセル
-                </Button>
-                <Button type="submit" onClick={handleAddReport}>
-                  保存
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            新規作成
+          </Button>
+          <DailyReportFormDialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} onSuccess={fetchData} />
         </div>
       </CardHeader>
       <CardContent>

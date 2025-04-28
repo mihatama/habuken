@@ -1,14 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/data-table"
-import { OwnershipType, ResourceStatus } from "@/types/enums"
+import { type OwnershipType, ResourceStatus } from "@/types/enums"
+import { getClientSupabase } from "@/lib/supabase-utils"
+import { useToast } from "@/hooks/use-toast"
+import { HeavyMachineryForm } from "./heavy-machinery-form"
 
 // 重機データの型定義
 interface HeavyMachinery {
@@ -24,51 +25,44 @@ interface HeavyMachinery {
   next_maintenance: string
 }
 
-// サンプルデータ
-const sampleHeavyMachinery: HeavyMachinery[] = [
-  {
-    id: "1",
-    name: "油圧ショベル A",
-    type: "油圧ショベル",
-    model: "PC200-10",
-    manufacturer: "コマツ",
-    year: 2018,
-    status: ResourceStatus.Available,
-    ownership: OwnershipType.OwnedByCompany,
-    last_maintenance: "2023-03-15",
-    next_maintenance: "2023-09-15",
-  },
-  {
-    id: "2",
-    name: "ブルドーザー B",
-    type: "ブルドーザー",
-    model: "D61PXi-24",
-    manufacturer: "コマツ",
-    year: 2020,
-    status: ResourceStatus.InUse,
-    ownership: OwnershipType.Leased,
-    last_maintenance: "2023-02-10",
-    next_maintenance: "2023-08-10",
-  },
-  {
-    id: "3",
-    name: "クレーン C",
-    type: "クレーン",
-    model: "LTM 1100-4.2",
-    manufacturer: "リープヘル",
-    year: 2019,
-    status: ResourceStatus.UnderMaintenance,
-    ownership: OwnershipType.OwnedByCompany,
-    last_maintenance: "2023-04-05",
-    next_maintenance: "2023-10-05",
-  },
-]
-
 export function HeavyMachineryManagement() {
-  const [heavyMachinery, setHeavyMachinery] = useState<HeavyMachinery[]>(sampleHeavyMachinery)
+  const [heavyMachinery, setHeavyMachinery] = useState<HeavyMachinery[]>([])
   const [newMachinery, setNewMachinery] = useState<Partial<HeavyMachinery>>({})
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
+  const { toast } = useToast()
+
+  // 重機データを取得
+  const fetchHeavyMachinery = async () => {
+    setIsLoading(true)
+    try {
+      const supabase = getClientSupabase()
+      const { data, error } = await supabase
+        .from("heavy_machinery")
+        .select("*")
+        .order("created_at", { ascending: false })
+
+      if (error) throw error
+
+      setHeavyMachinery(data || [])
+    } catch (error) {
+      console.error("重機データ取得エラー:", error)
+      toast({
+        title: "エラー",
+        description: "重機データの取得に失敗しました",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // 初回レンダリング時にデータを取得
+  useEffect(() => {
+    fetchHeavyMachinery()
+  }, [])
 
   // 検索結果をフィルタリング
   const filteredMachinery = heavyMachinery.filter(
@@ -79,39 +73,32 @@ export function HeavyMachineryManagement() {
       machine.manufacturer.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
-  // 新しい重機を追加
-  const handleAddMachinery = () => {
-    if (
-      newMachinery.name &&
-      newMachinery.type &&
-      newMachinery.model &&
-      newMachinery.manufacturer &&
-      newMachinery.year &&
-      newMachinery.status &&
-      newMachinery.ownership
-    ) {
-      const newItem: HeavyMachinery = {
-        id: Date.now().toString(),
-        name: newMachinery.name,
-        type: newMachinery.type,
-        model: newMachinery.model,
-        manufacturer: newMachinery.manufacturer,
-        year: newMachinery.year,
-        status: newMachinery.status as ResourceStatus,
-        ownership: newMachinery.ownership as OwnershipType,
-        last_maintenance: newMachinery.last_maintenance || new Date().toISOString().split("T")[0],
-        next_maintenance: newMachinery.next_maintenance || new Date().toISOString().split("T")[0],
-      }
-
-      setHeavyMachinery([...heavyMachinery, newItem])
-      setNewMachinery({})
-      setIsDialogOpen(false)
-    }
-  }
-
   // 重機の状態を更新
-  const updateMachineryStatus = (id: string, status: ResourceStatus) => {
-    setHeavyMachinery(heavyMachinery.map((machine) => (machine.id === id ? { ...machine, status } : machine)))
+  const updateMachineryStatus = async (id: string, status: ResourceStatus) => {
+    try {
+      const supabase = getClientSupabase()
+      const { error } = await supabase
+        .from("heavy_machinery")
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq("id", id)
+
+      if (error) throw error
+
+      // 状態を更新
+      setHeavyMachinery(heavyMachinery.map((machine) => (machine.id === id ? { ...machine, status } : machine)))
+
+      toast({
+        title: "成功",
+        description: "重機の状態を更新しました",
+      })
+    } catch (error) {
+      console.error("重機状態更新エラー:", error)
+      toast({
+        title: "エラー",
+        description: "重機の状態更新に失敗しました",
+        variant: "destructive",
+      })
+    }
   }
 
   return (
@@ -124,135 +111,7 @@ export function HeavyMachineryManagement() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-64"
           />
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>新規重機登録</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>新規重機登録</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">
-                    名称
-                  </Label>
-                  <Input
-                    id="name"
-                    value={newMachinery.name || ""}
-                    onChange={(e) => setNewMachinery({ ...newMachinery, name: e.target.value })}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="type" className="text-right">
-                    種類
-                  </Label>
-                  <Input
-                    id="type"
-                    value={newMachinery.type || ""}
-                    onChange={(e) => setNewMachinery({ ...newMachinery, type: e.target.value })}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="model" className="text-right">
-                    型式
-                  </Label>
-                  <Input
-                    id="model"
-                    value={newMachinery.model || ""}
-                    onChange={(e) => setNewMachinery({ ...newMachinery, model: e.target.value })}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="manufacturer" className="text-right">
-                    メーカー
-                  </Label>
-                  <Input
-                    id="manufacturer"
-                    value={newMachinery.manufacturer || ""}
-                    onChange={(e) => setNewMachinery({ ...newMachinery, manufacturer: e.target.value })}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="year" className="text-right">
-                    年式
-                  </Label>
-                  <Input
-                    id="year"
-                    type="number"
-                    value={newMachinery.year || ""}
-                    onChange={(e) => setNewMachinery({ ...newMachinery, year: Number.parseInt(e.target.value) })}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="status" className="text-right">
-                    状態
-                  </Label>
-                  <Select
-                    onValueChange={(value) => setNewMachinery({ ...newMachinery, status: value as ResourceStatus })}
-                  >
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="状態を選択" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={ResourceStatus.Available}>利用可能</SelectItem>
-                      <SelectItem value={ResourceStatus.InUse}>利用中</SelectItem>
-                      <SelectItem value={ResourceStatus.UnderMaintenance}>メンテナンス中</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="ownership" className="text-right">
-                    所有形態
-                  </Label>
-                  <Select
-                    onValueChange={(value) => setNewMachinery({ ...newMachinery, ownership: value as OwnershipType })}
-                  >
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="所有形態を選択" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={OwnershipType.OwnedByCompany}>自社保有</SelectItem>
-                      <SelectItem value={OwnershipType.Leased}>リース</SelectItem>
-                      <SelectItem value={OwnershipType.Other}>その他</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="last_maintenance" className="text-right">
-                    前回点検日
-                  </Label>
-                  <Input
-                    id="last_maintenance"
-                    type="date"
-                    value={newMachinery.last_maintenance || ""}
-                    onChange={(e) => setNewMachinery({ ...newMachinery, last_maintenance: e.target.value })}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="next_maintenance" className="text-right">
-                    次回点検日
-                  </Label>
-                  <Input
-                    id="next_maintenance"
-                    type="date"
-                    value={newMachinery.next_maintenance || ""}
-                    onChange={(e) => setNewMachinery({ ...newMachinery, next_maintenance: e.target.value })}
-                    className="col-span-3"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <Button onClick={handleAddMachinery}>登録</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={() => setIsAddDialogOpen(true)}>新規重機登録</Button>
         </div>
       </div>
 
@@ -277,50 +136,67 @@ export function HeavyMachineryManagement() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredMachinery.map((machine) => (
-                <TableRow key={machine.id}>
-                  <TableCell className="font-medium">{machine.name}</TableCell>
-                  <TableCell>{machine.type}</TableCell>
-                  <TableCell>{machine.model}</TableCell>
-                  <TableCell>{machine.manufacturer}</TableCell>
-                  <TableCell>{machine.year}</TableCell>
-                  <TableCell>
-                    <div
-                      className={`px-2 py-1 rounded-full text-xs font-medium inline-block ${
-                        machine.status === ResourceStatus.Available
-                          ? "bg-green-100 text-green-800"
-                          : machine.status === ResourceStatus.InUse
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {machine.status}
-                    </div>
-                  </TableCell>
-                  <TableCell>{machine.ownership}</TableCell>
-                  <TableCell>{machine.last_maintenance}</TableCell>
-                  <TableCell>{machine.next_maintenance}</TableCell>
-                  <TableCell>
-                    <Select
-                      defaultValue={machine.status}
-                      onValueChange={(value) => updateMachineryStatus(machine.id, value as ResourceStatus)}
-                    >
-                      <SelectTrigger className="w-[130px]">
-                        <SelectValue placeholder="状態を変更" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={ResourceStatus.Available}>利用可能</SelectItem>
-                        <SelectItem value={ResourceStatus.InUse}>利用中</SelectItem>
-                        <SelectItem value={ResourceStatus.UnderMaintenance}>メンテナンス中</SelectItem>
-                      </SelectContent>
-                    </Select>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={10} className="text-center py-4">
+                    読み込み中...
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : filteredMachinery.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={10} className="text-center py-4">
+                    データがありません
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredMachinery.map((machine) => (
+                  <TableRow key={machine.id}>
+                    <TableCell className="font-medium">{machine.name}</TableCell>
+                    <TableCell>{machine.type}</TableCell>
+                    <TableCell>{machine.model}</TableCell>
+                    <TableCell>{machine.manufacturer}</TableCell>
+                    <TableCell>{machine.year}</TableCell>
+                    <TableCell>
+                      <div
+                        className={`px-2 py-1 rounded-full text-xs font-medium inline-block ${
+                          machine.status === ResourceStatus.Available
+                            ? "bg-green-100 text-green-800"
+                            : machine.status === ResourceStatus.InUse
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        {machine.status}
+                      </div>
+                    </TableCell>
+                    <TableCell>{machine.ownership}</TableCell>
+                    <TableCell>{machine.last_maintenance || "-"}</TableCell>
+                    <TableCell>{machine.next_maintenance || "-"}</TableCell>
+                    <TableCell>
+                      <Select
+                        defaultValue={machine.status}
+                        onValueChange={(value) => updateMachineryStatus(machine.id, value as ResourceStatus)}
+                      >
+                        <SelectTrigger className="w-[130px]">
+                          <SelectValue placeholder="状態を変更" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={ResourceStatus.Available}>利用可能</SelectItem>
+                          <SelectItem value={ResourceStatus.InUse}>利用中</SelectItem>
+                          <SelectItem value={ResourceStatus.UnderMaintenance}>メンテナンス中</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      {/* 重機登録フォーム */}
+      <HeavyMachineryForm open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} onSuccess={fetchHeavyMachinery} />
     </div>
   )
 }

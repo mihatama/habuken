@@ -23,7 +23,7 @@ export function ProjectList() {
   const { user } = useAuth()
 
   // React Queryフックを使用してデータを取得
-  const { data: projects = [], isLoading: dataLoading } = useProjects()
+  const { data: projects = [], isLoading: dataLoading, refetch: refetchProjects } = useProjects()
   const { data: staffList = [] } = useStaff()
   const { data: heavyMachineryList = [] } = useHeavyMachinery()
   const { data: vehiclesList = [] } = useVehicles()
@@ -229,28 +229,40 @@ export function ProjectList() {
       // 割り当てを追加
       projectData.assignments = assignments
 
+      console.log("Submitting project data:", projectData)
+
       // ミューテーションを実行
-      await createProjectMutation.mutateAsync(projectData)
+      const result = await createProjectMutation.mutateAsync(projectData)
 
-      // フォームをリセット
-      setNewProject({
-        name: "",
-        description: "",
-        startDate: "",
-        endDate: "",
-        status: "未着手",
-        client: "",
-        location: "",
-        selectedStaff: [],
-        selectedHeavyMachinery: [],
-        selectedVehicles: [],
-        selectedTools: [],
-      })
+      if (result.success) {
+        // フォームをリセット
+        setNewProject({
+          name: "",
+          description: "",
+          startDate: "",
+          endDate: "",
+          status: "未着手",
+          client: "",
+          location: "",
+          selectedStaff: [],
+          selectedHeavyMachinery: [],
+          selectedVehicles: [],
+          selectedTools: [],
+        })
 
-      // ダイアログを閉じる
-      setIsAddDialogOpen(false)
+        // データを手動で再取得
+        await refetchProjects()
+
+        // ダイアログを閉じる
+        setIsAddDialogOpen(false)
+      }
     } catch (error) {
       console.error("案件追加エラー:", error)
+      toast({
+        title: "エラー",
+        description: "案件の追加中にエラーが発生しました",
+        variant: "destructive",
+      })
     }
   }
 
@@ -292,12 +304,22 @@ export function ProjectList() {
       }
 
       // ミューテーションを実行
-      await updateProjectMutation.mutateAsync({ id: currentProject.id, data: projectData })
+      const result = await updateProjectMutation.mutateAsync({ id: currentProject.id, data: projectData })
 
-      // ダイアログを閉じる
-      setIsEditDialogOpen(false)
+      if (result.success) {
+        // データを手動で再取得
+        await refetchProjects()
+
+        // ダイアログを閉じる
+        setIsEditDialogOpen(false)
+      }
     } catch (error) {
       console.error("案件更新エラー:", error)
+      toast({
+        title: "エラー",
+        description: "案件の更新中にエラーが発生しました",
+        variant: "destructive",
+      })
     }
   }
 
@@ -309,9 +331,19 @@ export function ProjectList() {
       }
 
       // ミューテーションを実行
-      await deleteProjectMutation.mutateAsync(id)
+      const result = await deleteProjectMutation.mutateAsync(id)
+
+      if (result.success) {
+        // データを手動で再取得
+        await refetchProjects()
+      }
     } catch (error) {
       console.error("案件削除エラー:", error)
+      toast({
+        title: "エラー",
+        description: "案件の削除中にエラーが発生しました",
+        variant: "destructive",
+      })
     }
   }
 
