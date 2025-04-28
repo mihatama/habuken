@@ -1,3 +1,8 @@
+/**
+ * @deprecated このファイルは非推奨です。代わりに lib/supabase/index.ts からインポートしてください。
+ * 例: import { getSupabaseClient, fetchDataClient } from "./lib/supabase";
+ */
+
 import { createClient } from "@supabase/supabase-js"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
@@ -5,7 +10,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 let supabaseClientInstance: SupabaseClient | null = null
 
 // クライアント側でSupabaseクライアントを取得する関数
-export function getSupabaseClient(): SupabaseClient {
+function getSupabaseClient(): SupabaseClient {
   if (supabaseClientInstance) {
     return supabaseClientInstance
   }
@@ -29,7 +34,7 @@ export function getSupabaseClient(): SupabaseClient {
 }
 
 // サーバー側でSupabaseクライアントを取得する関数
-export function getServerSupabaseClient() {
+function getServerSupabaseClient() {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ""
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 
@@ -42,10 +47,10 @@ export function getServerSupabaseClient() {
 }
 
 // 型定義のエクスポート
-export type SupabaseClientType = ReturnType<typeof getSupabaseClient>
+export type { SupabaseClientType } from "./supabase"
 
 // データを取得する汎用関数
-export async function fetchData(
+async function fetchDataClient(
   tableName: string,
   options: {
     select?: string
@@ -98,7 +103,7 @@ export async function fetchData(
 }
 
 // データを挿入する汎用関数
-export async function insertData(tableName: string, data: any, options: { returning?: string } = {}) {
+export async function insertDataClient(tableName: string, data: any, options: { returning?: string } = {}) {
   const { returning = "*" } = options
   const supabase = getSupabaseClient()
 
@@ -118,7 +123,7 @@ export async function insertData(tableName: string, data: any, options: { return
 }
 
 // データを更新する汎用関数
-export async function updateData(tableName: string, id: string, data: any, options: { idField?: string } = {}) {
+export async function updateDataClient(tableName: string, id: string, data: any, options: { idField?: string } = {}) {
   const { idField = "id" } = options
   const supabase = getSupabaseClient()
 
@@ -138,7 +143,7 @@ export async function updateData(tableName: string, id: string, data: any, optio
 }
 
 // データを削除する汎用関数
-export async function deleteData(tableName: string, id: string, options: { idField?: string } = {}) {
+export async function deleteDataClient(tableName: string, id: string, options: { idField?: string } = {}) {
   const { idField = "id" } = options
   const supabase = getSupabaseClient()
 
@@ -157,6 +162,4 @@ export async function deleteData(tableName: string, id: string, options: { idFie
   }
 }
 
-// 後方互換性のためのエイリアス
-export const getClientSupabase = getSupabaseClient
-export const getClientSupabaseInstance = getSupabaseClient
+export { getSupabaseClient, getServerSupabaseClient, fetchDataClient }
