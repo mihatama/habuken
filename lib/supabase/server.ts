@@ -1,3 +1,6 @@
+// このファイルはサーバーコンポーネントでのみインポートしてください
+// 'use server' ディレクティブを持つファイルまたはサーバーコンポーネントでのみ使用可能
+
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"

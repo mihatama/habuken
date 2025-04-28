@@ -1,5 +1,5 @@
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/supabase"
 
 // シングルトンパターンのためのクライアントインスタンス
@@ -11,7 +11,7 @@ let clientSupabaseInstance: SupabaseClient<Database> | null = null
  */
 export function getClientSupabase(): SupabaseClient<Database> {
   if (typeof window === "undefined") {
-    throw new Error("getClientSupabase must be used in client components only")
+    console.warn("getClientSupabase is being called on the server side. This may cause issues.")
   }
 
   // Next.jsの認証ヘルパーを使用（セッション管理を自動化）
@@ -24,7 +24,7 @@ export function getClientSupabase(): SupabaseClient<Database> {
  */
 export function getClientSupabaseInstance(): SupabaseClient<Database> {
   if (typeof window === "undefined") {
-    throw new Error("getClientSupabaseInstance must be used in client components only")
+    console.warn("getClientSupabaseInstance is being called on the server side. This may cause issues.")
   }
 
   if (clientSupabaseInstance) {
@@ -36,23 +36,23 @@ export function getClientSupabaseInstance(): SupabaseClient<Database> {
 }
 
 /**
- * 汎用的なSupabaseクライアント取得関数
- * clientTypeに基づいて適切なクライアントを返す
- * 注意: server/actionタイプはサーバーコンポーネントでのみ使用可能
+ * 環境変数を使用して直接Supabaseクライアントを作成
+ * 注意: このメソッドはセッション管理を自動化しません
  */
-export function getSupabaseClient(clientType: "client" | "server" | "action" = "client"): SupabaseClient<Database> {
-  if (clientType === "client") {
-    return getClientSupabase()
+export function createDirectClient(): SupabaseClient<Database> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("Missing Supabase environment variables")
   }
 
-  // server/actionタイプはサーバーコンポーネントでのみ使用可能
-  // これらはserver.tsで定義されています
-  throw new Error(`getSupabaseClient with type "${clientType}" must be used in server components only`)
+  return createClient<Database>(supabaseUrl, supabaseKey)
 }
 
-// 後方互換性のためのエイリアス
+// クライアント側でのみ使用可能な関数
+export const getSupabaseClient = getClientSupabase
 export const createServerSupabaseClient = () => {
-  throw new Error(
-    "createServerSupabaseClient must be used in server components only. Import from @/lib/supabase/server instead.",
-  )
+  console.warn("createServerSupabaseClient is not available on the client side. Using client-side client instead.")
+  return getClientSupabase()
 }

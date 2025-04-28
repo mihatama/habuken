@@ -1,30 +1,31 @@
+// このファイルはサーバーコンポーネントでのみインポートしてください
+// 'use server' ディレクティブを持つファイルまたはサーバーコンポーネントでのみ使用可能
+
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/supabase"
-import { getClientSupabase } from "./client"
+import { getServerSupabaseClient } from "./server"
 
-// クライアント側の関数を再エクスポート
-export { getClientSupabase } from "./client"
-
-export interface QueryOptions {
+export interface ServerQueryOptions {
   select?: string
   order?: { column: string; ascending: boolean }
   filters?: Record<string, any>
   limit?: number
   page?: number
+  clientType?: "server" | "action"
   client?: SupabaseClient<Database>
 }
 
 /**
- * テーブルからデータを取得する（クライアント側）
+ * テーブルからデータを取得する（サーバー側）
  */
-export async function fetchData<T = any>(
+export async function fetchServerData<T = any>(
   tableName: string,
-  options: QueryOptions = {},
+  options: ServerQueryOptions = {},
 ): Promise<{ data: T[]; count: number | null }> {
-  const { select = "*", order, filters = {}, limit, page, client } = options
+  const { select = "*", order, filters = {}, limit, page, clientType = "server", client } = options
 
-  // クライアントが提供されている場合はそれを使用、そうでなければデフォルトのクライアントを使用
-  const supabase = client || getClientSupabase()
+  // クライアントが提供されている場合はそれを使用、そうでなければ適切なクライアントを取得
+  const supabase = client || getServerSupabaseClient(clientType)
 
   try {
     let query = supabase.from(tableName).select(select, { count: "exact" })
@@ -69,18 +70,19 @@ export async function fetchData<T = any>(
 }
 
 /**
- * テーブルにデータを挿入する（クライアント側）
+ * テーブルにデータを挿入する（サーバー側）
  */
-export async function insertData<T = any>(
+export async function insertServerData<T = any>(
   tableName: string,
   data: any,
   options: {
+    clientType?: "server" | "action"
     returning?: string
     client?: SupabaseClient<Database>
   } = {},
 ): Promise<T[]> {
-  const { returning = "*", client } = options
-  const supabase = client || getClientSupabase()
+  const { clientType = "server", returning = "*", client } = options
+  const supabase = client || getServerSupabaseClient(clientType)
 
   try {
     const { data: result, error } = await supabase.from(tableName).insert(data).select(returning)
@@ -98,20 +100,21 @@ export async function insertData<T = any>(
 }
 
 /**
- * テーブルのデータを更新する（クライアント側）
+ * テーブルのデータを更新する（サーバー側）
  */
-export async function updateData<T = any>(
+export async function updateServerData<T = any>(
   tableName: string,
   id: string,
   data: any,
   options: {
+    clientType?: "server" | "action"
     idField?: string
     returning?: string
     client?: SupabaseClient<Database>
   } = {},
 ): Promise<T[]> {
-  const { idField = "id", returning = "*", client } = options
-  const supabase = client || getClientSupabase()
+  const { clientType = "server", idField = "id", returning = "*", client } = options
+  const supabase = client || getServerSupabaseClient(clientType)
 
   try {
     const { data: result, error } = await supabase.from(tableName).update(data).eq(idField, id).select(returning)
@@ -129,18 +132,19 @@ export async function updateData<T = any>(
 }
 
 /**
- * テーブルからデータを削除する（クライアント側）
+ * テーブルからデータを削除する（サーバー側）
  */
-export async function deleteData(
+export async function deleteServerData(
   tableName: string,
   id: string,
   options: {
+    clientType?: "server" | "action"
     idField?: string
     client?: SupabaseClient<Database>
   } = {},
 ): Promise<boolean> {
-  const { idField = "id", client } = options
-  const supabase = client || getClientSupabase()
+  const { clientType = "server", idField = "id", client } = options
+  const supabase = client || getServerSupabaseClient(clientType)
 
   try {
     const { error } = await supabase.from(tableName).delete().eq(idField, id)
@@ -156,9 +160,3 @@ export async function deleteData(
     throw error
   }
 }
-
-// 後方互換性のためのエイリアス
-export const fetchDataFromTable = fetchData
-export const insertDataToTable = insertData
-export const updateDataInTable = updateData
-export const deleteDataFromTable = deleteData

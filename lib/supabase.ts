@@ -1,14 +1,14 @@
+// lib/supabase.ts
+// クライアント側で安全に使用できる関数のみをエクスポート
+
 // クライアント側の関数をエクスポート
 export {
   getClientSupabase,
   getClientSupabaseInstance,
-  getSupabaseClient,
+  createDirectClient,
 } from "./supabase/client"
 
-// サーバー側の関数を条件付きでエクスポート
-// これらはサーバーコンポーネントでのみ使用可能
-export type { QueryOptions } from "./supabase/operations"
-
+// データ操作関数をエクスポート
 export {
   fetchData,
   insertData,
@@ -16,9 +16,11 @@ export {
   deleteData,
   fetchDataFromTable,
   insertDataToTable,
-  updateDataFromTable,
+  updateDataInTable,
   deleteDataFromTable,
+  type QueryOptions,
 } from "./supabase/operations"
 
 // 注意: サーバー側の関数は直接インポートしてください
 // import { getServerSupabase } from "@/lib/supabase/server"
+// import { fetchServerData } from "@/lib/supabase/server-operations"
