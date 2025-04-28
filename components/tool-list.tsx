@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label"
 import { Plus, Pencil, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/components/ui/use-toast"
-import { createClient } from "@supabase/supabase-js"
+import { fetchClientData, insertClientData, updateClientData, deleteClientData } from "@/lib/supabase-utils"
+import { getClientSupabase } from "@/lib/supabase-client"
 
 export function ToolList() {
   const [projects, setProjects] = useState<any[]>([])
@@ -33,12 +34,6 @@ export function ToolList() {
 
   const [resourceTypeField, setResourceTypeField] = useState<string | null>("type")
 
-  // Supabaseクライアントの初期化
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
-  )
-
   const queryClient = useQueryClient()
 
   // データ取得用のカスタムフック
@@ -46,15 +41,12 @@ export function ToolList() {
     queryKey: ["tools"],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase
-          .from("resources")
-          .select("*")
-          .eq(resourceTypeField || "type", "工具")
-          .order("name", { ascending: true })
-
-        if (error) throw error
+        const { data } = await fetchClientData("resources", {
+          filters: { [resourceTypeField || "type"]: "工具" },
+          order: { column: "name", ascending: true },
+        })
         return data || []
-      } catch (error: any) {
+      } catch (error) {
         toast({
           title: "エラー",
           description: "工具データの取得に失敗しました",
@@ -69,8 +61,7 @@ export function ToolList() {
   // 工具追加用のミューテーション
   const addToolMutation = useMutation({
     mutationFn: async (data: any) => {
-      const { data: result, error } = await supabase.from("resources").insert(data).select()
-      if (error) throw error
+      const result = await insertClientData("resources", data)
       return result
     },
     onSuccess: () => {
@@ -93,8 +84,7 @@ export function ToolList() {
   // 工具更新用のミューテーション
   const updateToolMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const { data: result, error } = await supabase.from("resources").update(data).eq("id", id).select()
-      if (error) throw error
+      const result = await updateClientData("resources", id, data)
       return result
     },
     onSuccess: () => {
@@ -117,8 +107,7 @@ export function ToolList() {
   // 工具削除用のミューテーション
   const deleteToolMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("resources").delete().eq("id", id)
-      if (error) throw error
+      await deleteClientData("resources", id)
       return id
     },
     onSuccess: () => {
@@ -143,7 +132,7 @@ export function ToolList() {
     async function fetchRelatedData() {
       try {
         // リソーステーブルのスキーマを確認
-        const { data: columns } = await supabase.from("resources").select("*").limit(1)
+        const { data: columns } = await fetchClientData("resources", { limit: 1 })
 
         // 使用するフィールド名を特定
         if (columns && columns.length > 0) {
@@ -155,11 +144,11 @@ export function ToolList() {
         }
 
         // プロジェクトデータを取得
-        const { data: projectsData } = await supabase.from("projects").select("*")
+        const { data: projectsData } = await fetchClientData("projects")
         setProjects(projectsData || [])
 
         // スタッフデータを取得
-        const { data: staffData } = await supabase.from("staff").select("*")
+        const { data: staffData } = await fetchClientData("staff")
         setStaff(staffData || [])
       } catch (error) {
         console.error("関連データ取得エラー:", error)
@@ -172,7 +161,7 @@ export function ToolList() {
     }
 
     fetchRelatedData()
-  }, [supabase])
+  }, [])
 
   // 検索フィルター
   const filteredTools = tools.filter(
@@ -203,7 +192,7 @@ export function ToolList() {
       if (result && result[0]) {
         // 関連プロジェクトの登録
         for (const projectId of newTool.assigned_projects) {
-          await supabase.from("resource_project").insert({
+          await insertClientData("resource_project", {
             resource_id: result[0].id,
             project_id: projectId,
           })
@@ -211,7 +200,7 @@ export function ToolList() {
 
         // 関連スタッフの登録
         for (const staffId of newTool.assigned_staff) {
-          await supabase.from("resource_staff").insert({
+          await insertClientData("resource_staff", {
             resource_id: result[0].id,
             staff_id: staffId,
           })
@@ -265,6 +254,7 @@ export function ToolList() {
 
     try {
       // 関連データを先に削除
+      const supabase = getClientSupabase()
       await supabase.from("resource_project").delete().eq("resource_id", id)
       await supabase.from("resource_staff").delete().eq("resource_id", id)
 
@@ -290,7 +280,9 @@ export function ToolList() {
 
   // ツールに紐づくプロジェクトを取得
   const getToolProjects = async (toolId: string) => {
-    const { data } = await supabase.from("resource_project").select("project_id").eq("resource_id", toolId)
+    const { data } = await fetchClientData("resource_project", {
+      filters: { resource_id: toolId },
+    })
 
     if (!data || data.length === 0) return []
 
@@ -300,7 +292,9 @@ export function ToolList() {
 
   // ツールに紐づくスタッフを取得
   const getToolStaff = async (toolId: string) => {
-    const { data } = await supabase.from("resource_staff").select("staff_id").eq("resource_id", toolId)
+    const { data } = await fetchClientData("resource_staff", {
+      filters: { resource_id: toolId },
+    })
 
     if (!data || data.length === 0) return []
 

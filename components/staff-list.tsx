@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Trash2, Loader2, UserPlus } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { createClient } from "@supabase/supabase-js"
+import { fetchClientData, deleteClientData } from "@/lib/supabase-utils"
 
 // スタッフデータの型定義
 interface Staff {
@@ -20,12 +20,6 @@ interface Staff {
   [key: string]: any
 }
 
-// Supabaseクライアントの作成
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
-)
-
 export function StaffList() {
   const [searchTerm, setSearchTerm] = useState("")
   const { toast } = useToast()
@@ -36,19 +30,16 @@ export function StaffList() {
     queryKey: ["staff"],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.from("staff").select("*").order("full_name", { ascending: true })
-
-        if (error) {
-          toast({
-            title: "エラー",
-            description: "スタッフデータの取得に失敗しました",
-            variant: "destructive",
-          })
-          throw error
-        }
-
-        return data || []
+        const { data } = await fetchClientData<Staff>("staff", {
+          order: { column: "full_name", ascending: true },
+        })
+        return data
       } catch (error) {
+        toast({
+          title: "エラー",
+          description: "スタッフデータの取得に失敗しました",
+          variant: "destructive",
+        })
         console.error("スタッフ取得エラー:", error)
         return []
       }
@@ -58,8 +49,7 @@ export function StaffList() {
   // スタッフを削除するミューテーション
   const deleteStaffMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("staff").delete().eq("id", id)
-      if (error) throw error
+      await deleteClientData("staff", id)
       return id
     },
     onSuccess: () => {

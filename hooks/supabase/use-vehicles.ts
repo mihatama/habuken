@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "@/components/ui/use-toast"
-import { getClientSupabase } from "../../lib/supabase-utils" // 更新: 新しいパスを使用
+import { fetchClientData, insertClientData, updateClientData, deleteClientData } from "@/lib/supabase-utils"
 
 export type Vehicle = {
   id: string
@@ -28,44 +28,34 @@ export function useVehicles(
     searchTerm?: string
   } = {},
 ) {
-  const { filters, searchTerm } = options
+  const { filters = {}, searchTerm, enabled = true } = options
 
   return useQuery({
     queryKey: ["vehicles", filters, searchTerm],
     queryFn: async () => {
-      const supabase = getClientSupabase()
-      let query = supabase.from("vehicles").select("*")
-
-      if (filters) {
-        Object.entries(filters).forEach(([key, value]) => {
-          if (value) {
-            query = query.eq(key, value)
-          }
+      try {
+        const { data } = await fetchClientData<Vehicle>("vehicles", {
+          filters,
+          order: { column: "created_at", ascending: false },
         })
-      }
 
-      query = query.order("created_at", { ascending: false })
+        // 検索語句でフィルタリング（クライアント側）
+        if (searchTerm) {
+          const lowercaseSearchTerm = searchTerm.toLowerCase()
+          return data.filter(
+            (vehicle) =>
+              vehicle.name.toLowerCase().includes(lowercaseSearchTerm) ||
+              vehicle.type.toLowerCase().includes(lowercaseSearchTerm) ||
+              vehicle.location.toLowerCase().includes(lowercaseSearchTerm),
+          )
+        }
 
-      const { data, error } = await query
-
-      if (error) {
+        return data
+      } catch (error) {
         throw error
       }
-
-      // 検索語句でフィルタリング（クライアント側）
-      if (searchTerm) {
-        const lowercaseSearchTerm = searchTerm.toLowerCase()
-        return data.filter(
-          (vehicle) =>
-            vehicle.name.toLowerCase().includes(lowercaseSearchTerm) ||
-            vehicle.type.toLowerCase().includes(lowercaseSearchTerm) ||
-            vehicle.location.toLowerCase().includes(lowercaseSearchTerm),
-        )
-      }
-
-      return data
     },
-    ...options,
+    enabled,
   })
 }
 
@@ -77,14 +67,12 @@ export function useAddVehicle() {
 
   return useMutation({
     mutationFn: async (data: VehicleInput) => {
-      const supabase = getClientSupabase()
-      const { data: result, error } = await supabase.from("vehicles").insert(data).select()
-
-      if (error) {
+      try {
+        const result = await insertClientData<Vehicle>("vehicles", data)
+        return result
+      } catch (error) {
         throw error
       }
-
-      return result
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vehicles"] })
@@ -112,21 +100,16 @@ export function useUpdateVehicle() {
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Vehicle> }) => {
-      const supabase = getClientSupabase()
-      const { data: result, error } = await supabase
-        .from("vehicles")
-        .update({
+      try {
+        const updatedData = {
           ...data,
           updated_at: new Date().toISOString(),
-        })
-        .eq("id", id)
-        .select()
-
-      if (error) {
+        }
+        const result = await updateClientData<Vehicle>("vehicles", id, updatedData)
+        return result
+      } catch (error) {
         throw error
       }
-
-      return result
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vehicles"] })
@@ -154,14 +137,12 @@ export function useDeleteVehicle() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const supabase = getClientSupabase()
-      const { error } = await supabase.from("vehicles").delete().eq("id", id)
-
-      if (error) {
+      try {
+        await deleteClientData("vehicles", id)
+        return id
+      } catch (error) {
         throw error
       }
-
-      return id
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vehicles"] })
