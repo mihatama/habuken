@@ -322,3 +322,12 @@ export async function deleteServerData(
   const supabase = client || getServerSupabase(clientType)
   return deleteData(supabase, tableName, id, { idField })
 }
+
+// 後方互換性のために既存の関数名をエクスポート
+export const getClientSupabaseInstance = getClientSupabase
+
+// 既存の関数名をエクスポート（後方互換性のため）
+export const fetchDataFromTable = fetchClientData
+export const insertDataToTable = insertClientData
+export const updateDataInTable = updateClientData
+export const deleteDataFromTable = deleteClientData
