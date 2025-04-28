@@ -1,27 +1,42 @@
-import { useSupabaseQuery, useSupabaseMutation } from "./use-supabase-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { getLeaveRequests, updateLeaveRequest } from "@/lib/data-utils"
+import { getClientSupabase } from "@/lib/supabase/client"
 
 // 休暇申請データを取得するカスタムフック
 export function useLeaveRequests() {
-  return useSupabaseQuery(["leave-requests"], async (client) => {
-    return getLeaveRequests(client)
+  return useQuery({
+    queryKey: ["leaveRequests"],
+    queryFn: () => getLeaveRequests(),
   })
 }
 
 // スタッフデータを取得するカスタムフック
 export function useStaff() {
-  return useSupabaseQuery(["staff"], async (client) => {
-    const { data } = await client.from("staff").select("*")
-    return data || []
+  return useQuery({
+    queryKey: ["staff"],
+    queryFn: async () => {
+      const supabase = getClientSupabase()
+      const { data, error } = await supabase.from("staff").select("*").order("full_name")
+      if (error) throw error
+      return data
+    },
   })
 }
 
 // 休暇申請を追加するカスタムフック
 export function useAddLeaveRequest() {
-  return useSupabaseMutation(["leave-requests"], async (client, newRequest) => {
-    const { data, error } = await client
-      .from("leave_requests")
-      .insert({
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (newRequest: {
+      userId: string
+      leaveType: string
+      startDate: string
+      endDate: string
+      reason: string
+    }) => {
+      const supabase = getClientSupabase()
+      const { error } = await supabase.from("leave_requests").insert({
         staff_id: newRequest.userId,
         leave_type: newRequest.leaveType,
         start_date: newRequest.startDate,
@@ -29,18 +44,26 @@ export function useAddLeaveRequest() {
         reason: newRequest.reason,
         status: "pending",
         created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
-      .select()
 
-    if (error) throw error
-    return data
+      if (error) throw error
+      return true
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leaveRequests"] })
+    },
   })
 }
 
 // 休暇申請を更新するカスタムフック
 export function useUpdateLeaveRequest() {
-  return useSupabaseMutation(["leave-requests"], async (client, request) => {
-    await updateLeaveRequest(request, client)
-    return true
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: updateLeaveRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leaveRequests"] })
+    },
   })
 }

@@ -1,4 +1,6 @@
-import { useSupabaseQuery, useSupabaseInsert, useSupabaseUpdate, useSupabaseDelete } from "@/hooks/supabase/use-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { toast } from "@/components/ui/use-toast"
+import { getClientSupabase } from "@/lib/supabase/client" // 絶対パスを使用
 
 export type Vehicle = {
   id: string
@@ -14,6 +16,8 @@ export type Vehicle = {
   updated_at: string
 }
 
+export type VehicleInput = Omit<Vehicle, "id" | "created_at" | "updated_at">
+
 /**
  * 車両データを取得するカスタムフック
  */
@@ -21,12 +25,47 @@ export function useVehicles(
   options: {
     filters?: Record<string, any>
     enabled?: boolean
+    searchTerm?: string
   } = {},
 ) {
-  return useSupabaseQuery<Vehicle>("vehicles", {
-    order: { column: "created_at", ascending: false },
+  const { filters, searchTerm } = options
+
+  return useQuery({
+    queryKey: ["vehicles", filters, searchTerm],
+    queryFn: async () => {
+      const supabase = getClientSupabase()
+      let query = supabase.from("vehicles").select("*")
+
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value) {
+            query = query.eq(key, value)
+          }
+        })
+      }
+
+      query = query.order("created_at", { ascending: false })
+
+      const { data, error } = await query
+
+      if (error) {
+        throw error
+      }
+
+      // 検索語句でフィルタリング（クライアント側）
+      if (searchTerm) {
+        const lowercaseSearchTerm = searchTerm.toLowerCase()
+        return data.filter(
+          (vehicle) =>
+            vehicle.name.toLowerCase().includes(lowercaseSearchTerm) ||
+            vehicle.type.toLowerCase().includes(lowercaseSearchTerm) ||
+            vehicle.location.toLowerCase().includes(lowercaseSearchTerm),
+        )
+      }
+
+      return data
+    },
     ...options,
-    queryKey: ["vehicles", options.filters],
   })
 }
 
@@ -34,19 +73,110 @@ export function useVehicles(
  * 車両を追加するカスタムフック
  */
 export function useAddVehicle() {
-  return useSupabaseInsert<Vehicle>("vehicles")
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (data: VehicleInput) => {
+      const supabase = getClientSupabase()
+      const { data: result, error } = await supabase.from("vehicles").insert(data).select()
+
+      if (error) {
+        throw error
+      }
+
+      return result
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vehicles"] })
+      toast({
+        title: "成功",
+        description: "車両を追加しました",
+      })
+    },
+    onError: (error) => {
+      console.error("車両追加エラー:", error)
+      toast({
+        title: "エラー",
+        description: "車両の追加に失敗しました",
+        variant: "destructive",
+      })
+    },
+  })
 }
 
 /**
  * 車両を更新するカスタムフック
  */
 export function useUpdateVehicle() {
-  return useSupabaseUpdate<Vehicle>("vehicles")
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Vehicle> }) => {
+      const supabase = getClientSupabase()
+      const { data: result, error } = await supabase
+        .from("vehicles")
+        .update({
+          ...data,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .select()
+
+      if (error) {
+        throw error
+      }
+
+      return result
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vehicles"] })
+      toast({
+        title: "成功",
+        description: "車両情報を更新しました",
+      })
+    },
+    onError: (error) => {
+      console.error("車両更新エラー:", error)
+      toast({
+        title: "エラー",
+        description: "車両情報の更新に失敗しました",
+        variant: "destructive",
+      })
+    },
+  })
 }
 
 /**
  * 車両を削除するカスタムフック
  */
 export function useDeleteVehicle() {
-  return useSupabaseDelete("vehicles")
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = getClientSupabase()
+      const { error } = await supabase.from("vehicles").delete().eq("id", id)
+
+      if (error) {
+        throw error
+      }
+
+      return id
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vehicles"] })
+      toast({
+        title: "成功",
+        description: "車両を削除しました",
+      })
+    },
+    onError: (error) => {
+      console.error("車両削除エラー:", error)
+      toast({
+        title: "エラー",
+        description: "車両の削除に失敗しました",
+        variant: "destructive",
+      })
+    },
+  })
 }

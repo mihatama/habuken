@@ -1,137 +1,116 @@
-"use client"
-
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { fetchData, insertData, updateData, deleteData } from "@/lib/supabase/operations"
-import { useToast } from "@/hooks/use-toast"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { getClientSupabase } from "@/lib/supabase/client" // 相対パスを絶対パスに変更
 
 /**
- * テーブルからデータを取得するカスタムフック
+ * Supabaseからデータを取得するカスタムフック
  */
 export function useSupabaseQuery<T = any>(
   tableName: string,
   options: {
     select?: string
-    order?: { column: string; ascending: boolean }
     filters?: Record<string, any>
-    limit?: number
-    page?: number
+    order?: { column: string; ascending: boolean }
     enabled?: boolean
     queryKey?: any[]
   } = {},
 ) {
-  const { toast } = useToast()
-  const { queryKey = [tableName], enabled = true, ...fetchOptions } = options
+  const { select = "*", filters, order, enabled = true, queryKey = [tableName] } = options
 
   return useQuery({
     queryKey,
     queryFn: async () => {
-      try {
-        const result = await fetchData<T>(tableName, fetchOptions)
-        return result.data
-      } catch (error: any) {
-        toast({
-          title: "エラー",
-          description: `${tableName}データの取得に失敗しました`,
-          variant: "destructive",
+      const supabase = getClientSupabase()
+      let query = supabase.from(tableName).select(select)
+
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            query = query.eq(key, value)
+          }
         })
+      }
+
+      if (order) {
+        query = query.order(order.column, { ascending: order.ascending })
+      }
+
+      const { data, error } = await query
+
+      if (error) {
         throw error
       }
+
+      return data as T[]
     },
     enabled,
   })
 }
 
 /**
- * テーブルにデータを挿入するカスタムフック
+ * Supabaseにデータを挿入するカスタムフック
  */
 export function useSupabaseInsert<T = any>(tableName: string) {
   const queryClient = useQueryClient()
-  const { toast } = useToast()
 
   return useMutation({
-    mutationFn: async (data: any) => {
-      try {
-        const result = await insertData<T>(tableName, data)
-        return result
-      } catch (error: any) {
-        toast({
-          title: "エラー",
-          description: `${tableName}へのデータ追加に失敗しました`,
-          variant: "destructive",
-        })
+    mutationFn: async (data: Partial<T>) => {
+      const supabase = getClientSupabase()
+      const { data: result, error } = await supabase.from(tableName).insert(data).select()
+
+      if (error) {
         throw error
       }
+
+      return result[0] as T
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [tableName] })
-      toast({
-        title: "成功",
-        description: "データが正常に追加されました",
-      })
     },
   })
 }
 
 /**
- * テーブルのデータを更新するカスタムフック
+ * Supabaseのデータを更新するカスタムフック
  */
-export function useSupabaseUpdate<T = any>(tableName: string, options: { idField?: string } = {}) {
+export function useSupabaseUpdate<T = any>(tableName: string) {
   const queryClient = useQueryClient()
-  const { toast } = useToast()
-  const { idField = "id" } = options
 
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      try {
-        const result = await updateData<T>(tableName, id, data, { idField })
-        return result
-      } catch (error: any) {
-        toast({
-          title: "エラー",
-          description: `${tableName}のデータ更新に失敗しました`,
-          variant: "destructive",
-        })
+    mutationFn: async ({ id, data }: { id: string; data: Partial<T> }) => {
+      const supabase = getClientSupabase()
+      const { data: result, error } = await supabase.from(tableName).update(data).eq("id", id).select()
+
+      if (error) {
         throw error
       }
+
+      return result[0] as T
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [tableName] })
-      toast({
-        title: "成功",
-        description: "データが正常に更新されました",
-      })
     },
   })
 }
 
 /**
- * テーブルからデータを削除するカスタムフック
+ * Supabaseのデータを削除するカスタムフック
  */
-export function useSupabaseDelete(tableName: string, options: { idField?: string } = {}) {
+export function useSupabaseDelete(tableName: string) {
   const queryClient = useQueryClient()
-  const { toast } = useToast()
-  const { idField = "id" } = options
 
   return useMutation({
     mutationFn: async (id: string) => {
-      try {
-        await deleteData(tableName, id, { idField })
-        return id
-      } catch (error: any) {
-        toast({
-          title: "エラー",
-          description: `${tableName}からのデータ削除に失敗しました`,
-          variant: "destructive",
-        })
+      const supabase = getClientSupabase()
+      const { error } = await supabase.from(tableName).delete().eq("id", id)
+
+      if (error) {
         throw error
       }
+
+      return id
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [tableName] })
-      toast({
-        title: "成功",
-        description: "データが正常に削除されました",
-      })
     },
   })
 }

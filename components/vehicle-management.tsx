@@ -9,90 +9,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Plus, Edit, Trash2 } from "lucide-react"
-import { toast } from "@/components/ui/use-toast"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-
-// Supabaseクライアントの初期化
-const supabase = createClientComponentClient()
-
-// 型定義
-type Vehicle = {
-  id: string
-  name: string
-  type: string
-  location: string
-  last_inspection_date: string | null
-  ownership_type: "自社保有" | "リース" | "その他"
-  daily_rate: number | null
-  weekly_rate: number | null
-  monthly_rate: number | null
-  created_at: string
-  updated_at: string
-}
-
-// データ取得関数
-async function fetchVehicles(filters?: Record<string, any>) {
-  let query = supabase.from("vehicles").select("*")
-
-  if (filters) {
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) {
-        query = query.eq(key, value)
-      }
-    })
-  }
-
-  query = query.order("created_at", { ascending: false })
-
-  const { data, error } = await query
-
-  if (error) {
-    throw error
-  }
-
-  return data
-}
-
-// データ追加関数
-async function addVehicle(data: Omit<Vehicle, "id" | "created_at" | "updated_at">) {
-  const { data: result, error } = await supabase.from("vehicles").insert(data).select()
-
-  if (error) {
-    throw error
-  }
-
-  return result
-}
-
-// データ更新関数
-async function updateVehicle(id: string, data: Partial<Vehicle>) {
-  const { data: result, error } = await supabase
-    .from("vehicles")
-    .update({
-      ...data,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .select()
-
-  if (error) {
-    throw error
-  }
-
-  return result
-}
-
-// データ削除関数
-async function deleteVehicle(id: string) {
-  const { error } = await supabase.from("vehicles").delete().eq("id", id)
-
-  if (error) {
-    throw error
-  }
-
-  return id
-}
+import {
+  useVehicles,
+  useAddVehicle,
+  useUpdateVehicle,
+  useDeleteVehicle,
+  type Vehicle,
+  type VehicleInput,
+} from "@/hooks/supabase/use-vehicles"
 
 export function VehicleManagement() {
   const [open, setOpen] = useState(false)
@@ -100,34 +24,46 @@ export function VehicleManagement() {
   const [searchTerm, setSearchTerm] = useState("")
   const [currentVehicle, setCurrentVehicle] = useState<Vehicle | null>(null)
 
-  const [newVehicle, setNewVehicle] = useState({
+  const [newVehicle, setNewVehicle] = useState<Partial<VehicleInput>>({
     name: "",
     type: "",
     location: "",
     last_inspection_date: "",
     ownership_type: "自社保有" as const,
-    daily_rate: "",
-    weekly_rate: "",
-    monthly_rate: "",
+    daily_rate: null,
+    weekly_rate: null,
+    monthly_rate: null,
   })
 
-  const queryClient = useQueryClient()
+  // カスタムフックを使用してデータを取得
+  const { data: vehicles = [], isLoading: loading } = useVehicles({ searchTerm })
 
-  // React Queryを使用してデータを取得
-  const { data: vehicles = [], isLoading: loading } = useQuery({
-    queryKey: ["vehicles"],
-    queryFn: () => fetchVehicles(),
-  })
+  // カスタムフックを使用してCRUD操作を実行
+  const addVehicleMutation = useAddVehicle()
+  const updateVehicleMutation = useUpdateVehicle()
+  const deleteVehicleMutation = useDeleteVehicle()
 
-  // 車両追加のミューテーション
-  const addVehicleMutation = useMutation({
-    mutationFn: (data: any) => addVehicle(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vehicles"] })
-      toast({
-        title: "成功",
-        description: "車両を追加しました",
-      })
+  // 車両の追加
+  const handleAddVehicle = async () => {
+    try {
+      await addVehicleMutation.mutateAsync({
+        name: newVehicle.name || "",
+        type: newVehicle.type || "",
+        location: newVehicle.location || "",
+        last_inspection_date: newVehicle.last_inspection_date || null,
+        ownership_type: newVehicle.ownership_type || "自社保有",
+        daily_rate:
+          newVehicle.daily_rate !== null && newVehicle.daily_rate !== undefined ? Number(newVehicle.daily_rate) : null,
+        weekly_rate:
+          newVehicle.weekly_rate !== null && newVehicle.weekly_rate !== undefined
+            ? Number(newVehicle.weekly_rate)
+            : null,
+        monthly_rate:
+          newVehicle.monthly_rate !== null && newVehicle.monthly_rate !== undefined
+            ? Number(newVehicle.monthly_rate)
+            : null,
+      } as VehicleInput)
+
       setOpen(false)
       setNewVehicle({
         name: "",
@@ -135,75 +71,9 @@ export function VehicleManagement() {
         location: "",
         last_inspection_date: "",
         ownership_type: "自社保有",
-        daily_rate: "",
-        weekly_rate: "",
-        monthly_rate: "",
-      })
-    },
-    onError: (error) => {
-      console.error("車両追加エラー:", error)
-      toast({
-        title: "エラー",
-        description: "車両の追加に失敗しました",
-        variant: "destructive",
-      })
-    },
-  })
-
-  // 車両更新のミューテーション
-  const updateVehicleMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => updateVehicle(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vehicles"] })
-      toast({
-        title: "成功",
-        description: "車両情報を更新しました",
-      })
-      setEditOpen(false)
-      setCurrentVehicle(null)
-    },
-    onError: (error) => {
-      console.error("車両更新エラー:", error)
-      toast({
-        title: "エラー",
-        description: "車両情報の更新に失敗しました",
-        variant: "destructive",
-      })
-    },
-  })
-
-  // 車両削除のミューテーション
-  const deleteVehicleMutation = useMutation({
-    mutationFn: (id: string) => deleteVehicle(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vehicles"] })
-      toast({
-        title: "成功",
-        description: "車両を削除しました",
-      })
-    },
-    onError: (error) => {
-      console.error("車両削除エラー:", error)
-      toast({
-        title: "エラー",
-        description: "車両の削除に失敗しました",
-        variant: "destructive",
-      })
-    },
-  })
-
-  // 車両の追加
-  const handleAddVehicle = async () => {
-    try {
-      await addVehicleMutation.mutateAsync({
-        name: newVehicle.name,
-        type: newVehicle.type,
-        location: newVehicle.location,
-        last_inspection_date: newVehicle.last_inspection_date || null,
-        ownership_type: newVehicle.ownership_type,
-        daily_rate: newVehicle.daily_rate ? Number.parseFloat(newVehicle.daily_rate) : null,
-        weekly_rate: newVehicle.weekly_rate ? Number.parseFloat(newVehicle.weekly_rate) : null,
-        monthly_rate: newVehicle.monthly_rate ? Number.parseFloat(newVehicle.monthly_rate) : null,
+        daily_rate: null,
+        weekly_rate: null,
+        monthly_rate: null,
       })
     } catch (error) {
       // エラーはミューテーションのonErrorで処理
@@ -228,6 +98,9 @@ export function VehicleManagement() {
           monthly_rate: currentVehicle.monthly_rate,
         },
       })
+
+      setEditOpen(false)
+      setCurrentVehicle(null)
     } catch (error) {
       // エラーはミューテーションのonErrorで処理
     }
@@ -243,14 +116,6 @@ export function VehicleManagement() {
       // エラーはミューテーションのonErrorで処理
     }
   }
-
-  // 検索フィルター
-  const filteredVehicles = vehicles.filter(
-    (vehicle) =>
-      vehicle.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.location.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
 
   return (
     <div className="space-y-4">
@@ -285,7 +150,7 @@ export function VehicleManagement() {
                 <Input
                   id="name"
                   placeholder="例: トヨタ ハイエース"
-                  value={newVehicle.name}
+                  value={newVehicle.name || ""}
                   onChange={(e) => setNewVehicle({ ...newVehicle, name: e.target.value })}
                   required
                 />
@@ -293,7 +158,7 @@ export function VehicleManagement() {
               <div className="grid gap-2">
                 <Label htmlFor="type">車両タイプ</Label>
                 <Select
-                  value={newVehicle.type}
+                  value={newVehicle.type || ""}
                   onValueChange={(value) => setNewVehicle({ ...newVehicle, type: value })}
                 >
                   <SelectTrigger>
@@ -314,7 +179,7 @@ export function VehicleManagement() {
                 <Input
                   id="location"
                   placeholder="例: 東京本社"
-                  value={newVehicle.location}
+                  value={newVehicle.location || ""}
                   onChange={(e) => setNewVehicle({ ...newVehicle, location: e.target.value })}
                 />
               </div>
@@ -323,14 +188,14 @@ export function VehicleManagement() {
                 <Input
                   id="lastMaintenance"
                   type="date"
-                  value={newVehicle.last_inspection_date}
+                  value={newVehicle.last_inspection_date || ""}
                   onChange={(e) => setNewVehicle({ ...newVehicle, last_inspection_date: e.target.value })}
                 />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="ownership">所有形態</Label>
                 <Select
-                  value={newVehicle.ownership_type}
+                  value={newVehicle.ownership_type || "自社保有"}
                   onValueChange={(value: "自社保有" | "リース" | "その他") =>
                     setNewVehicle({ ...newVehicle, ownership_type: value })
                   }
@@ -352,8 +217,13 @@ export function VehicleManagement() {
                     id="daily_rate"
                     type="number"
                     placeholder="0"
-                    value={newVehicle.daily_rate}
-                    onChange={(e) => setNewVehicle({ ...newVehicle, daily_rate: e.target.value })}
+                    value={newVehicle.daily_rate === null ? "" : newVehicle.daily_rate}
+                    onChange={(e) =>
+                      setNewVehicle({
+                        ...newVehicle,
+                        daily_rate: e.target.value === "" ? null : Number(e.target.value),
+                      })
+                    }
                   />
                 </div>
                 <div className="grid gap-2">
@@ -362,8 +232,13 @@ export function VehicleManagement() {
                     id="weekly_rate"
                     type="number"
                     placeholder="0"
-                    value={newVehicle.weekly_rate}
-                    onChange={(e) => setNewVehicle({ ...newVehicle, weekly_rate: e.target.value })}
+                    value={newVehicle.weekly_rate === null ? "" : newVehicle.weekly_rate}
+                    onChange={(e) =>
+                      setNewVehicle({
+                        ...newVehicle,
+                        weekly_rate: e.target.value === "" ? null : Number(e.target.value),
+                      })
+                    }
                   />
                 </div>
                 <div className="grid gap-2">
@@ -372,8 +247,13 @@ export function VehicleManagement() {
                     id="monthly_rate"
                     type="number"
                     placeholder="0"
-                    value={newVehicle.monthly_rate}
-                    onChange={(e) => setNewVehicle({ ...newVehicle, monthly_rate: e.target.value })}
+                    value={newVehicle.monthly_rate === null ? "" : newVehicle.monthly_rate}
+                    onChange={(e) =>
+                      setNewVehicle({
+                        ...newVehicle,
+                        monthly_rate: e.target.value === "" ? null : Number(e.target.value),
+                      })
+                    }
                   />
                 </div>
               </div>
@@ -405,14 +285,14 @@ export function VehicleManagement() {
                   読み込み中...
                 </TableCell>
               </TableRow>
-            ) : filteredVehicles.length === 0 ? (
+            ) : vehicles.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-4">
                   データがありません
                 </TableCell>
               </TableRow>
             ) : (
-              filteredVehicles.map((vehicle) => (
+              vehicles.map((vehicle) => (
                 <TableRow key={vehicle.id}>
                   <TableCell className="font-medium">{vehicle.name}</TableCell>
                   <TableCell>{vehicle.type}</TableCell>
@@ -538,7 +418,7 @@ export function VehicleManagement() {
                                     onChange={(e) =>
                                       setCurrentVehicle({
                                         ...currentVehicle,
-                                        daily_rate: e.target.value ? Number.parseFloat(e.target.value) : null,
+                                        daily_rate: e.target.value ? Number(e.target.value) : null,
                                       })
                                     }
                                   />
@@ -552,7 +432,7 @@ export function VehicleManagement() {
                                     onChange={(e) =>
                                       setCurrentVehicle({
                                         ...currentVehicle,
-                                        weekly_rate: e.target.value ? Number.parseFloat(e.target.value) : null,
+                                        weekly_rate: e.target.value ? Number(e.target.value) : null,
                                       })
                                     }
                                   />
@@ -566,7 +446,7 @@ export function VehicleManagement() {
                                     onChange={(e) =>
                                       setCurrentVehicle({
                                         ...currentVehicle,
-                                        monthly_rate: e.target.value ? Number.parseFloat(e.target.value) : null,
+                                        monthly_rate: e.target.value ? Number(e.target.value) : null,
                                       })
                                     }
                                   />

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { fetchData, type QueryOptions } from "./operations"
+import { fetchData, type QueryOptions } from "@/lib/supabase/operations"
 
 /**
  * Supabaseからデータを取得するためのフック
