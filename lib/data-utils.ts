@@ -1,5 +1,9 @@
 import { getClientSupabase } from "@/lib/supabase-utils"
 
+/**
+ * @deprecated このモジュールは非推奨です。代わりに lib/supabase-utils.ts の関数を使用してください。
+ */
+
 // データを取得する汎用関数
 async function fetchData(
   tableName: string,
@@ -10,6 +14,7 @@ async function fetchData(
     limit?: number
   } = {},
 ) {
+  console.warn("fetchData は非推奨です。代わりに lib/supabase-utils.ts の fetchClientData を使用してください。")
   const { select = "*", filters, order, limit } = options
   const supabase = getClientSupabase()
 
@@ -55,6 +60,7 @@ async function fetchData(
 
 // データを挿入する汎用関数
 async function insertData(tableName: string, data: any, options: { returning?: string } = {}) {
+  console.warn("insertData は非推奨です。代わりに lib/supabase-utils.ts の insertClientData を使用してください。")
   const { returning = "*" } = options
   const supabase = getClientSupabase()
 
@@ -75,6 +81,7 @@ async function insertData(tableName: string, data: any, options: { returning?: s
 
 // データを削除する汎用関数
 async function deleteData(tableName: string, id: string, options: { idField?: string } = {}) {
+  console.warn("deleteData は非推奨です。代わりに lib/supabase-utils.ts の deleteClientData を使用してください。")
   const { idField = "id" } = options
   const supabase = getClientSupabase()
 
@@ -95,6 +102,7 @@ async function deleteData(tableName: string, id: string, options: { idField?: st
 
 // スタッフデータの取得
 export async function getStaff() {
+  console.warn("getStaff は非推奨です。代わりに lib/supabase-utils.ts の getStaffData を使用してください。")
   const { data } = await fetchData("staff", {
     order: { column: "full_name", ascending: true },
   })
@@ -104,11 +112,13 @@ export async function getStaff() {
 
 // スタッフの削除
 export async function deleteStaff(id: string) {
+  console.warn("deleteStaff は非推奨です。代わりに lib/supabase-utils.ts の deleteClientData を使用してください。")
   return deleteData("staff", id)
 }
 
 // プロジェクトデータの取得
 export async function getProjects() {
+  console.warn("getProjects は非推奨です。代わりに lib/supabase-utils.ts の getProjectsData を使用してください。")
   const { data } = await fetchData("projects", {
     order: { column: "name", ascending: true },
   })
@@ -118,6 +128,7 @@ export async function getProjects() {
 
 // 工具データの取得
 export async function getTools() {
+  console.warn("getTools は非推奨です。代わりに lib/supabase-utils.ts の getToolsData を使用してください。")
   try {
     // まず、resourcesテーブルのスキーマを確認するためにデータを1件取得
     const { data: columns } = await fetchData("resources", { limit: 1 })
@@ -158,6 +169,7 @@ export async function getTools() {
 
 // 休暇データの取得（leave_requestsテーブルを使用）
 export async function getVacations() {
+  console.warn("getVacations は非推奨です。代わりに lib/supabase-utils.ts の getLeaveRequestsData を使用してください。")
   try {
     const supabase = getClientSupabase()
     const { data, error } = await supabase
@@ -216,6 +228,9 @@ export async function getVacations() {
 
 // 休暇申請データを取得する関数
 export async function getLeaveRequests() {
+  console.warn(
+    "getLeaveRequests は非推奨です。代わりに lib/supabase-utils.ts の getLeaveRequestsData を使用してください。",
+  )
   try {
     const supabase = getClientSupabase()
 
@@ -271,6 +286,9 @@ export async function updateLeaveRequest({
   status: "approved" | "rejected"
   rejectReason?: string
 }) {
+  console.warn(
+    "updateLeaveRequest は非推奨です。代わりに lib/supabase-utils.ts の updateLeaveRequestData を使用してください。",
+  )
   try {
     const supabase = getClientSupabase()
 
@@ -296,6 +314,7 @@ export async function updateLeaveRequest({
 
 // 承認された休暇申請から休暇データを追加
 export async function addVacationFromApprovedRequest(approvedRequest: any) {
+  console.warn("addVacationFromApprovedRequest は非推奨です。代わりに lib/supabase-utils.ts の関数を使用してください。")
   try {
     const supabase = getClientSupabase()
 
@@ -321,6 +340,7 @@ export async function addVacationFromApprovedRequest(approvedRequest: any) {
 
 // 休暇種類の名前を取得
 export function getLeaveTypeName(type: string) {
+  console.warn("getLeaveTypeName は非推奨です。代わりに lib/supabase-utils.ts の getLeaveTypeName を使用してください。")
   switch (type) {
     case "paid":
       return "有給"
@@ -337,6 +357,9 @@ export function getLeaveTypeName(type: string) {
 
 // 作業日報データの取得
 export async function getDailyReports() {
+  console.warn(
+    "getDailyReports は非推奨です。代わりに lib/supabase-utils.ts の getDailyReportsData を使用してください。",
+  )
   try {
     const supabase = getClientSupabase()
 

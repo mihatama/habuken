@@ -331,3 +331,255 @@ export const fetchDataFromTable = fetchClientData
 export const insertDataToTable = insertClientData
 export const updateDataInTable = updateClientData
 export const deleteDataFromTable = deleteClientData
+
+// 以下の関数を追加します（既存のコードの後に追加）
+
+// ===== 特定のエンティティに対するヘルパー関数 =====
+
+/**
+ * スタッフデータを取得する関数
+ */
+export async function getStaffData(options: DataAccessOptions = {}) {
+  const mergedOptions = {
+    order: { column: "full_name", ascending: true },
+    ...options,
+  }
+  return fetchClientData("staff", mergedOptions)
+}
+
+/**
+ * プロジェクトデータを取得する関数
+ */
+export async function getProjectsData(options: DataAccessOptions = {}) {
+  const mergedOptions = {
+    order: { column: "name", ascending: true },
+    ...options,
+  }
+  return fetchClientData("projects", mergedOptions)
+}
+
+/**
+ * 工具データを取得する関数
+ */
+export async function getToolsData(options: DataAccessOptions = {}) {
+  try {
+    // まず、resourcesテーブルのスキーマを確認するためにデータを1件取得
+    const { data: columns } = await fetchClientData("resources", { limit: 1 })
+
+    // テーブルにtype列がある場合
+    if (columns && columns.length > 0 && "type" in columns[0]) {
+      const mergedOptions = {
+        filters: { type: "工具" },
+        order: { column: "name", ascending: true },
+        ...options,
+      }
+      return fetchClientData("resources", mergedOptions)
+    }
+
+    // テーブルにresource_type列がある場合
+    else if (columns && columns.length > 0 && "resource_type" in columns[0]) {
+      const mergedOptions = {
+        filters: { resource_type: "工具" },
+        order: { column: "name", ascending: true },
+        ...options,
+      }
+      return fetchClientData("resources", mergedOptions)
+    }
+
+    // どちらの列もない場合は、全てのリソースを取得
+    else {
+      const mergedOptions = {
+        order: { column: "name", ascending: true },
+        ...options,
+      }
+      return fetchClientData("resources", mergedOptions)
+    }
+  } catch (error) {
+    console.error("工具データ取得エラー:", error)
+    throw error
+  }
+}
+
+/**
+ * 重機データを取得する関数
+ */
+export async function getHeavyMachineryData(options: DataAccessOptions = {}) {
+  const mergedOptions = {
+    order: { column: "name", ascending: true },
+    ...options,
+  }
+  return fetchClientData("heavy_machinery", mergedOptions)
+}
+
+/**
+ * 車両データを取得する関数
+ */
+export async function getVehiclesData(options: DataAccessOptions = {}) {
+  const mergedOptions = {
+    order: { column: "name", ascending: true },
+    ...options,
+  }
+  return fetchClientData("vehicles", mergedOptions)
+}
+
+/**
+ * 休暇申請データを取得する関数
+ */
+export async function getLeaveRequestsData() {
+  try {
+    const client = getClientSupabase()
+
+    // 休暇申請データを取得
+    const { data: leaveRequests, error: leaveError } = await client
+      .from("leave_requests")
+      .select("*")
+      .order("created_at", { ascending: false })
+
+    if (leaveError) throw leaveError
+
+    if (!leaveRequests || leaveRequests.length === 0) {
+      return { data: [], count: 0 }
+    }
+
+    // スタッフIDのリストを作成
+    const staffIds = [...new Set(leaveRequests.map((request) => request.staff_id).filter(Boolean))]
+
+    // スタッフデータを別途取得
+    const { data: staffData, error: staffError } = await client.from("staff").select("id, full_name").in("id", staffIds)
+
+    if (staffError) throw staffError
+
+    // スタッフIDをキーとしたマップを作成
+    const staffMap = new Map()
+    staffData?.forEach((staff) => {
+      staffMap.set(staff.id, staff.full_name)
+    })
+
+    // データ形式を整形
+    const formattedData = leaveRequests.map((request) => ({
+      ...request,
+      staff: {
+        name: staffMap.get(request.staff_id) || "不明",
+      },
+    }))
+
+    return { data: formattedData, count: formattedData.length }
+  } catch (error) {
+    console.error("休暇申請データ取得エラー:", error)
+    throw error
+  }
+}
+
+/**
+ * 休暇申請を更新する関数
+ */
+export async function updateLeaveRequestData({
+  id,
+  status,
+  rejectReason,
+}: {
+  id: string
+  status: "approved" | "rejected"
+  rejectReason?: string
+}) {
+  try {
+    const client = getClientSupabase()
+
+    const { data, error } = await client
+      .from("leave_requests")
+      .update({
+        status,
+        reject_reason: rejectReason || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select()
+
+    if (error) {
+      throw new Error(`休暇申請更新エラー: ${error.message}`)
+    }
+
+    return data
+  } catch (error) {
+    console.error("休暇申請更新エラー:", error)
+    throw error
+  }
+}
+
+/**
+ * 日報データを取得する関数
+ */
+export async function getDailyReportsData() {
+  try {
+    const client = getClientSupabase()
+
+    // 日報データを取得
+    const { data: reports, error } = await client
+      .from("daily_reports")
+      .select("*")
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+
+    if (!reports || reports.length === 0) {
+      return { data: [], count: 0 }
+    }
+
+    // スタッフIDとプロジェクトIDのリストを作成
+    const staffIds = [...new Set(reports.map((report: any) => report.staff_id).filter(Boolean))]
+    const projectIds = [...new Set(reports.map((report: any) => report.project_id).filter(Boolean))]
+
+    // スタッフデータを取得
+    const { data: staffData, error: staffError } = await client.from("staff").select("id, full_name")
+
+    if (staffError) throw staffError
+
+    // プロジェクトデータを取得
+    const { data: projectsData, error: projectError } = await client.from("projects").select("id, name")
+
+    if (projectError) throw projectError
+
+    // スタッフIDとプロジェクトIDをキーとしたマップを作成
+    const staffMap = new Map()
+    staffData?.forEach((staff: any) => {
+      staffMap.set(staff.id, staff.full_name)
+    })
+
+    const projectMap = new Map()
+    projectsData?.forEach((project: any) => {
+      projectMap.set(project.id, project.name)
+    })
+
+    // データ形式を整形
+    const formattedData = reports.map((report: any) => ({
+      ...report,
+      userName: staffMap.get(report.staff_id) || "不明",
+      projectName: projectMap.get(report.project_id) || "不明",
+      workDate: report.work_date,
+      createdAt: report.created_at,
+    }))
+
+    return { data: formattedData, count: formattedData.length }
+  } catch (error) {
+    console.error("作業日報データ取得エラー:", error)
+    throw error
+  }
+}
+
+/**
+ * 休暇種類の名前を取得する関数
+ */
+export function getLeaveTypeName(type: string) {
+  switch (type) {
+    case "paid":
+      return "有給"
+    case "compensatory":
+      return "振替休日"
+    case "special":
+      return "特別休暇"
+    case "absent":
+      return "欠勤"
+    default:
+      return type
+  }
+}

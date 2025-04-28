@@ -1,38 +1,15 @@
 "use client"
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useToast } from "@/hooks/use-toast"
-import {
-  fetchClientData,
-  insertClientData,
-  updateClientData,
-  deleteClientData,
-  getClientSupabase,
-} from "@/lib/supabase-utils"
-// 古いインポート文を削除
-// import { getClientSupabase } from "@/lib/supabase-client"
+import { insertClientData, deleteClientData, getClientSupabase } from "@/lib/supabase-utils"
+import { useData, useUpdateData } from "./supabase/use-data"
 
 // プロジェクト一覧を取得するフック
 export function useProjects() {
-  const { toast } = useToast()
-
-  return useQuery({
+  return useData("projects", {
     queryKey: ["projects"],
-    queryFn: async () => {
-      try {
-        const { data } = await fetchClientData("projects", {
-          order: { column: "created_at", ascending: false },
-        })
-        return data
-      } catch (error) {
-        toast({
-          title: "エラー",
-          description: error instanceof Error ? error.message : "プロジェクト一覧の取得に失敗しました",
-          variant: "destructive",
-        })
-        throw error
-      }
-    },
+    order: { column: "created_at", ascending: false },
   })
 }
 
@@ -94,47 +71,9 @@ export function useCreateProject() {
 
 // プロジェクトを更新するフック
 export function useUpdateProject() {
-  const queryClient = useQueryClient()
-  const { toast } = useToast()
-
-  return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      try {
-        const updatedData = {
-          ...data,
-          updated_at: new Date().toISOString(),
-        }
-        const result = await updateClientData("projects", id, updatedData)
-        return { success: true, data: result }
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : "プロジェクトの更新に失敗しました",
-        }
-      }
-    },
-    onSuccess: (result) => {
-      if (result.success) {
-        queryClient.invalidateQueries({ queryKey: ["projects"] })
-        toast({
-          title: "成功",
-          description: "プロジェクトが正常に更新されました",
-        })
-      } else {
-        toast({
-          title: "エラー",
-          description: result.error || "プロジェクトの更新に失敗しました",
-          variant: "destructive",
-        })
-      }
-      return result
-    },
-    onError: (error: any) => {
-      toast({
-        title: "エラー",
-        description: error.message || "プロジェクトの更新に失敗しました",
-        variant: "destructive",
-      })
+  return useUpdateData("projects", {
+    onSuccess: () => {
+      // 追加の処理が必要な場合はここに記述
     },
   })
 }
