@@ -2,12 +2,8 @@
 const nextConfig = {
   reactStrictMode: true,
 
-  // Enable static export to avoid prerendering issues
-  output: "export",
-
   // Enable image optimization
   images: {
-    unoptimized: true, // Required for 'export'
     domains: ["v0.blob.com"],
   },
 
@@ -22,7 +18,7 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
 
-  // Add security headers (these won't be applied in static export mode)
+  // Add security headers
   async headers() {
     return [
       {
