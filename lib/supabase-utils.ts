@@ -1,33 +1,55 @@
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { createClient } from "@supabase/supabase-js"
+import {
+  getClientSupabase as getClientSupabaseOriginal,
+  getServerSupabase as getServerSupabaseOriginal,
+} from "./supabase/supabaseClient"
+import type { SupabaseClient } from "@supabase/supabase-js"
 
-// サーバーサイドのSupabaseクライアントを取得する関数
-export function getServerSupabase(type?: "admin") {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-
-  if (type === "admin") {
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-    return createClient(supabaseUrl, supabaseKey, {
-      auth: {
-        persistSession: false,
-      },
-    })
+// エラーハンドリング用のカスタムエラークラス
+export class SupabaseError extends Error {
+  constructor(
+    message: string,
+    public originalError?: any,
+  ) {
+    super(message)
+    this.name = "SupabaseError"
   }
-
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  return createClient(supabaseUrl, supabaseKey, {
-    auth: {
-      persistSession: false,
-    },
-  })
 }
 
-// クライアントサイドのSupabaseクライアントを取得する関数
-export function getClientSupabase() {
-  return createClientComponentClient()
+/**
+ * クライアント側のSupabaseインスタンスを取得する
+ * @returns Supabaseクライアントインスタンス
+ * @throws {SupabaseError} 環境変数が設定されていない場合やクライアント初期化に失敗した場合
+ */
+export function getClientSupabase(): SupabaseClient {
+  try {
+    return getClientSupabaseOriginal()
+  } catch (error) {
+    console.error("[Supabase Client Error]", error)
+    throw new SupabaseError("Failed to initialize Supabase client", error)
+  }
 }
 
-// テーブルからデータを取得する関数
+/**
+ * サーバー側のSupabaseインスタンスを取得する
+ * @returns Supabaseサーバーインスタンス
+ * @throws {SupabaseError} 環境変数が設定されていない場合やクライアント初期化に失敗した場合
+ */
+export function getServerSupabase(): SupabaseClient {
+  try {
+    return getServerSupabaseOriginal()
+  } catch (error) {
+    console.error("[Supabase Server Error]", error)
+    throw new SupabaseError("Failed to initialize Supabase server client", error)
+  }
+}
+
+/**
+ * テーブルからデータを取得する関数
+ * @param tableName テーブル名
+ * @param options 取得オプション
+ * @returns 取得したデータ
+ * @throws {SupabaseError} データ取得に失敗した場合
+ */
 export async function fetchClientData<T = any>(
   tableName: string,
   options: {
@@ -38,164 +60,223 @@ export async function fetchClientData<T = any>(
   } = {},
 ): Promise<T[]> {
   const { filters = {}, order, select = "*", limit } = options
-  const supabase = getClientSupabase()
 
-  let query = supabase.from(tableName).select(select)
+  try {
+    const supabase = getClientSupabase()
+    let query = supabase.from(tableName).select(select)
 
-  // フィルターの適用
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
-      query = query.eq(key, value)
+    // フィルターの適用
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") {
+        query = query.eq(key, value)
+      }
+    })
+
+    // 並び順の適用
+    if (order && order.column) {
+      query = query.order(order.column, { ascending: order.ascending })
     }
-  })
 
-  // 並び順の適用
-  if (order && order.column) {
-    query = query.order(order.column, { ascending: order.ascending })
+    // 件数制限の適用
+    if (limit) {
+      query = query.limit(limit)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      throw new SupabaseError(`Error fetching data from ${tableName}: ${error.message}`, error)
+    }
+
+    return (data || []) as T[]
+  } catch (error) {
+    if (error instanceof SupabaseError) {
+      throw error
+    }
+    console.error(`[Supabase Query Error] Error in fetchClientData for ${tableName}:`, error)
+    throw new SupabaseError(`Failed to fetch data from ${tableName}`, error)
   }
-
-  // 件数制限の適用
-  if (limit) {
-    query = query.limit(limit)
-  }
-
-  const { data, error } = await query
-
-  if (error) {
-    console.error(`Error fetching data from ${tableName}:`, error)
-    throw error
-  }
-
-  return (data || []) as T[]
 }
 
-// 重機データを取得する関数
+/**
+ * 重機データを取得する関数
+ * @returns 重機データの配列
+ * @throws {SupabaseError} データ取得に失敗した場合
+ */
 export async function getHeavyMachineryList() {
   try {
     const supabase = getClientSupabase()
     const { data, error } = await supabase.from("heavy_machinery").select("*").order("name")
 
     if (error) {
-      console.error("重機データの取得エラー:", error)
-      throw error
+      throw new SupabaseError(`重機データの取得エラー: ${error.message}`, error)
     }
 
     return data || []
   } catch (error) {
-    console.error("重機データ取得エラー:", error)
-    throw error
+    if (error instanceof SupabaseError) {
+      throw error
+    }
+    console.error("[Supabase Query Error] 重機データ取得エラー:", error)
+    throw new SupabaseError("重機データの取得に失敗しました", error)
   }
 }
 
-// スタッフデータを取得する関数
+/**
+ * スタッフデータを取得する関数
+ * @returns スタッフデータの配列
+ * @throws {SupabaseError} データ取得に失敗した場合
+ */
 export async function getStaffList() {
   try {
     const supabase = getClientSupabase()
     const { data, error } = await supabase.from("staff").select("*").order("full_name")
 
     if (error) {
-      console.error("スタッフデータの取得エラー:", error)
-      throw error
+      throw new SupabaseError(`スタッフデータの取得エラー: ${error.message}`, error)
     }
 
     return data || []
   } catch (error) {
-    console.error("スタッフデータ取得エラー:", error)
-    throw error
+    if (error instanceof SupabaseError) {
+      throw error
+    }
+    console.error("[Supabase Query Error] スタッフデータ取得エラー:", error)
+    throw new SupabaseError("スタッフデータの取得に失敗しました", error)
   }
 }
 
-// 車両データを取得する関数
+/**
+ * 車両データを取得する関数
+ * @returns 車両データの配列
+ * @throws {SupabaseError} データ取得に失敗した場合
+ */
 export async function getVehiclesData() {
   try {
     const supabase = getClientSupabase()
     const { data, error } = await supabase.from("vehicles").select("*").order("name")
 
     if (error) {
-      console.error("車両データの取得エラー:", error)
-      throw error
+      throw new SupabaseError(`車両データの取得エラー: ${error.message}`, error)
     }
 
     return data || []
   } catch (error) {
-    console.error("車両データ取得エラー:", error)
-    throw error
+    if (error instanceof SupabaseError) {
+      throw error
+    }
+    console.error("[Supabase Query Error] 車両データ取得エラー:", error)
+    throw new SupabaseError("車両データの取得に失敗しました", error)
   }
 }
 
-// 工具データを取得する関数
+/**
+ * 工具データを取得する関数
+ * @returns 工具データの配列
+ * @throws {SupabaseError} データ取得に失敗した場合
+ */
 export async function getToolsData() {
   try {
     const supabase = getClientSupabase()
     const { data, error } = await supabase.from("resources").select("*").eq("type", "工具").order("name")
 
     if (error) {
-      console.error("工具データの取得エラー:", error)
-      throw error
+      throw new SupabaseError(`工具データの取得エラー: ${error.message}`, error)
     }
 
     return data || []
   } catch (error) {
-    console.error("工具データ取得エラー:", error)
-    throw error
+    if (error instanceof SupabaseError) {
+      throw error
+    }
+    console.error("[Supabase Query Error] 工具データ取得エラー:", error)
+    throw new SupabaseError("工具データの取得に失敗しました", error)
   }
 }
 
-// 日報データを取得する関数
+/**
+ * 日報データを取得する関数
+ * @returns 日報データの配列
+ * @throws {SupabaseError} データ取得に失敗した場合
+ */
 export async function getDailyReportsData() {
   try {
     const supabase = getClientSupabase()
     const { data, error } = await supabase.from("daily_reports").select("*").order("created_at", { ascending: false })
 
     if (error) {
-      console.error("日報データの取得エラー:", error)
-      throw error
+      throw new SupabaseError(`日報データの取得エラー: ${error.message}`, error)
     }
 
     return data || []
   } catch (error) {
-    console.error("日報データ取得エラー:", error)
-    throw error
+    if (error instanceof SupabaseError) {
+      throw error
+    }
+    console.error("[Supabase Query Error] 日報データ取得エラー:", error)
+    throw new SupabaseError("日報データの取得に失敗しました", error)
   }
 }
 
-// 休暇申請データを取得する関数
+/**
+ * 休暇申請データを取得する関数
+ * @returns 休暇申請データの配列
+ * @throws {SupabaseError} データ取得に失敗した場合
+ */
 export async function getLeaveRequestsData() {
   try {
     const supabase = getClientSupabase()
     const { data, error } = await supabase.from("leave_requests").select("*").order("created_at", { ascending: false })
 
     if (error) {
-      console.error("休暇申請データの取得エラー:", error)
-      throw error
+      throw new SupabaseError(`休暇申請データの取得エラー: ${error.message}`, error)
     }
 
     return data || []
   } catch (error) {
-    console.error("休暇申請データ取得エラー:", error)
-    throw error
+    if (error instanceof SupabaseError) {
+      throw error
+    }
+    console.error("[Supabase Query Error] 休暇申請データ取得エラー:", error)
+    throw new SupabaseError("休暇申請データの取得に失敗しました", error)
   }
 }
 
-// データを挿入する関数
+/**
+ * データを挿入する関数
+ * @param tableName テーブル名
+ * @param data 挿入するデータ
+ * @returns 挿入されたデータ
+ * @throws {SupabaseError} データ挿入に失敗した場合
+ */
 export async function insertClientData<T = any>(tableName: string, data: Partial<T>): Promise<T[]> {
   try {
     const supabase = getClientSupabase()
     const { data: result, error } = await supabase.from(tableName).insert([data]).select()
 
     if (error) {
-      console.error(`Error inserting data into ${tableName}:`, error)
-      throw error
+      throw new SupabaseError(`Error inserting data into ${tableName}: ${error.message}`, error)
     }
 
     return (result || []) as T[]
   } catch (error) {
-    console.error(`Error in insertClientData for ${tableName}:`, error)
-    throw error
+    if (error instanceof SupabaseError) {
+      throw error
+    }
+    console.error(`[Supabase Mutation Error] Error in insertClientData for ${tableName}:`, error)
+    throw new SupabaseError(`Failed to insert data into ${tableName}`, error)
   }
 }
 
-// データを更新する関数
+/**
+ * データを更新する関数
+ * @param tableName テーブル名
+ * @param id 更新するレコードのID
+ * @param data 更新するデータ
+ * @param options 更新オプション
+ * @returns 更新されたデータ
+ * @throws {SupabaseError} データ更新に失敗した場合
+ */
 export async function updateClientData<T = any>(
   tableName: string,
   id: string,
@@ -208,18 +289,26 @@ export async function updateClientData<T = any>(
     const { data: result, error } = await supabase.from(tableName).update(data).eq(idField, id).select()
 
     if (error) {
-      console.error(`Error updating data in ${tableName}:`, error)
-      throw error
+      throw new SupabaseError(`Error updating data in ${tableName}: ${error.message}`, error)
     }
 
     return (result || []) as T[]
   } catch (error) {
-    console.error(`Error in updateClientData for ${tableName}:`, error)
-    throw error
+    if (error instanceof SupabaseError) {
+      throw error
+    }
+    console.error(`[Supabase Mutation Error] Error in updateClientData for ${tableName}:`, error)
+    throw new SupabaseError(`Failed to update data in ${tableName}`, error)
   }
 }
 
-// データを削除する関数
+/**
+ * データを削除する関数
+ * @param tableName テーブル名
+ * @param id 削除するレコードのID
+ * @param options 削除オプション
+ * @throws {SupabaseError} データ削除に失敗した場合
+ */
 export async function deleteClientData(
   tableName: string,
   id: string,
@@ -231,12 +320,14 @@ export async function deleteClientData(
     const { error } = await supabase.from(tableName).delete().eq(idField, id)
 
     if (error) {
-      console.error(`Error deleting data from ${tableName}:`, error)
-      throw error
+      throw new SupabaseError(`Error deleting data from ${tableName}: ${error.message}`, error)
     }
   } catch (error) {
-    console.error(`Error in deleteClientData for ${tableName}:`, error)
-    throw error
+    if (error instanceof SupabaseError) {
+      throw error
+    }
+    console.error(`[Supabase Mutation Error] Error in deleteClientData for ${tableName}:`, error)
+    throw new SupabaseError(`Failed to delete data from ${tableName}`, error)
   }
 }
 
@@ -256,17 +347,32 @@ export function getLeaveTypeName(type: string) {
   }
 }
 
-// 重機を作成する関数
+/**
+ * 重機を作成する関数
+ * @param machineryData 重機データ
+ * @returns 作成された重機データ
+ * @throws {SupabaseError} 重機作成に失敗した場合
+ */
 export async function createHeavyMachinery(machineryData: any) {
   return insertClientData("heavy_machinery", machineryData)
 }
 
-// スタッフを作成する関数
+/**
+ * スタッフを作成する関数
+ * @param staffData スタッフデータ
+ * @returns 作成されたスタッフデータ
+ * @throws {SupabaseError} スタッフ作成に失敗した場合
+ */
 export async function createStaff(staffData: any) {
   return insertClientData("staff", staffData)
 }
 
-// 休暇申請を更新する関数
+/**
+ * 休暇申請を更新する関数
+ * @param params 更新パラメータ
+ * @returns 更新された休暇申請データ
+ * @throws {SupabaseError} 休暇申請更新に失敗した場合
+ */
 export async function updateLeaveRequestData({
   id,
   status,
@@ -281,4 +387,37 @@ export async function updateLeaveRequestData({
     reject_reason: rejectReason || null,
     updated_at: new Date().toISOString(),
   })
+}
+
+/**
+ * エラーメッセージをユーザーフレンドリーに変換する関数
+ * @param error エラーオブジェクト
+ * @returns ユーザーフレンドリーなエラーメッセージ
+ */
+export function getReadableErrorMessage(error: any): string {
+  if (error instanceof SupabaseError) {
+    return error.message
+  }
+
+  if (error?.code === "PGRST116") {
+    return "データが見つかりませんでした。"
+  }
+
+  if (error?.code === "23505") {
+    return "既に同じデータが存在します。"
+  }
+
+  if (error?.code === "23503") {
+    return "関連するデータが存在しないため、操作を完了できません。"
+  }
+
+  if (error?.code?.startsWith("P")) {
+    return "データベースエラーが発生しました。"
+  }
+
+  if (error?.message?.includes("network")) {
+    return "ネットワーク接続に問題があります。インターネット接続を確認してください。"
+  }
+
+  return "予期しないエラーが発生しました。しばらく経ってからもう一度お試しください。"
 }

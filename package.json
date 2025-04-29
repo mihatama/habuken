@@ -59,16 +59,16 @@
     "vaul": "^0.9.6",
     "zod": "latest",
     "@supabase/supabase-js": "latest",
-    "@tanstack/react-query": "latest",
     "immer": "latest",
     "use-sync-external-store": "latest",
+    "@tanstack/react-query": "latest",
     "react-big-calendar": "latest",
     "moment": "latest",
     "@supabase/auth-helpers-nextjs": "latest",
-    "@tanstack/react-query-devtools": "latest",
     "zustand": "latest",
     "@tanstack/react-table": "latest",
-    "uuid": "latest"
+    "uuid": "latest",
+    "@tanstack/react-query-devtools": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

@@ -1,26 +1,70 @@
-import { createClient as supabaseCreateClient } from "@supabase/supabase-js"
+import { createClient } from "@supabase/supabase-js"
+import type { SupabaseClient } from "@supabase/supabase-js"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+// クライアント側のシングルトンインスタンス
+let clientInstance: SupabaseClient | null = null
 
-// 名前付きエクスポートとして createClient を追加
-export const createClient = supabaseCreateClient
+// サーバー側のシングルトンインスタンス
+let serverInstance: SupabaseClient | null = null
 
-export const supabaseClient = supabaseCreateClient(supabaseUrl, supabaseAnonKey)
+/**
+ * クライアント側のSupabaseインスタンスを取得する
+ * @returns Supabaseクライアントインスタンス
+ */
+export function getClientSupabase(): SupabaseClient {
+  if (clientInstance) return clientInstance
 
-export function getClientSupabase() {
-  return supabaseClient
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Supabase URL and anon key must be provided")
+  }
+
+  clientInstance = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  })
+  return clientInstance
 }
 
-// シングルトンパターンでクライアントを取得する関数
-export function getClientSupabaseSingleton() {
-  return supabaseClient
+/**
+ * サーバー側のSupabaseインスタンスを取得する
+ * @returns Supabaseサーバーインスタンス
+ */
+export function getServerSupabase(type?: "admin"): SupabaseClient {
+  // サーバーサイドでのみ実行されるべき
+  if (typeof window !== "undefined") {
+    console.warn("getServerSupabase was called on the client side")
+    return getClientSupabase()
+  }
+
+  if (serverInstance) return serverInstance
+
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error("Supabase URL and service role key must be provided")
+  }
+
+  serverInstance = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { persistSession: false },
+  })
+  return serverInstance
 }
 
-export async function fetchDataFromTable(tableName: string, options: any) {
-  const { filters = {}, order = {} } = options
+/**
+ * テーブルからデータを取得する関数
+ */
+export async function fetchDataFromTable(tableName: string, options: any = {}) {
+  const { select = "*", filters = {}, order = {} } = options
+  const supabase = getClientSupabase()
 
-  let query = getClientSupabase().from(tableName).select("*")
+  let query = supabase.from(tableName).select(select)
 
   if (filters) {
     Object.entries(filters).forEach(([key, value]) => {
@@ -36,8 +80,12 @@ export async function fetchDataFromTable(tableName: string, options: any) {
 
   if (error) {
     console.error(`Error fetching data from ${tableName}:`, error)
-    throw error
+    return { data: null, error }
   }
 
-  return { data, error }
+  return { data, error: null }
 }
+
+// デフォルトエクスポートとしてクライアントインスタンスを提供
+const supabaseClient = getClientSupabase()
+export default supabaseClient
