@@ -1,122 +1,72 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { ThemeToggle } from "@/components/theme-toggle"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { MobileNav } from "@/components/mobile-nav"
 import { UserNav } from "@/components/user-nav"
-import { useAuth } from "@/contexts/auth-context"
-import { Calendar, Briefcase, Users, Truck, Car, Wrench, ClipboardList, FileCheck, Settings } from "lucide-react"
 
-export function Header() {
-  const pathname = usePathname()
-  const { user } = useAuth()
+export function Header({ user }) {
+  const router = useRouter()
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center">
-        <div className="mr-6 flex items-center">
-          <Link href="/" className="flex items-center">
-            <span className="font-kaisho text-3xl font-bold">現助</span>
+    <header className="fixed top-0 z-40 w-full border-b bg-background">
+      <div className="container flex h-16 items-center justify-between px-4 sm:px-6">
+        <div className="flex items-center">
+          <Link href="/dashboard" className="flex items-center space-x-2">
+            <span className="text-xl font-bold">建設業務管理</span>
           </Link>
+          <nav className="hidden md:ml-10 md:flex md:items-center md:space-x-4">
+            <Link href="/dashboard" className="text-sm font-medium transition-colors hover:text-primary">
+              ダッシュボード
+            </Link>
+            <Link href="/master/project" className="text-sm font-medium transition-colors hover:text-primary">
+              案件管理
+            </Link>
+            <Link href="/master/staff" className="text-sm font-medium transition-colors hover:text-primary">
+              スタッフ管理
+            </Link>
+            <Link href="/tools" className="text-sm font-medium transition-colors hover:text-primary">
+              備品管理
+            </Link>
+            <Link href="/reports" className="text-sm font-medium transition-colors hover:text-primary">
+              レポート
+            </Link>
+            <Link href="/settings" className="text-sm font-medium transition-colors hover:text-primary">
+              設定
+            </Link>
+          </nav>
         </div>
-
-        <nav className="flex items-center space-x-4 lg:space-x-6">
-          <Link
-            href="/dashboard"
-            className={`flex items-center flex-col text-sm font-medium transition-colors hover:text-primary ${
-              pathname === "/dashboard" ? "text-primary" : "text-muted-foreground"
-            }`}
-          >
-            <Calendar className="h-5 w-5 mb-1" />
-            <span>ダッシュボード</span>
-          </Link>
-
-          <Link
-            href="/master/project"
-            className={`flex items-center flex-col text-sm font-medium transition-colors hover:text-primary ${
-              pathname === "/master/project" ? "text-primary" : "text-muted-foreground"
-            }`}
-          >
-            <Briefcase className="h-5 w-5 mb-1" />
-            <span>案件登録</span>
-          </Link>
-
-          <Link
-            href="/master/staff"
-            className={`flex items-center flex-col text-sm font-medium transition-colors hover:text-primary ${
-              pathname === "/master/staff" ? "text-primary" : "text-muted-foreground"
-            }`}
-          >
-            <Users className="h-5 w-5 mb-1" />
-            <span>スタッフ</span>
-          </Link>
-
-          <Link
-            href="/master/heavy"
-            className={`flex items-center flex-col text-sm font-medium transition-colors hover:text-primary ${
-              pathname === "/master/heavy" ? "text-primary" : "text-muted-foreground"
-            }`}
-          >
-            <Truck className="h-5 w-5 mb-1" />
-            <span>重機</span>
-          </Link>
-
-          <Link
-            href="/master/vehicle"
-            className={`flex items-center flex-col text-sm font-medium transition-colors hover:text-primary ${
-              pathname === "/master/vehicle" ? "text-primary" : "text-muted-foreground"
-            }`}
-          >
-            <Car className="h-5 w-5 mb-1" />
-            <span>車両</span>
-          </Link>
-
-          <Link
-            href="/tools"
-            className={`flex items-center flex-col text-sm font-medium transition-colors hover:text-primary ${
-              pathname === "/tools" ? "text-primary" : "text-muted-foreground"
-            }`}
-          >
-            <Wrench className="h-5 w-5 mb-1" />
-            <span>備品</span>
-          </Link>
-
-          <Link
-            href="/leave"
-            className={`flex items-center flex-col text-sm font-medium transition-colors hover:text-primary ${
-              pathname === "/leave" ? "text-primary" : "text-muted-foreground"
-            }`}
-          >
-            <ClipboardList className="h-5 w-5 mb-1" />
-            <span>休暇申請</span>
-          </Link>
-
-          <Link
-            href="/reports"
-            className={`flex items-center flex-col text-sm font-medium transition-colors hover:text-primary ${
-              pathname.startsWith("/reports") ? "text-primary" : "text-muted-foreground"
-            }`}
-          >
-            <FileCheck className="h-5 w-5 mb-1" />
-            <span>現場報告</span>
-          </Link>
-
-          <Link
-            href="/settings"
-            className={`flex items-center flex-col text-sm font-medium transition-colors hover:text-primary ${
-              pathname === "/settings" ? "text-primary" : "text-muted-foreground"
-            }`}
-          >
-            <Settings className="h-5 w-5 mb-1" />
-            <span>設定</span>
-          </Link>
-        </nav>
-
-        <div className="ml-auto flex items-center space-x-4">
-          <ThemeToggle />
-          {user && <UserNav />}
+        <div className="flex items-center space-x-4">
+          {user ? (
+            <>
+              <UserNav user={user} />
+              <Button
+                variant="outline"
+                size="icon"
+                className="md:hidden"
+                onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
+              >
+                <span className="sr-only">メニューを開く</span>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </Button>
+            </>
+          ) : (
+            <Button onClick={() => router.push("/login")}>ログイン</Button>
+          )}
         </div>
       </div>
+      <MobileNav isOpen={isMobileNavOpen} onClose={() => setIsMobileNavOpen(false)} />
     </header>
   )
 }

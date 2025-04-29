@@ -1,46 +1,87 @@
 "use client"
 
-import type { ReactNode } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { StaffList } from "@/components/staff-list"
-import { VacationList } from "@/components/vacation-list"
-import { ToolList } from "@/components/tool-list"
+import type React from "react"
+
+import { useState, useEffect } from "react"
+import { useRouter, usePathname } from "next/navigation"
+import { Header } from "@/components/header"
+import { getClientSupabase } from "@/lib/supabase-utils"
 
 interface DashboardLayoutProps {
-  children: ReactNode
-  title?: string
+  children: React.ReactNode
+  title: string
   description?: string
+  isAdmin?: boolean
 }
 
-export function DashboardLayout({ children, title = "ダッシュボード", description }: DashboardLayoutProps) {
-  return (
-    <div className="container">
-      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-        <div className="flex items-center justify-between space-y-2">
-          <h2 className="text-3xl font-bold tracking-tight">{title}</h2>
-        </div>
-        {description && <p className="text-muted-foreground">{description}</p>}
-        <Tabs defaultValue="calendar" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="calendar">カレンダー</TabsTrigger>
-            <TabsTrigger value="staff">スタッフ</TabsTrigger>
-            <TabsTrigger value="vacation">休暇</TabsTrigger>
-            <TabsTrigger value="tools">工具</TabsTrigger>
-          </TabsList>
-          <TabsContent value="calendar" className="space-y-4">
-            {children}
-          </TabsContent>
-          <TabsContent value="staff" className="space-y-4">
-            <StaffList />
-          </TabsContent>
-          <TabsContent value="vacation" className="space-y-4">
-            <VacationList />
-          </TabsContent>
-          <TabsContent value="tools" className="space-y-4">
-            <ToolList />
-          </TabsContent>
-        </Tabs>
+export function DashboardLayout({ children, title, description, isAdmin = false }: DashboardLayoutProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const [isLoading, setIsLoading] = useState(true)
+  const [user, setUser] = useState(null)
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        setIsLoading(true)
+        // シングルトンパターンを使用
+        const supabase = getClientSupabase()
+
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+
+        if (!session) {
+          router.push("/login")
+          return
+        }
+
+        // 管理者ページの場合は権限チェック
+        if (isAdmin) {
+          const { data: userData, error } = await supabase
+            .from("users")
+            .select("role")
+            .eq("id", session.user.id)
+            .single()
+
+          if (error || userData?.role !== "admin") {
+            router.push("/dashboard")
+            return
+          }
+        }
+
+        setUser(session.user)
+      } catch (error) {
+        console.error("認証チェックエラー:", error)
+        router.push("/login")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    checkAuth()
+  }, [router, isAdmin, pathname])
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-primary"></div>
       </div>
+    )
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col">
+      <Header user={user} />
+      <main className="flex-1 p-6 pt-16">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
+            {description && <p className="mt-2 text-muted-foreground">{description}</p>}
+          </div>
+          {children}
+        </div>
+      </main>
     </div>
   )
 }

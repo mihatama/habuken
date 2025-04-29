@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { createClient } from "@supabase/supabase-js"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,11 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-
-// Supabaseクライアントの初期化
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+import { getClientSupabase } from "@/lib/supabase-utils"
 
 interface DailyReport {
   id?: string
@@ -65,6 +60,8 @@ const WeatherIcon = ({ weather, size = "sm" }: { weather: string; size?: "sm" | 
 
 const DailyReportForm = () => {
   const { toast } = useToast()
+  const supabase = getClientSupabase() // シングルトンインスタンスを使用
+
   const [formData, setFormData] = useState<DailyReport>({
     date: new Date().toISOString().slice(0, 10),
     weather: "sunny",
