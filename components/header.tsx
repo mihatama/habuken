@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { MobileNav } from "@/components/mobile-nav"
@@ -41,7 +42,7 @@ export function Header() {
     <header className="fixed top-0 z-40 w-full border-b bg-background">
       <div className="container flex h-16 items-center justify-between px-4 sm:px-6">
         <div className="flex items-center">
-          <a
+          <Link
             href="/"
             className="flex items-center space-x-2"
             onClick={(e) => {
@@ -50,11 +51,11 @@ export function Header() {
             }}
           >
             <span className="text-xl font-bold">建設業務管理</span>
-          </a>
+          </Link>
           <nav className="hidden md:ml-10 md:flex md:items-center md:space-x-4">
             {!loading && user && (
               <>
-                <a
+                <Link
                   href="/dashboard"
                   className="text-sm font-medium transition-colors hover:text-primary"
                   onClick={(e) => {
@@ -63,8 +64,8 @@ export function Header() {
                   }}
                 >
                   ダッシュボード
-                </a>
-                <a
+                </Link>
+                <Link
                   href="/master/project"
                   className="text-sm font-medium transition-colors hover:text-primary"
                   onClick={(e) => {
@@ -73,8 +74,8 @@ export function Header() {
                   }}
                 >
                   案件管理
-                </a>
-                <a
+                </Link>
+                <Link
                   href="/master/staff"
                   className="text-sm font-medium transition-colors hover:text-primary"
                   onClick={(e) => {
@@ -83,8 +84,8 @@ export function Header() {
                   }}
                 >
                   スタッフ管理
-                </a>
-                <a
+                </Link>
+                <Link
                   href="/tools"
                   className="text-sm font-medium transition-colors hover:text-primary"
                   onClick={(e) => {
@@ -93,8 +94,8 @@ export function Header() {
                   }}
                 >
                   備品管理
-                </a>
-                <a
+                </Link>
+                <Link
                   href="/reports"
                   className="text-sm font-medium transition-colors hover:text-primary"
                   onClick={(e) => {
@@ -103,8 +104,8 @@ export function Header() {
                   }}
                 >
                   レポート
-                </a>
-                <a
+                </Link>
+                <Link
                   href="/settings"
                   className="text-sm font-medium transition-colors hover:text-primary"
                   onClick={(e) => {
@@ -113,7 +114,7 @@ export function Header() {
                   }}
                 >
                   設定
-                </a>
+                </Link>
               </>
             )}
           </nav>

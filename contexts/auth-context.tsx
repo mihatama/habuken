@@ -37,19 +37,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ログイン済みでログインページにいる場合はダッシュボードにリダイレクト
       if (user && (pathname === "/login" || pathname === "/signup")) {
         console.log("認証済みユーザーがログインページにいます。ダッシュボードにリダイレクトします。")
-        router.push("/dashboard")
-      }
-
-      // 未ログインで保護されたページにいる場合はログインページにリダイレクト
-      const protectedPaths = ["/dashboard", "/master", "/reports", "/tools", "/settings", "/profile", "/leave"]
-      const isProtectedPath = protectedPaths.some((path) => pathname?.startsWith(path))
-
-      if (!user && isProtectedPath) {
-        console.log("未認証ユーザーが保護されたページにいます。ログインページにリダイレクトします。")
-        router.push(`/login?redirect=${pathname}`)
+        window.location.href = "/dashboard"
       }
     }
-  }, [user, loading, pathname, router])
+  }, [user, loading, pathname])
 
   // セッションからユーザー情報を設定する関数
   const setUserFromSession = (session: Session | null) => {
@@ -131,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserFromSession(data.session)
 
       // ログイン成功後、明示的にダッシュボードにリダイレクト
-      router.push("/dashboard")
+      window.location.href = "/dashboard"
 
       return { success: true }
     } catch (error: any) {
@@ -156,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(null)
 
       // ログアウト後、明示的にログインページにリダイレクト
-      router.push("/login")
+      window.location.href = "/login"
     } catch (error) {
       console.error("サインアウトエラー:", error)
     } finally {
