@@ -21,42 +21,53 @@ moment.locale("ja")
 const localizer = momentLocalizer(moment)
 
 // カスタムCSSを追加して時間表示を非表示にする
-const customDayPropGetter = () => {
-  return {
-    className: "no-time-display",
-    style: {
-      margin: 0,
-      padding: 0,
-    },
-  }
-}
-
-// カスタムスタイルを定義
 const customStyles = `
-  .no-time-display .rbc-time-content {
-    display: none;
+  /* 時間表示を完全に非表示にする */
+  .rbc-time-column {
+    display: none !important;
   }
   
-  .no-time-display .rbc-time-header {
-    border-bottom: none;
+  .rbc-time-header-content {
+    border-left: none !important;
   }
   
-  .no-time-display .rbc-time-view {
-    border-bottom: 1px solid #ddd;
+  .rbc-time-view .rbc-allday-cell {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 70vh !important;
   }
   
-  .no-time-display .rbc-allday-cell {
-    height: auto;
-    max-height: none;
+  .rbc-time-content {
+    display: none !important;
   }
   
-  .no-time-display .rbc-row-content {
-    height: auto;
+  .rbc-time-view {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    width: 100%;
+    border: 1px solid #ddd;
   }
   
-  .no-time-display .rbc-time-header-content {
-    height: auto;
+  .rbc-time-header {
+    display: flex;
+    flex: 1;
     min-height: 70vh;
+  }
+  
+  .rbc-time-header-content {
+    flex: 1;
+    min-height: 70vh;
+  }
+  
+  /* 時間のグリッド線を非表示 */
+  .rbc-time-gutter {
+    display: none !important;
+  }
+  
+  /* スクロールバーを非表示 */
+  .rbc-time-view .rbc-time-content::-webkit-scrollbar {
+    display: none !important;
   }
 `
 
@@ -117,6 +128,12 @@ export function EnhancedCalendar({
   const isMobile = useMediaQuery("(max-width: 768px)")
   const calendarRef = useRef<any>(null)
 
+  // すべてのイベントを終日イベントとして処理
+  const processedEvents = events.map((event) => ({
+    ...event,
+    allDay: true,
+  }))
+
   // Reset form data when selected event changes
   useEffect(() => {
     if (selectedEvent) {
@@ -125,10 +142,10 @@ export function EnhancedCalendar({
       })
     } else {
       const startTime = new Date()
-      startTime.setHours(startTime.getHours() + 1, 0, 0, 0)
+      startTime.setHours(0, 0, 0, 0) // 開始時間を日の始まりに設定
 
       const endTime = new Date(startTime)
-      endTime.setHours(endTime.getHours() + 1)
+      endTime.setHours(23, 59, 59, 999) // 終了時間を日の終わりに設定
 
       setFormData({
         title: "",
@@ -136,6 +153,7 @@ export function EnhancedCalendar({
         end: endTime,
         description: "",
         category: categories.length > 0 ? categories[0].value : undefined,
+        allDay: true,
       })
     }
   }, [selectedEvent, categories])
@@ -144,14 +162,22 @@ export function EnhancedCalendar({
     // If in read-only mode, don't allow creating new events
     if (readOnly) return
 
+    // 選択された日の開始と終了を設定
+    const startDate = new Date(start)
+    startDate.setHours(0, 0, 0, 0)
+
+    const endDate = new Date(start)
+    endDate.setHours(23, 59, 59, 999)
+
     setSelectedEvent(null)
     setIsNewEvent(true)
     setFormData({
       title: "",
-      start,
-      end,
+      start: startDate,
+      end: endDate,
       description: "",
       category: categories.length > 0 ? categories[0].value : undefined,
+      allDay: true,
     })
     setIsDialogOpen(true)
   }
@@ -175,7 +201,7 @@ export function EnhancedCalendar({
     if (!onEventUpdate) return
 
     try {
-      const updatedEvent = { ...event, start, end }
+      const updatedEvent = { ...event, start, end, allDay: true }
       await onEventUpdate(updatedEvent)
     } catch (error) {
       console.error("Failed to resize event:", error)
@@ -189,7 +215,7 @@ export function EnhancedCalendar({
     if (!onEventUpdate) return
 
     try {
-      const updatedEvent = { ...event, start, end }
+      const updatedEvent = { ...event, start, end, allDay: true }
       await onEventUpdate(updatedEvent)
     } catch (error) {
       console.error("Failed to move event:", error)
@@ -203,10 +229,16 @@ export function EnhancedCalendar({
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, field: "start" | "end") => {
     const value = e.target.value
-    const [date, time] = value.split("T")
+    const [date] = value.split("T")
 
-    if (date && time) {
-      const newDate = new Date(`${date}T${time}`)
+    if (date) {
+      let newDate = new Date(`${date}T00:00:00`)
+
+      // 終了日の場合は23:59:59に設定
+      if (field === "end") {
+        newDate = new Date(`${date}T23:59:59`)
+      }
+
       setFormData((prev) => ({ ...prev, [field]: newDate }))
     }
   }
@@ -222,12 +254,18 @@ export function EnhancedCalendar({
     setIsSubmitting(true)
 
     try {
+      // 必ず終日イベントとして保存
+      const eventData = {
+        ...formData,
+        allDay: true,
+      }
+
       if (isNewEvent) {
         if (onEventAdd) {
-          await onEventAdd(formData as CalendarEvent)
+          await onEventAdd(eventData as CalendarEvent)
         }
       } else if (selectedEvent && onEventUpdate) {
-        await onEventUpdate({ ...selectedEvent, ...formData } as CalendarEvent)
+        await onEventUpdate({ ...selectedEvent, ...eventData } as CalendarEvent)
       }
 
       setIsDialogOpen(false)
@@ -324,8 +362,8 @@ export function EnhancedCalendar({
   }
 
   // Format the date/time for the input fields
-  const formatDateTimeForInput = (date: Date) => {
-    return moment(date).format("YYYY-MM-DDTHH:mm")
+  const formatDateForInput = (date: Date) => {
+    return moment(date).format("YYYY-MM-DD")
   }
 
   if (error) {
@@ -391,7 +429,7 @@ export function EnhancedCalendar({
         <Calendar
           ref={calendarRef}
           localizer={localizer}
-          events={events.map((event) => ({ ...event, allDay: true }))} // すべてのイベントを終日イベントとして扱う
+          events={processedEvents}
           startAccessor="start"
           endAccessor="end"
           style={{ height: "100%" }}
@@ -403,14 +441,13 @@ export function EnhancedCalendar({
           onView={(newView: any) => setView(newView)}
           date={currentDate}
           onNavigate={(date: Date) => setCurrentDate(date)}
-          selectable={!readOnly} // Disable selection in read-only mode
+          selectable={!readOnly}
           onSelectSlot={handleSelectSlot}
           onSelectEvent={handleSelectEvent}
           eventPropGetter={eventStyleGetter}
-          dayPropGetter={customDayPropGetter}
-          resizable={!readOnly} // Disable resizing in read-only mode
+          resizable={!readOnly}
           onEventResize={handleEventResize}
-          draggableAccessor={() => !readOnly} // Disable dragging in read-only mode
+          draggableAccessor={() => !readOnly}
           onEventDrop={handleEventDrop}
           popup
           tooltipAccessor={(event) => event.description || event.title}
@@ -429,7 +466,6 @@ export function EnhancedCalendar({
             dayHeaderFormat: (date) => moment(date).format("M月D日(ddd)"),
             dayRangeHeaderFormat: ({ start, end }) =>
               `${moment(start).format("M月D日")} - ${moment(end).format("M月D日")}`,
-            timeGutterFormat: (date) => moment(date).format("HH:mm"),
           }}
           components={{
             toolbar: () => null, // We're using our custom toolbar
@@ -453,13 +489,13 @@ export function EnhancedCalendar({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="start">開始日時</Label>
+                    <Label htmlFor="start">開始日</Label>
                     <div className="flex items-center">
                       <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
                       <Input
                         id="start"
-                        type="datetime-local"
-                        value={formatDateTimeForInput(formData.start as Date)}
+                        type="date"
+                        value={formatDateForInput(formData.start as Date)}
                         onChange={(e) => handleDateChange(e, "start")}
                         required
                       />
@@ -467,13 +503,13 @@ export function EnhancedCalendar({
                   </div>
 
                   <div className="grid gap-2">
-                    <Label htmlFor="end">終了日時</Label>
+                    <Label htmlFor="end">終了日</Label>
                     <div className="flex items-center">
                       <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
                       <Input
                         id="end"
-                        type="datetime-local"
-                        value={formatDateTimeForInput(formData.end as Date)}
+                        type="date"
+                        value={formatDateForInput(formData.end as Date)}
                         onChange={(e) => handleDateChange(e, "end")}
                         required
                       />
