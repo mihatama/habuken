@@ -46,7 +46,9 @@ export function ToolForm({ open, onOpenChange, onSuccess }: ToolFormProps) {
     })
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault()
+
     if (!formData.name) {
       toast({
         title: "入力エラー",
@@ -58,19 +60,24 @@ export function ToolForm({ open, onOpenChange, onSuccess }: ToolFormProps) {
 
     setSubmitting(true)
     try {
-      await insertClientData("resources", {
+      // 修正: statusフィールドをconditionに変更し、不要なフィールドを削除
+      const result = await insertClientData("resources", {
         name: formData.name,
         type: "工具", // リソースタイプを「工具」に固定
-        resource_type: formData.type,
-        model: formData.model,
-        manufacturer: formData.manufacturer,
-        serial_number: formData.serialNumber,
-        purchase_date: formData.purchaseDate || null,
-        purchase_price: formData.purchasePrice ? Number.parseFloat(formData.purchasePrice) : null,
-        status: formData.status,
-        location: formData.location,
-        notes: formData.notes,
+        description: formData.notes, // notesをdescriptionに変更
+        status: formData.status, // statusはそのまま使用
+        // 以下のフィールドはmetadataオブジェクトとして保存
+        metadata: {
+          resource_type: formData.type,
+          model: formData.model,
+          manufacturer: formData.manufacturer,
+          serial_number: formData.serialNumber,
+          purchase_date: formData.purchaseDate || null,
+          purchase_price: formData.purchasePrice ? Number.parseFloat(formData.purchasePrice) : null,
+          location: formData.location,
+        },
         created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
 
       toast({
@@ -79,13 +86,15 @@ export function ToolForm({ open, onOpenChange, onSuccess }: ToolFormProps) {
       })
 
       resetForm()
-      onOpenChange(false)
-      if (onSuccess) onSuccess()
+      setTimeout(() => {
+        onOpenChange(false)
+        if (onSuccess) onSuccess()
+      }, 100)
     } catch (error) {
       console.error("備品追加エラー:", error)
       toast({
         title: "エラー",
-        description: "備品の追加に失敗しました",
+        description: `備品の追加に失敗しました: ${error.message || "不明なエラー"}`,
         variant: "destructive",
       })
     } finally {
@@ -211,10 +220,17 @@ export function ToolForm({ open, onOpenChange, onSuccess }: ToolFormProps) {
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+          <Button
+            variant="outline"
+            onClick={(e) => {
+              e.preventDefault()
+              onOpenChange(false)
+            }}
+            disabled={submitting}
+          >
             キャンセル
           </Button>
-          <Button type="submit" onClick={handleSubmit} disabled={submitting}>
+          <Button type="button" onClick={(e) => handleSubmit(e)} disabled={submitting}>
             {submitting ? "保存中..." : "保存"}
           </Button>
         </DialogFooter>

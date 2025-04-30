@@ -237,7 +237,12 @@ export function ToolList() {
           />
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button
+                onClick={(e) => {
+                  e.preventDefault()
+                  setIsAddDialogOpen(true)
+                }}
+              >
                 <Plus className="mr-2 h-4 w-4" />
                 新規備品
               </Button>

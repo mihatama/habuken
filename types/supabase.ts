@@ -124,6 +124,7 @@ export interface Database {
           type: string
           status: string
           description: string | null
+          metadata: Json | null // metadataフィールドを追加
           created_at: string
           updated_at: string
         }
@@ -133,6 +134,7 @@ export interface Database {
           type: string
           status?: string
           description?: string | null
+          metadata?: Json | null // metadataフィールドを追加
           created_at?: string
           updated_at?: string
         }
@@ -142,6 +144,7 @@ export interface Database {
           type?: string
           status?: string
           description?: string | null
+          metadata?: Json | null // metadataフィールドを追加
           created_at?: string
           updated_at?: string
         }
