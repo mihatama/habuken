@@ -15,7 +15,6 @@ import { Label } from "@/components/ui/label"
 
 interface ResourceSelectorProps {
   resourceType: "staff" | "machinery" | "vehicles" | "tools"
-  selectedResources: { id: string; startDate: string; endDate: string | null }[] | "vehicles" | "tools"
   selectedResources: { id: string; startDate: string; endDate: string | null }[]
   onSelectedResourcesChange: (resources: { id: string; startDate: string; endDate: string | null }[]) => void
   startDate: string
@@ -38,7 +37,10 @@ export function ResourceSelector({
     startDate: string
     endDate: string | null
   } | null>(null)
-  const [tempPeriod, setTempPeriod] = useState({ startDate: "", endDate: "" })
+  const [tempPeriod, setTempPeriod] = useState<{ startDate: string; endDate: string }>({
+    startDate: "",
+    endDate: "",
+  })
 
   // リソースデータの取得
   useEffect(() => {
