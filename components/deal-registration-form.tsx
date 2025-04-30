@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { getClientSupabase } from "@/lib/supabase-utils"
-import { Loader2, CheckCircle, Users, Truck, Package, Car } from "lucide-react"
+import { Loader2, CheckCircle, Users, Truck, Package, Car, Calendar, Edit2 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -17,6 +17,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Search, X } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+
+// リソース使用期間の型定義
+interface ResourcePeriod {
+  id: string
+  startDate: string
+  endDate: string
+}
 
 export function DealRegistrationForm() {
   const router = useRouter()
@@ -30,10 +38,10 @@ export function DealRegistrationForm() {
     description: "",
     location: "",
     status: "pending",
-    selectedStaff: [] as string[],
-    selectedHeavyMachinery: [] as string[],
-    selectedVehicles: [] as string[],
-    selectedTools: [] as string[],
+    selectedStaff: [] as ResourcePeriod[],
+    selectedHeavyMachinery: [] as ResourcePeriod[],
+    selectedVehicles: [] as ResourcePeriod[],
+    selectedTools: [] as ResourcePeriod[],
   })
 
   // リソースデータ
@@ -47,6 +55,14 @@ export function DealRegistrationForm() {
   const [searchHeavyMachinery, setSearchHeavyMachinery] = useState("")
   const [searchVehicles, setSearchVehicles] = useState("")
   const [searchTools, setSearchTools] = useState("")
+
+  // 期間編集用のダイアログ状態
+  const [periodDialogOpen, setPeriodDialogOpen] = useState(false)
+  const [editingResource, setEditingResource] = useState<{
+    type: "staff" | "heavy" | "vehicles" | "tools"
+    item: ResourcePeriod
+  } | null>(null)
+  const [tempPeriod, setTempPeriod] = useState({ startDate: "", endDate: "" })
 
   // リソースデータの取得
   useEffect(() => {
@@ -87,13 +103,59 @@ export function DealRegistrationForm() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  // 期間編集ダイアログを開く
+  const openPeriodDialog = (type: "staff" | "heavy" | "vehicles" | "tools", item: ResourcePeriod) => {
+    setEditingResource({ type, item })
+    setTempPeriod({ startDate: item.startDate, endDate: item.endDate })
+    setPeriodDialogOpen(true)
+  }
+
+  // 期間を保存
+  const savePeriod = () => {
+    if (!editingResource) return
+
+    const { type, item } = editingResource
+    const updatedItem = { ...item, startDate: tempPeriod.startDate, endDate: tempPeriod.endDate }
+
+    setFormData((prev) => {
+      let updatedArray: ResourcePeriod[] = []
+
+      switch (type) {
+        case "staff":
+          updatedArray = prev.selectedStaff.map((staff) => (staff.id === item.id ? updatedItem : staff))
+          return { ...prev, selectedStaff: updatedArray }
+        case "heavy":
+          updatedArray = prev.selectedHeavyMachinery.map((machinery) =>
+            machinery.id === item.id ? updatedItem : machinery,
+          )
+          return { ...prev, selectedHeavyMachinery: updatedArray }
+        case "vehicles":
+          updatedArray = prev.selectedVehicles.map((vehicle) => (vehicle.id === item.id ? updatedItem : vehicle))
+          return { ...prev, selectedVehicles: updatedArray }
+        case "tools":
+          updatedArray = prev.selectedTools.map((tool) => (tool.id === item.id ? updatedItem : tool))
+          return { ...prev, selectedTools: updatedArray }
+        default:
+          return prev
+      }
+    })
+
+    setPeriodDialogOpen(false)
+  }
+
   // スタッフの選択状態を変更する関数
   const handleStaffChange = (staffId: string, checked: boolean) => {
     setFormData((prev) => {
       if (checked) {
-        return { ...prev, selectedStaff: [...prev.selectedStaff, staffId] }
+        return {
+          ...prev,
+          selectedStaff: [...prev.selectedStaff, { id: staffId, startDate: prev.startDate, endDate: prev.endDate }],
+        }
       } else {
-        return { ...prev, selectedStaff: prev.selectedStaff.filter((id) => id !== staffId) }
+        return {
+          ...prev,
+          selectedStaff: prev.selectedStaff.filter((staff) => staff.id !== staffId),
+        }
       }
     })
   }
@@ -102,9 +164,18 @@ export function DealRegistrationForm() {
   const handleHeavyMachineryChange = (machineryId: string, checked: boolean) => {
     setFormData((prev) => {
       if (checked) {
-        return { ...prev, selectedHeavyMachinery: [...prev.selectedHeavyMachinery, machineryId] }
+        return {
+          ...prev,
+          selectedHeavyMachinery: [
+            ...prev.selectedHeavyMachinery,
+            { id: machineryId, startDate: prev.startDate, endDate: prev.endDate },
+          ],
+        }
       } else {
-        return { ...prev, selectedHeavyMachinery: prev.selectedHeavyMachinery.filter((id) => id !== machineryId) }
+        return {
+          ...prev,
+          selectedHeavyMachinery: prev.selectedHeavyMachinery.filter((machinery) => machinery.id !== machineryId),
+        }
       }
     })
   }
@@ -113,9 +184,18 @@ export function DealRegistrationForm() {
   const handleVehicleChange = (vehicleId: string, checked: boolean) => {
     setFormData((prev) => {
       if (checked) {
-        return { ...prev, selectedVehicles: [...prev.selectedVehicles, vehicleId] }
+        return {
+          ...prev,
+          selectedVehicles: [
+            ...prev.selectedVehicles,
+            { id: vehicleId, startDate: prev.startDate, endDate: prev.endDate },
+          ],
+        }
       } else {
-        return { ...prev, selectedVehicles: prev.selectedVehicles.filter((id) => id !== vehicleId) }
+        return {
+          ...prev,
+          selectedVehicles: prev.selectedVehicles.filter((vehicle) => vehicle.id !== vehicleId),
+        }
       }
     })
   }
@@ -124,31 +204,49 @@ export function DealRegistrationForm() {
   const handleToolChange = (toolId: string, checked: boolean) => {
     setFormData((prev) => {
       if (checked) {
-        return { ...prev, selectedTools: [...prev.selectedTools, toolId] }
+        return {
+          ...prev,
+          selectedTools: [...prev.selectedTools, { id: toolId, startDate: prev.startDate, endDate: prev.endDate }],
+        }
       } else {
-        return { ...prev, selectedTools: prev.selectedTools.filter((id) => id !== toolId) }
+        return {
+          ...prev,
+          selectedTools: prev.selectedTools.filter((tool) => tool.id !== toolId),
+        }
       }
     })
   }
 
   // 選択したスタッフの情報を取得
   const getSelectedStaffInfo = () => {
-    return staffList.filter((staff) => formData.selectedStaff.includes(staff.id))
+    return formData.selectedStaff.map((staff) => {
+      const staffInfo = staffList.find((s) => s.id === staff.id)
+      return { ...staff, info: staffInfo }
+    })
   }
 
   // 選択した重機の情報を取得
   const getSelectedHeavyMachineryInfo = () => {
-    return heavyMachineryList.filter((machinery) => formData.selectedHeavyMachinery.includes(machinery.id))
+    return formData.selectedHeavyMachinery.map((machinery) => {
+      const machineryInfo = heavyMachineryList.find((m) => m.id === machinery.id)
+      return { ...machinery, info: machineryInfo }
+    })
   }
 
   // 選択した車両の情報を取得
   const getSelectedVehiclesInfo = () => {
-    return vehiclesList.filter((vehicle) => formData.selectedVehicles.includes(vehicle.id))
+    return formData.selectedVehicles.map((vehicle) => {
+      const vehicleInfo = vehiclesList.find((v) => v.id === vehicle.id)
+      return { ...vehicle, info: vehicleInfo }
+    })
   }
 
   // 選択した備品の情報を取得
   const getSelectedToolsInfo = () => {
-    return toolsList.filter((tool) => formData.selectedTools.includes(tool.id))
+    return formData.selectedTools.map((tool) => {
+      const toolInfo = toolsList.find((t) => t.id === tool.id)
+      return { ...tool, info: toolInfo }
+    })
   }
 
   // 検索条件に一致するスタッフをフィルタリング
@@ -178,6 +276,32 @@ export function DealRegistrationForm() {
       tool.name?.toLowerCase().includes(searchTools.toLowerCase()) ||
       tool.storage_location?.toLowerCase().includes(searchTools.toLowerCase()),
   )
+
+  // スタッフが選択されているかチェック
+  const isStaffSelected = (staffId: string) => {
+    return formData.selectedStaff.some((staff) => staff.id === staffId)
+  }
+
+  // 重機が選択されているかチェック
+  const isHeavyMachinerySelected = (machineryId: string) => {
+    return formData.selectedHeavyMachinery.some((machinery) => machinery.id === machineryId)
+  }
+
+  // 車両が選択されているかチェック
+  const isVehicleSelected = (vehicleId: string) => {
+    return formData.selectedVehicles.some((vehicle) => vehicle.id === vehicleId)
+  }
+
+  // 備品が選択されているかチェック
+  const isToolSelected = (toolId: string) => {
+    return formData.selectedTools.some((tool) => tool.id === toolId)
+  }
+
+  // 日付をフォーマット
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "-"
+    return new Date(dateString).toLocaleDateString()
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -222,9 +346,11 @@ export function DealRegistrationForm() {
 
       // スタッフの割り当て
       if (formData.selectedStaff.length > 0) {
-        const staffAssignments = formData.selectedStaff.map((staffId) => ({
+        const staffAssignments = formData.selectedStaff.map((staff) => ({
           deal_id: dealId,
-          staff_id: staffId,
+          staff_id: staff.id,
+          start_date: staff.startDate,
+          end_date: staff.endDate,
         }))
 
         const { error: staffError } = await supabase.from("deal_staff").insert(staffAssignments)
@@ -233,9 +359,11 @@ export function DealRegistrationForm() {
 
       // 重機の割り当て
       if (formData.selectedHeavyMachinery.length > 0) {
-        const machineryAssignments = formData.selectedHeavyMachinery.map((machineryId) => ({
+        const machineryAssignments = formData.selectedHeavyMachinery.map((machinery) => ({
           deal_id: dealId,
-          machinery_id: machineryId,
+          machinery_id: machinery.id,
+          start_date: machinery.startDate,
+          end_date: machinery.endDate,
         }))
 
         const { error: machineryError } = await supabase.from("deal_machinery").insert(machineryAssignments)
@@ -244,9 +372,11 @@ export function DealRegistrationForm() {
 
       // 車両の割り当て
       if (formData.selectedVehicles.length > 0) {
-        const vehicleAssignments = formData.selectedVehicles.map((vehicleId) => ({
+        const vehicleAssignments = formData.selectedVehicles.map((vehicle) => ({
           deal_id: dealId,
-          vehicle_id: vehicleId,
+          vehicle_id: vehicle.id,
+          start_date: vehicle.startDate,
+          end_date: vehicle.endDate,
         }))
 
         const { error: vehicleError } = await supabase.from("deal_vehicles").insert(vehicleAssignments)
@@ -255,9 +385,11 @@ export function DealRegistrationForm() {
 
       // 備品の割り当て
       if (formData.selectedTools.length > 0) {
-        const toolAssignments = formData.selectedTools.map((toolId) => ({
+        const toolAssignments = formData.selectedTools.map((tool) => ({
           deal_id: dealId,
-          tool_id: toolId,
+          tool_id: tool.id,
+          start_date: tool.startDate,
+          end_date: tool.endDate,
         }))
 
         const { error: toolError } = await supabase.from("deal_tools").insert(toolAssignments)
@@ -277,6 +409,36 @@ export function DealRegistrationForm() {
       setIsSubmitting(false)
     }
   }
+
+  // 基本情報の開始日・終了日が変更されたときに、未選択のリソースのデフォルト期間を更新
+  useEffect(() => {
+    // 基本情報の日付が変更されたときだけ実行
+    if (formData.startDate || formData.endDate) {
+      setFormData((prev) => ({
+        ...prev,
+        selectedStaff: prev.selectedStaff.map((staff) => ({
+          ...staff,
+          startDate: staff.startDate || prev.startDate,
+          endDate: staff.endDate || prev.endDate,
+        })),
+        selectedHeavyMachinery: prev.selectedHeavyMachinery.map((machinery) => ({
+          ...machinery,
+          startDate: machinery.startDate || prev.startDate,
+          endDate: machinery.endDate || prev.endDate,
+        })),
+        selectedVehicles: prev.selectedVehicles.map((vehicle) => ({
+          ...vehicle,
+          startDate: vehicle.startDate || prev.startDate,
+          endDate: vehicle.endDate || prev.endDate,
+        })),
+        selectedTools: prev.selectedTools.map((tool) => ({
+          ...tool,
+          startDate: tool.startDate || prev.startDate,
+          endDate: tool.endDate || prev.endDate,
+        })),
+      }))
+    }
+  }, [formData.startDate, formData.endDate])
 
   if (success) {
     return (
@@ -419,18 +581,41 @@ export function DealRegistrationForm() {
             {formData.selectedStaff.length > 0 && (
               <div className="mb-4">
                 <h4 className="text-sm font-medium mb-2">選択済みスタッフ</h4>
-                <div className="flex flex-wrap gap-2">
+                <div className="space-y-2">
                   {getSelectedStaffInfo().map((staff) => (
-                    <Badge key={staff.id} variant="outline" className="flex items-center gap-1 py-1">
-                      {staff.full_name}
-                      <button
-                        type="button"
-                        onClick={() => handleStaffChange(staff.id, false)}
-                        className="ml-1 rounded-full hover:bg-muted p-0.5"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
+                    <div key={staff.id} className="flex items-center justify-between p-2 border rounded-md">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="py-1">
+                          {staff.info?.full_name}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {formatDate(staff.startDate)} 〜 {formatDate(staff.endDate)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openPeriodDialog("staff", staff)}
+                          className="h-8 px-2"
+                        >
+                          <Edit2 className="h-3 w-3 mr-1" />
+                          期間編集
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleStaffChange(staff.id, false)}
+                          className="h-8 px-2 text-red-500 hover:text-red-700"
+                        >
+                          <X className="h-3 w-3" />
+                          削除
+                        </Button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -453,7 +638,7 @@ export function DealRegistrationForm() {
                       <TableRow key={staff.id} className="cursor-pointer hover:bg-muted/50">
                         <TableCell>
                           <Checkbox
-                            checked={formData.selectedStaff.includes(staff.id)}
+                            checked={isStaffSelected(staff.id)}
                             onCheckedChange={(checked) => handleStaffChange(staff.id, checked as boolean)}
                           />
                         </TableCell>
@@ -490,18 +675,41 @@ export function DealRegistrationForm() {
             {formData.selectedHeavyMachinery.length > 0 && (
               <div className="mb-4">
                 <h4 className="text-sm font-medium mb-2">選択済み重機</h4>
-                <div className="flex flex-wrap gap-2">
+                <div className="space-y-2">
                   {getSelectedHeavyMachineryInfo().map((machinery) => (
-                    <Badge key={machinery.id} variant="outline" className="flex items-center gap-1 py-1">
-                      {machinery.name}
-                      <button
-                        type="button"
-                        onClick={() => handleHeavyMachineryChange(machinery.id, false)}
-                        className="ml-1 rounded-full hover:bg-muted p-0.5"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
+                    <div key={machinery.id} className="flex items-center justify-between p-2 border rounded-md">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="py-1">
+                          {machinery.info?.name}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {formatDate(machinery.startDate)} 〜 {formatDate(machinery.endDate)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openPeriodDialog("heavy", machinery)}
+                          className="h-8 px-2"
+                        >
+                          <Edit2 className="h-3 w-3 mr-1" />
+                          期間編集
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleHeavyMachineryChange(machinery.id, false)}
+                          className="h-8 px-2 text-red-500 hover:text-red-700"
+                        >
+                          <X className="h-3 w-3" />
+                          削除
+                        </Button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -525,7 +733,7 @@ export function DealRegistrationForm() {
                       <TableRow key={machinery.id} className="cursor-pointer hover:bg-muted/50">
                         <TableCell>
                           <Checkbox
-                            checked={formData.selectedHeavyMachinery.includes(machinery.id)}
+                            checked={isHeavyMachinerySelected(machinery.id)}
                             onCheckedChange={(checked) => handleHeavyMachineryChange(machinery.id, checked as boolean)}
                           />
                         </TableCell>
@@ -563,18 +771,41 @@ export function DealRegistrationForm() {
             {formData.selectedVehicles.length > 0 && (
               <div className="mb-4">
                 <h4 className="text-sm font-medium mb-2">選択済み車両</h4>
-                <div className="flex flex-wrap gap-2">
+                <div className="space-y-2">
                   {getSelectedVehiclesInfo().map((vehicle) => (
-                    <Badge key={vehicle.id} variant="outline" className="flex items-center gap-1 py-1">
-                      {vehicle.name}
-                      <button
-                        type="button"
-                        onClick={() => handleVehicleChange(vehicle.id, false)}
-                        className="ml-1 rounded-full hover:bg-muted p-0.5"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
+                    <div key={vehicle.id} className="flex items-center justify-between p-2 border rounded-md">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="py-1">
+                          {vehicle.info?.name}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {formatDate(vehicle.startDate)} 〜 {formatDate(vehicle.endDate)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openPeriodDialog("vehicles", vehicle)}
+                          className="h-8 px-2"
+                        >
+                          <Edit2 className="h-3 w-3 mr-1" />
+                          期間編集
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleVehicleChange(vehicle.id, false)}
+                          className="h-8 px-2 text-red-500 hover:text-red-700"
+                        >
+                          <X className="h-3 w-3" />
+                          削除
+                        </Button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -598,7 +829,7 @@ export function DealRegistrationForm() {
                       <TableRow key={vehicle.id} className="cursor-pointer hover:bg-muted/50">
                         <TableCell>
                           <Checkbox
-                            checked={formData.selectedVehicles.includes(vehicle.id)}
+                            checked={isVehicleSelected(vehicle.id)}
                             onCheckedChange={(checked) => handleVehicleChange(vehicle.id, checked as boolean)}
                           />
                         </TableCell>
@@ -636,18 +867,41 @@ export function DealRegistrationForm() {
             {formData.selectedTools.length > 0 && (
               <div className="mb-4">
                 <h4 className="text-sm font-medium mb-2">選択済み備品</h4>
-                <div className="flex flex-wrap gap-2">
+                <div className="space-y-2">
                   {getSelectedToolsInfo().map((tool) => (
-                    <Badge key={tool.id} variant="outline" className="flex items-center gap-1 py-1">
-                      {tool.name}
-                      <button
-                        type="button"
-                        onClick={() => handleToolChange(tool.id, false)}
-                        className="ml-1 rounded-full hover:bg-muted p-0.5"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
+                    <div key={tool.id} className="flex items-center justify-between p-2 border rounded-md">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="py-1">
+                          {tool.info?.name}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {formatDate(tool.startDate)} 〜 {formatDate(tool.endDate)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openPeriodDialog("tools", tool)}
+                          className="h-8 px-2"
+                        >
+                          <Edit2 className="h-3 w-3 mr-1" />
+                          期間編集
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleToolChange(tool.id, false)}
+                          className="h-8 px-2 text-red-500 hover:text-red-700"
+                        >
+                          <X className="h-3 w-3" />
+                          削除
+                        </Button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -671,7 +925,7 @@ export function DealRegistrationForm() {
                       <TableRow key={tool.id} className="cursor-pointer hover:bg-muted/50">
                         <TableCell>
                           <Checkbox
-                            checked={formData.selectedTools.includes(tool.id)}
+                            checked={isToolSelected(tool.id)}
                             onCheckedChange={(checked) => handleToolChange(tool.id, checked as boolean)}
                           />
                         </TableCell>
@@ -695,6 +949,49 @@ export function DealRegistrationForm() {
             </ScrollArea>
           </TabsContent>
         </Tabs>
+
+        {/* 期間編集ダイアログ */}
+        <Dialog open={periodDialogOpen} onOpenChange={setPeriodDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>使用期間の編集</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="period-start" className="text-right">
+                  開始日
+                </Label>
+                <Input
+                  id="period-start"
+                  type="date"
+                  value={tempPeriod.startDate}
+                  onChange={(e) => setTempPeriod({ ...tempPeriod, startDate: e.target.value })}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="period-end" className="text-right">
+                  終了日
+                </Label>
+                <Input
+                  id="period-end"
+                  type="date"
+                  value={tempPeriod.endDate}
+                  onChange={(e) => setTempPeriod({ ...tempPeriod, endDate: e.target.value })}
+                  className="col-span-3"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setPeriodDialogOpen(false)}>
+                キャンセル
+              </Button>
+              <Button type="button" onClick={savePeriod}>
+                保存
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <div className="flex justify-end space-x-4">
           <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
@@ -722,4 +1019,5 @@ export function DealRegistrationForm() {
 // - 車両の紐づけ
 // - 備品の紐づけ
 // - 開始日と終了日の登録
+// - 各リソースの使用期間設定
 // 修正は必要ありません
