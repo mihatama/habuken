@@ -75,7 +75,26 @@ export function ToolList() {
       }
 
       setIsLoading(true)
-      const { data, error } = await supabase.from("resources").insert([newTool]).select()
+
+      // Supabaseのスキーマに合わせたデータ構造に変更
+      const toolData = {
+        name: newTool.name,
+        type: "工具",
+        status: "available", // デフォルトステータス
+        description: "", // 説明（空）
+        metadata: {
+          model: newTool.model,
+          manufacturer: newTool.manufacturer,
+          purchase_date: newTool.purchase_date || null,
+          storage_location: newTool.storage_location || null,
+          condition: newTool.condition,
+          last_maintenance_date: newTool.last_maintenance_date || null,
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+
+      const { data, error } = await supabase.from("resources").insert([toolData]).select()
 
       if (error) {
         throw error
@@ -103,7 +122,7 @@ export function ToolList() {
       console.error("備品の追加に失敗しました:", error)
       toast({
         title: "エラー",
-        description: "備品の追加に失敗しました",
+        description: `備品の追加に失敗しました: ${error.message || "不明なエラー"}`,
         variant: "destructive",
       })
     } finally {
@@ -127,19 +146,29 @@ export function ToolList() {
       }
 
       setIsLoading(true)
-      const { data, error } = await supabase
-        .from("resources")
-        .update({
-          name: currentTool.name,
-          model: currentTool.model,
-          manufacturer: currentTool.manufacturer,
-          purchase_date: currentTool.purchase_date,
-          storage_location: currentTool.storage_location,
-          condition: currentTool.condition,
-          last_maintenance_date: currentTool.last_maintenance_date,
-        })
-        .eq("id", currentTool.id)
-        .select()
+
+      // 現在のツールのmetadataを取得または新規作成
+      const metadata = currentTool.metadata || {}
+
+      // 更新データを準備
+      const updateData = {
+        name: currentTool.name,
+        // metadataフィールドを更新
+        metadata: {
+          ...metadata,
+          model: currentTool.model || metadata.model,
+          manufacturer: currentTool.manufacturer || metadata.manufacturer,
+          purchase_date: currentTool.purchase_date ? currentTool.purchase_date.split("T")[0] : metadata.purchase_date,
+          storage_location: currentTool.storage_location || metadata.storage_location,
+          condition: currentTool.condition || metadata.condition,
+          last_maintenance_date: currentTool.last_maintenance_date
+            ? currentTool.last_maintenance_date.split("T")[0]
+            : metadata.last_maintenance_date,
+        },
+        updated_at: new Date().toISOString(),
+      }
+
+      const { data, error } = await supabase.from("resources").update(updateData).eq("id", currentTool.id).select()
 
       if (error) {
         throw error
@@ -156,7 +185,7 @@ export function ToolList() {
       console.error("備品の更新に失敗しました:", error)
       toast({
         title: "エラー",
-        description: "備品の更新に失敗しました",
+        description: `備品の更新に失敗しました: ${error.message || "不明なエラー"}`,
         variant: "destructive",
       })
     } finally {
@@ -187,7 +216,7 @@ export function ToolList() {
       console.error("備品の削除に失敗しました:", error)
       toast({
         title: "エラー",
-        description: "備品の削除に失敗しました",
+        description: `備品の削除に失敗しました: ${error.message || "不明なエラー"}`,
         variant: "destructive",
       })
     } finally {
@@ -195,13 +224,15 @@ export function ToolList() {
     }
   }
 
-  const filteredTools = tools.filter(
-    (t) =>
-      t.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.storage_location?.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  const filteredTools = tools.filter((t) => {
+    const searchLower = searchTerm.toLowerCase()
+    return (
+      t.name?.toLowerCase().includes(searchLower) ||
+      (t.metadata?.model || "")?.toLowerCase().includes(searchLower) ||
+      (t.metadata?.manufacturer || "")?.toLowerCase().includes(searchLower) ||
+      (t.metadata?.storage_location || "")?.toLowerCase().includes(searchLower)
+    )
+  })
 
   const getConditionBadge = (condition: string) => {
     switch (condition) {
@@ -325,7 +356,7 @@ export function ToolList() {
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={isLoading}>
                   キャンセル
                 </Button>
-                <Button type="submit" onClick={addTool} disabled={isLoading}>
+                <Button type="button" onClick={() => addTool()} disabled={isLoading}>
                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   追加
                 </Button>
@@ -358,38 +389,61 @@ export function ToolList() {
                   <TableRow key={tool.id}>
                     <TableCell className="font-medium">{tool.name}</TableCell>
                     <TableCell>
-                      {tool.model ? (
+                      {tool.metadata?.model ? (
                         <div>
-                          <div>{tool.model}</div>
-                          {tool.manufacturer && (
-                            <div className="text-sm text-muted-foreground">{tool.manufacturer}</div>
+                          <div>{tool.metadata.model}</div>
+                          {tool.metadata.manufacturer && (
+                            <div className="text-sm text-muted-foreground">{tool.metadata.manufacturer}</div>
                           )}
                         </div>
-                      ) : tool.manufacturer ? (
-                        tool.manufacturer
+                      ) : tool.metadata?.manufacturer ? (
+                        tool.metadata.manufacturer
                       ) : (
                         "-"
                       )}
                     </TableCell>
-                    <TableCell>{formatDate(tool.purchase_date)}</TableCell>
-                    <TableCell>{tool.storage_location || "-"}</TableCell>
-                    <TableCell>{getConditionBadge(tool.condition)}</TableCell>
-                    <TableCell>{formatDate(tool.last_maintenance_date)}</TableCell>
+                    <TableCell>{formatDate(tool.metadata?.purchase_date || "")}</TableCell>
+                    <TableCell>{tool.metadata?.storage_location || "-"}</TableCell>
+                    <TableCell>{getConditionBadge(tool.metadata?.condition || "unknown")}</TableCell>
+                    <TableCell>{formatDate(tool.metadata?.last_maintenance_date || "")}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
                         <Dialog
                           open={isEditDialogOpen && currentTool?.id === tool.id}
                           onOpenChange={(open) => {
                             setIsEditDialogOpen(open)
-                            if (open) setCurrentTool(tool)
+                            if (open) {
+                              // metadataからデータを取り出して編集しやすい形に変換
+                              const metadata = tool.metadata || {}
+                              setCurrentTool({
+                                ...tool,
+                                model: metadata.model || "",
+                                manufacturer: metadata.manufacturer || "",
+                                purchase_date: metadata.purchase_date || "",
+                                storage_location: metadata.storage_location || "",
+                                condition: metadata.condition || "good",
+                                last_maintenance_date: metadata.last_maintenance_date || "",
+                              })
+                            }
                           }}
                         >
                           <DialogTrigger asChild>
                             <Button
                               variant="outline"
                               size="icon"
-                              onClick={() => {
-                                setCurrentTool(tool)
+                              onClick={(e) => {
+                                e.preventDefault()
+                                // metadataからデータを取り出して編集しやすい形に変換
+                                const metadata = tool.metadata || {}
+                                setCurrentTool({
+                                  ...tool,
+                                  model: metadata.model || "",
+                                  manufacturer: metadata.manufacturer || "",
+                                  purchase_date: metadata.purchase_date || "",
+                                  storage_location: metadata.storage_location || "",
+                                  condition: metadata.condition || "good",
+                                  last_maintenance_date: metadata.last_maintenance_date || "",
+                                })
                                 setIsEditDialogOpen(true)
                               }}
                             >
@@ -452,7 +506,7 @@ export function ToolList() {
                                   <select
                                     id="edit-condition"
                                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                    value={currentTool.condition}
+                                    value={currentTool.condition || "good"}
                                     onChange={(e) => setCurrentTool({ ...currentTool, condition: e.target.value })}
                                   >
                                     <option value="excellent">優良</option>
@@ -482,7 +536,7 @@ export function ToolList() {
                               <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isLoading}>
                                 キャンセル
                               </Button>
-                              <Button type="submit" onClick={updateTool} disabled={isLoading}>
+                              <Button type="button" onClick={() => updateTool()} disabled={isLoading}>
                                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                                 保存
                               </Button>
