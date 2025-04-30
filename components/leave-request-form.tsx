@@ -19,7 +19,6 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { useToast } from "@/components/ui/use-toast"
 import { getClientSupabase } from "@/lib/supabase-utils"
-import { createLeaveRequestAction } from "@/actions/leave-requests"
 
 // フォームのバリデーションスキーマ
 const formSchema = z.object({
@@ -107,15 +106,24 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
 
       console.log("Submitting form with values:", values)
 
-      // サーバーアクションを使用して休暇申請を作成
-      const result = await createLeaveRequestAction({
-        staff_id: values.staffId,
-        start_date: values.startDate,
-        end_date: values.endDate,
-        reason: values.reason,
+      // APIエンドポイントを使用して休暇申請を作成
+      const response = await fetch("/api/leave-requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          staff_id: values.staffId,
+          start_date: values.startDate,
+          end_date: values.endDate,
+          reason: values.reason,
+          leave_type: values.leaveType,
+        }),
       })
 
-      if (!result.success) {
+      const result = await response.json()
+
+      if (!response.ok) {
         throw new Error(result.error || "休暇申請の送信に失敗しました")
       }
 

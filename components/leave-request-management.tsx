@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { LeaveRequestForm } from "./leave-request-form"
 import { useToast } from "@/components/ui/use-toast"
-import { getClientSupabase } from "@/lib/supabase-utils"
+import { getLeaveTypeName } from "@/lib/supabase-utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
@@ -17,7 +17,7 @@ type LeaveRequest = {
   staff_name?: string
   start_date: string
   end_date: string
-  leave_type: string
+  leave_type: string | null
   reason: string
   status: "pending" | "approved" | "rejected"
   created_at: string
@@ -33,39 +33,22 @@ export function LeaveRequestManagement() {
   const fetchLeaveRequests = async () => {
     try {
       setIsLoading(true)
-      const supabase = getClientSupabase()
 
-      // Get leave requests with staff names
-      const { data: leaveRequestsData, error: leaveRequestsError } = await supabase
-        .from("leave_requests")
-        .select(`
-          id,
-          staff_id,
-          start_date,
-          end_date,
-          leave_type,
-          reason,
-          status,
-          created_at
-        `)
-        .order("created_at", { ascending: false })
+      // APIエンドポイントを使用してデータを取得
+      const response = await fetch("/api/leave-requests", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
 
-      if (leaveRequestsError) throw leaveRequestsError
+      if (!response.ok) {
+        throw new Error("休暇申請データの取得に失敗しました")
+      }
 
-      // Get staff data to map names
-      const { data: staffData, error: staffError } = await supabase.from("staff").select("id, full_name")
-
-      if (staffError) throw staffError
-
-      // Map staff names to leave requests
-      const staffMap = new Map(staffData.map((staff: any) => [staff.id, staff.full_name]))
-
-      const enrichedLeaveRequests = leaveRequestsData.map((request: any) => ({
-        ...request,
-        staff_name: staffMap.get(request.staff_id) || "不明なスタッフ",
-      }))
-
-      setLeaveRequests(enrichedLeaveRequests)
+      const data = await response.json()
+      console.log("Fetched leave requests:", data.data)
+      setLeaveRequests(data.data)
     } catch (error) {
       console.error("休暇申請データ取得エラー:", error)
       toast({
@@ -90,19 +73,10 @@ export function LeaveRequestManagement() {
     fetchLeaveRequests()
   }
 
-  const getLeaveTypeLabel = (type: string) => {
-    switch (type) {
-      case "annual":
-        return "年次有給休暇"
-      case "sick":
-        return "病気休暇"
-      case "special":
-        return "特別休暇"
-      case "other":
-        return "その他"
-      default:
-        return type
-    }
+  const getLeaveTypeBadge = (type: string | null) => {
+    if (!type) return "未分類"
+
+    return getLeaveTypeName(type)
   }
 
   const getStatusBadge = (status: string) => {
@@ -167,7 +141,7 @@ export function LeaveRequestManagement() {
                       {format(new Date(request.end_date), "yyyy年MM月dd日", { locale: ja })}
                     </div>
                     <div className="text-sm mb-2">
-                      <span className="font-medium">休暇種類:</span> {getLeaveTypeLabel(request.leave_type)}
+                      <span className="font-medium">休暇種類:</span> {getLeaveTypeBadge(request.leave_type)}
                     </div>
                     <div className="text-sm">
                       <span className="font-medium">理由:</span> {request.reason}
