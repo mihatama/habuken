@@ -57,16 +57,17 @@ export function VehicleForm({ open, onOpenChange, onSuccess }: VehicleFormProps)
     setSubmitting(true)
     try {
       await insertClientData("vehicles", {
-        name: formData.name,
-        type: formData.type,
-        registration_number: formData.registrationNumber,
+        vehicle_number: formData.registrationNumber, // vehicle_number カラムに変更
+        vehicle_type: formData.type, // vehicle_type カラムに変更
         manufacturer: formData.manufacturer,
         model: formData.model,
         year: Number.parseInt(formData.year),
-        capacity: formData.capacity,
         status: formData.status,
         notes: formData.notes,
+        next_inspection_date: new Date().toISOString().split("T")[0], // 仮の点検日を設定
+        last_maintenance_date: new Date().toISOString().split("T")[0], // 仮の整備日を設定
         created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
 
       toast({

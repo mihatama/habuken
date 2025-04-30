@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -25,13 +25,12 @@ export function VehicleManagement() {
   const [newVehicle, setNewVehicle] = useState({
     name: "",
     type: "",
-    model: "",
-    manufacturer: "",
-    year: "",
-    license_plate: "",
-    ownership_type: "owned",
     location: "",
-    status: "available",
+    last_inspection_date: new Date().toISOString().split("T")[0],
+    ownership_type: "自社保有",
+    daily_rate: "",
+    weekly_rate: "",
+    monthly_rate: "",
   })
 
   useEffect(() => {
@@ -41,12 +40,13 @@ export function VehicleManagement() {
   async function fetchVehicles() {
     try {
       setIsLoading(true)
-      const { data, error } = await supabase.from("vehicles").select("*").order("name", { ascending: true })
+      const { data, error } = await supabase.from("vehicles").select("*").order("created_at", { ascending: false })
 
       if (error) {
         throw error
       }
 
+      console.log("取得した車両データ:", data)
       setVehicles(data || [])
     } catch (error) {
       console.error("車両の取得に失敗しました:", error)
@@ -72,7 +72,16 @@ export function VehicleManagement() {
       }
 
       setIsLoading(true)
-      const { data, error } = await supabase.from("vehicles").insert([newVehicle]).select()
+
+      // 数値フィールドの変換
+      const vehicleData = {
+        ...newVehicle,
+        daily_rate: newVehicle.daily_rate ? Number.parseFloat(newVehicle.daily_rate) : null,
+        weekly_rate: newVehicle.weekly_rate ? Number.parseFloat(newVehicle.weekly_rate) : null,
+        monthly_rate: newVehicle.monthly_rate ? Number.parseFloat(newVehicle.monthly_rate) : null,
+      }
+
+      const { data, error } = await supabase.from("vehicles").insert([vehicleData]).select()
 
       if (error) {
         throw error
@@ -86,13 +95,12 @@ export function VehicleManagement() {
       setNewVehicle({
         name: "",
         type: "",
-        model: "",
-        manufacturer: "",
-        year: "",
-        license_plate: "",
-        ownership_type: "owned",
         location: "",
-        status: "available",
+        last_inspection_date: new Date().toISOString().split("T")[0],
+        ownership_type: "自社保有",
+        daily_rate: "",
+        weekly_rate: "",
+        monthly_rate: "",
       })
 
       fetchVehicles()
@@ -125,21 +133,21 @@ export function VehicleManagement() {
       }
 
       setIsLoading(true)
-      const { data, error } = await supabase
-        .from("vehicles")
-        .update({
-          name: currentVehicle.name,
-          type: currentVehicle.type,
-          model: currentVehicle.model,
-          manufacturer: currentVehicle.manufacturer,
-          year: currentVehicle.year,
-          license_plate: currentVehicle.license_plate,
-          ownership_type: currentVehicle.ownership_type,
-          location: currentVehicle.location,
-          status: currentVehicle.status,
-        })
-        .eq("id", currentVehicle.id)
-        .select()
+
+      // 数値フィールドの変換
+      const vehicleData = {
+        name: currentVehicle.name,
+        type: currentVehicle.type,
+        location: currentVehicle.location,
+        last_inspection_date: currentVehicle.last_inspection_date,
+        ownership_type: currentVehicle.ownership_type,
+        daily_rate: currentVehicle.daily_rate ? Number.parseFloat(currentVehicle.daily_rate) : null,
+        weekly_rate: currentVehicle.weekly_rate ? Number.parseFloat(currentVehicle.weekly_rate) : null,
+        monthly_rate: currentVehicle.monthly_rate ? Number.parseFloat(currentVehicle.monthly_rate) : null,
+        updated_at: new Date().toISOString(),
+      }
+
+      const { data, error } = await supabase.from("vehicles").update(vehicleData).eq("id", currentVehicle.id).select()
 
       if (error) {
         throw error
@@ -199,37 +207,28 @@ export function VehicleManagement() {
     (v) =>
       v.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       v.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      v.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      v.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      v.license_plate?.toLowerCase().includes(searchTerm.toLowerCase()),
+      v.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      v.ownership_type?.toLowerCase().includes(searchTerm.toLowerCase()),
   )
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "available":
-        return <Badge className="bg-green-500 hover:bg-green-600">利用可能</Badge>
-      case "in_use":
-        return <Badge className="bg-blue-500 hover:bg-blue-600">使用中</Badge>
-      case "maintenance":
-        return <Badge className="bg-yellow-500 hover:bg-yellow-600">整備中</Badge>
-      case "unavailable":
-        return <Badge className="bg-red-500 hover:bg-red-600">利用不可</Badge>
-      default:
-        return <Badge>{status}</Badge>
-    }
-  }
 
   const getOwnershipBadge = (type: string) => {
     switch (type) {
-      case "owned":
-        return <Badge variant="outline">自社所有</Badge>
-      case "leased":
-        return <Badge variant="outline">リース</Badge>
-      case "rented":
-        return <Badge variant="outline">レンタル</Badge>
+      case "自社保有":
+        return <Badge className="bg-green-500 hover:bg-green-600">自社保有</Badge>
+      case "リース":
+        return <Badge className="bg-blue-500 hover:bg-blue-600">リース</Badge>
+      case "その他":
+        return <Badge className="bg-yellow-500 hover:bg-yellow-600">その他</Badge>
       default:
-        return <Badge variant="outline">{type}</Badge>
+        return <Badge>{type}</Badge>
     }
+  }
+
+  // 日付をフォーマットする関数
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "-"
+    const date = new Date(dateString)
+    return date.toLocaleDateString("ja-JP")
   }
 
   return (
@@ -243,117 +242,114 @@ export function VehicleManagement() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-[250px]"
           />
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                新規車両
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>新規車両の追加</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">
-                    名前 <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="name"
-                    value={newVehicle.name}
-                    onChange={(e) => setNewVehicle({ ...newVehicle, name: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="type">種類</Label>
-                  <Input
-                    id="type"
-                    value={newVehicle.type}
-                    onChange={(e) => setNewVehicle({ ...newVehicle, type: e.target.value })}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+          <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            新規車両
+          </Button>
+
+          {isAddDialogOpen && (
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>新規車両の追加</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="model">型式</Label>
+                    <Label htmlFor="name">
+                      車両名 <span className="text-red-500">*</span>
+                    </Label>
                     <Input
-                      id="model"
-                      value={newVehicle.model}
-                      onChange={(e) => setNewVehicle({ ...newVehicle, model: e.target.value })}
+                      id="name"
+                      value={newVehicle.name}
+                      onChange={(e) => setNewVehicle({ ...newVehicle, name: e.target.value })}
+                      placeholder="例: 4tダンプ1号車"
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="year">年式</Label>
+                    <Label htmlFor="type">車両タイプ</Label>
                     <Input
-                      id="year"
-                      value={newVehicle.year}
-                      onChange={(e) => setNewVehicle({ ...newVehicle, year: e.target.value })}
+                      id="type"
+                      value={newVehicle.type}
+                      onChange={(e) => setNewVehicle({ ...newVehicle, type: e.target.value })}
+                      placeholder="例: トラック、ダンプ、バックホー"
                     />
                   </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="location">保管場所</Label>
+                    <Input
+                      id="location"
+                      value={newVehicle.location}
+                      onChange={(e) => setNewVehicle({ ...newVehicle, location: e.target.value })}
+                      placeholder="例: 東京倉庫、横浜工場"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="last_inspection_date">最終点検日</Label>
+                    <Input
+                      id="last_inspection_date"
+                      type="date"
+                      value={newVehicle.last_inspection_date}
+                      onChange={(e) => setNewVehicle({ ...newVehicle, last_inspection_date: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="ownership_type">所有形態</Label>
+                    <select
+                      id="ownership_type"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={newVehicle.ownership_type}
+                      onChange={(e) => setNewVehicle({ ...newVehicle, ownership_type: e.target.value })}
+                    >
+                      <option value="自社保有">自社保有</option>
+                      <option value="リース">リース</option>
+                      <option value="その他">その他</option>
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="daily_rate">日額（円）</Label>
+                      <Input
+                        id="daily_rate"
+                        type="number"
+                        value={newVehicle.daily_rate}
+                        onChange={(e) => setNewVehicle({ ...newVehicle, daily_rate: e.target.value })}
+                        placeholder="例: 10000"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="weekly_rate">週額（円）</Label>
+                      <Input
+                        id="weekly_rate"
+                        type="number"
+                        value={newVehicle.weekly_rate}
+                        onChange={(e) => setNewVehicle({ ...newVehicle, weekly_rate: e.target.value })}
+                        placeholder="例: 50000"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="monthly_rate">月額（円）</Label>
+                      <Input
+                        id="monthly_rate"
+                        type="number"
+                        value={newVehicle.monthly_rate}
+                        onChange={(e) => setNewVehicle({ ...newVehicle, monthly_rate: e.target.value })}
+                        placeholder="例: 200000"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="manufacturer">メーカー</Label>
-                  <Input
-                    id="manufacturer"
-                    value={newVehicle.manufacturer}
-                    onChange={(e) => setNewVehicle({ ...newVehicle, manufacturer: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="license_plate">ナンバープレート</Label>
-                  <Input
-                    id="license_plate"
-                    value={newVehicle.license_plate}
-                    onChange={(e) => setNewVehicle({ ...newVehicle, license_plate: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="ownership_type">所有形態</Label>
-                  <select
-                    id="ownership_type"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={newVehicle.ownership_type}
-                    onChange={(e) => setNewVehicle({ ...newVehicle, ownership_type: e.target.value })}
-                  >
-                    <option value="owned">自社所有</option>
-                    <option value="leased">リース</option>
-                    <option value="rented">レンタル</option>
-                  </select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="location">保管場所</Label>
-                  <Input
-                    id="location"
-                    value={newVehicle.location}
-                    onChange={(e) => setNewVehicle({ ...newVehicle, location: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="status">ステータス</Label>
-                  <select
-                    id="status"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={newVehicle.status}
-                    onChange={(e) => setNewVehicle({ ...newVehicle, status: e.target.value })}
-                  >
-                    <option value="available">利用可能</option>
-                    <option value="in_use">使用中</option>
-                    <option value="maintenance">整備中</option>
-                    <option value="unavailable">利用不可</option>
-                  </select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={isLoading}>
-                  キャンセル
-                </Button>
-                <Button type="submit" onClick={addVehicle} disabled={isLoading}>
-                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  追加
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={isLoading}>
+                    キャンセル
+                  </Button>
+                  <Button type="submit" onClick={addVehicle} disabled={isLoading}>
+                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    追加
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </CardHeader>
       <CardContent>
@@ -365,13 +361,12 @@ export function VehicleManagement() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>名前</TableHead>
+                <TableHead>車両名</TableHead>
                 <TableHead>種類</TableHead>
-                <TableHead>型式/メーカー</TableHead>
-                <TableHead>ナンバー</TableHead>
-                <TableHead>所有形態</TableHead>
                 <TableHead>保管場所</TableHead>
-                <TableHead>ステータス</TableHead>
+                <TableHead>最終点検日</TableHead>
+                <TableHead>所有形態</TableHead>
+                <TableHead>料金（日/週/月）</TableHead>
                 <TableHead className="text-right">操作</TableHead>
               </TableRow>
             </TableHeader>
@@ -381,59 +376,39 @@ export function VehicleManagement() {
                   <TableRow key={vehicle.id}>
                     <TableCell className="font-medium">{vehicle.name}</TableCell>
                     <TableCell>{vehicle.type || "-"}</TableCell>
-                    <TableCell>
-                      {vehicle.model ? (
-                        <div>
-                          <div>{vehicle.model}</div>
-                          {vehicle.manufacturer && (
-                            <div className="text-sm text-muted-foreground">{vehicle.manufacturer}</div>
-                          )}
-                          {vehicle.year && <div className="text-sm text-muted-foreground">{vehicle.year}年式</div>}
-                        </div>
-                      ) : vehicle.manufacturer ? (
-                        <div>
-                          <div>{vehicle.manufacturer}</div>
-                          {vehicle.year && <div className="text-sm text-muted-foreground">{vehicle.year}年式</div>}
-                        </div>
-                      ) : vehicle.year ? (
-                        <div>{vehicle.year}年式</div>
-                      ) : (
-                        "-"
-                      )}
-                    </TableCell>
-                    <TableCell>{vehicle.license_plate || "-"}</TableCell>
-                    <TableCell>{getOwnershipBadge(vehicle.ownership_type)}</TableCell>
                     <TableCell>{vehicle.location || "-"}</TableCell>
-                    <TableCell>{getStatusBadge(vehicle.status)}</TableCell>
+                    <TableCell>{formatDate(vehicle.last_inspection_date)}</TableCell>
+                    <TableCell>{getOwnershipBadge(vehicle.ownership_type)}</TableCell>
+                    <TableCell>
+                      <div>{vehicle.daily_rate ? `¥${vehicle.daily_rate.toLocaleString()}/日` : "-"}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {vehicle.weekly_rate ? `¥${vehicle.weekly_rate.toLocaleString()}/週` : "-"}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {vehicle.monthly_rate ? `¥${vehicle.monthly_rate.toLocaleString()}/月` : "-"}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
-                        <Dialog
-                          open={isEditDialogOpen && currentVehicle?.id === vehicle.id}
-                          onOpenChange={(open) => {
-                            setIsEditDialogOpen(open)
-                            if (open) setCurrentVehicle(vehicle)
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => {
+                            setCurrentVehicle(vehicle)
+                            setIsEditDialogOpen(true)
                           }}
                         >
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => {
-                                setCurrentVehicle(vehicle)
-                                setIsEditDialogOpen(true)
-                              }}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>車両の編集</DialogTitle>
-                            </DialogHeader>
-                            {currentVehicle && (
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        {isEditDialogOpen && currentVehicle && currentVehicle.id === vehicle.id && (
+                          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                            <DialogContent className="sm:max-w-[425px]">
+                              <DialogHeader>
+                                <DialogTitle>車両の編集</DialogTitle>
+                              </DialogHeader>
                               <div className="grid gap-4 py-4">
                                 <div className="grid gap-2">
-                                  <Label htmlFor="edit-name">名前</Label>
+                                  <Label htmlFor="edit-name">車両名</Label>
                                   <Input
                                     id="edit-name"
                                     value={currentVehicle.name}
@@ -441,48 +416,29 @@ export function VehicleManagement() {
                                   />
                                 </div>
                                 <div className="grid gap-2">
-                                  <Label htmlFor="edit-type">種類</Label>
+                                  <Label htmlFor="edit-type">車両タイプ</Label>
                                   <Input
                                     id="edit-type"
                                     value={currentVehicle.type || ""}
                                     onChange={(e) => setCurrentVehicle({ ...currentVehicle, type: e.target.value })}
                                   />
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div className="grid gap-2">
-                                    <Label htmlFor="edit-model">型式</Label>
-                                    <Input
-                                      id="edit-model"
-                                      value={currentVehicle.model || ""}
-                                      onChange={(e) => setCurrentVehicle({ ...currentVehicle, model: e.target.value })}
-                                    />
-                                  </div>
-                                  <div className="grid gap-2">
-                                    <Label htmlFor="edit-year">年式</Label>
-                                    <Input
-                                      id="edit-year"
-                                      value={currentVehicle.year || ""}
-                                      onChange={(e) => setCurrentVehicle({ ...currentVehicle, year: e.target.value })}
-                                    />
-                                  </div>
-                                </div>
                                 <div className="grid gap-2">
-                                  <Label htmlFor="edit-manufacturer">メーカー</Label>
+                                  <Label htmlFor="edit-location">保管場所</Label>
                                   <Input
-                                    id="edit-manufacturer"
-                                    value={currentVehicle.manufacturer || ""}
-                                    onChange={(e) =>
-                                      setCurrentVehicle({ ...currentVehicle, manufacturer: e.target.value })
-                                    }
+                                    id="edit-location"
+                                    value={currentVehicle.location || ""}
+                                    onChange={(e) => setCurrentVehicle({ ...currentVehicle, location: e.target.value })}
                                   />
                                 </div>
                                 <div className="grid gap-2">
-                                  <Label htmlFor="edit-license_plate">ナンバープレート</Label>
+                                  <Label htmlFor="edit-last_inspection_date">最終点検日</Label>
                                   <Input
-                                    id="edit-license_plate"
-                                    value={currentVehicle.license_plate || ""}
+                                    id="edit-last_inspection_date"
+                                    type="date"
+                                    value={currentVehicle.last_inspection_date?.split("T")[0] || ""}
                                     onChange={(e) =>
-                                      setCurrentVehicle({ ...currentVehicle, license_plate: e.target.value })
+                                      setCurrentVehicle({ ...currentVehicle, last_inspection_date: e.target.value })
                                     }
                                   />
                                 </div>
@@ -496,46 +452,63 @@ export function VehicleManagement() {
                                       setCurrentVehicle({ ...currentVehicle, ownership_type: e.target.value })
                                     }
                                   >
-                                    <option value="owned">自社所有</option>
-                                    <option value="leased">リース</option>
-                                    <option value="rented">レンタル</option>
+                                    <option value="自社保有">自社保有</option>
+                                    <option value="リース">リース</option>
+                                    <option value="その他">その他</option>
                                   </select>
                                 </div>
-                                <div className="grid gap-2">
-                                  <Label htmlFor="edit-location">保管場所</Label>
-                                  <Input
-                                    id="edit-location"
-                                    value={currentVehicle.location || ""}
-                                    onChange={(e) => setCurrentVehicle({ ...currentVehicle, location: e.target.value })}
-                                  />
-                                </div>
-                                <div className="grid gap-2">
-                                  <Label htmlFor="edit-status">ステータス</Label>
-                                  <select
-                                    id="edit-status"
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                    value={currentVehicle.status}
-                                    onChange={(e) => setCurrentVehicle({ ...currentVehicle, status: e.target.value })}
-                                  >
-                                    <option value="available">利用可能</option>
-                                    <option value="in_use">使用中</option>
-                                    <option value="maintenance">整備中</option>
-                                    <option value="unavailable">利用不可</option>
-                                  </select>
+                                <div className="grid grid-cols-3 gap-4">
+                                  <div className="grid gap-2">
+                                    <Label htmlFor="edit-daily_rate">日額（円）</Label>
+                                    <Input
+                                      id="edit-daily_rate"
+                                      type="number"
+                                      value={currentVehicle.daily_rate || ""}
+                                      onChange={(e) =>
+                                        setCurrentVehicle({ ...currentVehicle, daily_rate: e.target.value })
+                                      }
+                                    />
+                                  </div>
+                                  <div className="grid gap-2">
+                                    <Label htmlFor="edit-weekly_rate">週額（円）</Label>
+                                    <Input
+                                      id="edit-weekly_rate"
+                                      type="number"
+                                      value={currentVehicle.weekly_rate || ""}
+                                      onChange={(e) =>
+                                        setCurrentVehicle({ ...currentVehicle, weekly_rate: e.target.value })
+                                      }
+                                    />
+                                  </div>
+                                  <div className="grid gap-2">
+                                    <Label htmlFor="edit-monthly_rate">月額（円）</Label>
+                                    <Input
+                                      id="edit-monthly_rate"
+                                      type="number"
+                                      value={currentVehicle.monthly_rate || ""}
+                                      onChange={(e) =>
+                                        setCurrentVehicle({ ...currentVehicle, monthly_rate: e.target.value })
+                                      }
+                                    />
+                                  </div>
                                 </div>
                               </div>
-                            )}
-                            <DialogFooter>
-                              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isLoading}>
-                                キャンセル
-                              </Button>
-                              <Button type="submit" onClick={updateVehicle} disabled={isLoading}>
-                                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                保存
-                              </Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
+                              <DialogFooter>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setIsEditDialogOpen(false)}
+                                  disabled={isLoading}
+                                >
+                                  キャンセル
+                                </Button>
+                                <Button type="submit" onClick={updateVehicle} disabled={isLoading}>
+                                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                  保存
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
+                        )}
                         <Button
                           variant="outline"
                           size="icon"
@@ -550,7 +523,7 @@ export function VehicleManagement() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-4 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
                     {searchTerm ? "検索条件に一致する車両が見つかりません" : "車両がありません"}
                   </TableCell>
                 </TableRow>

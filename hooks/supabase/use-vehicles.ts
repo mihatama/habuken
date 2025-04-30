@@ -2,16 +2,18 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "@/components/ui/use-toast"
 import { fetchClientData, insertClientData, updateClientData, deleteClientData } from "@/lib/supabase-utils"
 
+// Vehicle型定義を修正
 export type Vehicle = {
   id: string
-  name: string
-  type: string
-  location: string
-  last_inspection_date: string | null
-  ownership_type: "自社保有" | "リース" | "その他"
-  daily_rate: number | null
-  weekly_rate: number | null
-  monthly_rate: number | null
+  vehicle_number: string // 変更: name → vehicle_number
+  vehicle_type: string // 変更: type → vehicle_type
+  manufacturer: string
+  model: string
+  year: number
+  status: string
+  next_inspection_date: string
+  last_maintenance_date: string
+  notes: string | null
   created_at: string
   updated_at: string
 }
@@ -39,14 +41,16 @@ export function useVehicles(
           order: { column: "created_at", ascending: false },
         })
 
-        // 検索語句でフィルタリング（クライアント側）
+        // useVehicles関数内のフィルタリング部分を修正
         if (searchTerm) {
           const lowercaseSearchTerm = searchTerm.toLowerCase()
           return data.filter(
             (vehicle) =>
-              vehicle.name.toLowerCase().includes(lowercaseSearchTerm) ||
-              vehicle.type.toLowerCase().includes(lowercaseSearchTerm) ||
-              vehicle.location.toLowerCase().includes(lowercaseSearchTerm),
+              vehicle.vehicle_number
+                .toLowerCase()
+                .includes(lowercaseSearchTerm) || // 変更
+              vehicle.vehicle_type.toLowerCase().includes(lowercaseSearchTerm) || // 変更
+              vehicle.manufacturer.toLowerCase().includes(lowercaseSearchTerm),
           )
         }
 
