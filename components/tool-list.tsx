@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react"
+import { Plus, Pencil, Trash2, Loader2, RefreshCw } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { getClientSupabase } from "@/lib/supabase-utils"
@@ -24,6 +24,7 @@ export function ToolList() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [currentTool, setCurrentTool] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [newTool, setNewTool] = useState({
     name: "",
     type: "工具",
@@ -34,11 +35,14 @@ export function ToolList() {
     condition: "good",
     last_maintenance_date: "",
   })
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
 
+  // ページロード時に備品一覧を取得
   useEffect(() => {
     fetchTools()
   }, [])
 
+  // 備品一覧を取得する関数
   async function fetchTools() {
     try {
       setIsLoading(true)
@@ -57,14 +61,41 @@ export function ToolList() {
       console.error("備品の取得に失敗しました:", error)
       toast({
         title: "エラー",
-        description: "備品の取得に失敗しました",
+        description: `備品の取得に失敗しました: ${error.message || "不明なエラー"}`,
         variant: "destructive",
       })
     } finally {
       setIsLoading(false)
+      setIsRefreshing(false)
     }
   }
 
+  // フォームバリデーション関数
+  const validateForm = (data: any) => {
+    const errors: Record<string, string> = {}
+
+    if (!data.name || data.name.trim() === "") {
+      errors.name = "名前は必須です"
+    }
+
+    if (data.purchase_date) {
+      const purchaseDate = new Date(data.purchase_date)
+      if (isNaN(purchaseDate.getTime()) || purchaseDate > new Date()) {
+        errors.purchase_date = "有効な購入日を入力してください"
+      }
+    }
+
+    if (data.last_maintenance_date) {
+      const maintenanceDate = new Date(data.last_maintenance_date)
+      if (isNaN(maintenanceDate.getTime()) || maintenanceDate > new Date()) {
+        errors.last_maintenance_date = "有効なメンテナンス日を入力してください"
+      }
+    }
+
+    return errors
+  }
+
+  // 備品を追加する関数
   async function addTool() {
     try {
       if (!user) {
@@ -76,18 +107,17 @@ export function ToolList() {
         return
       }
 
-      if (!newTool.name) {
-        toast({
-          title: "入力エラー",
-          description: "名前は必須です",
-          variant: "destructive",
-        })
+      // フォームバリデーション
+      const errors = validateForm(newTool)
+      if (Object.keys(errors).length > 0) {
+        setFormErrors(errors)
         return
       }
 
+      setFormErrors({})
       setIsLoading(true)
 
-      // 実際のデータベーススキーマに合わせたデータ構造
+      // 新しいスキーマに合わせたデータ構造
       const toolData = {
         name: newTool.name,
         type: "工具",
@@ -99,9 +129,6 @@ export function ToolList() {
         }, 最終メンテナンス日: ${newTool.last_maintenance_date || "未設定"}`,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        created_by: user.id, // ユーザーIDを追加
-        project_id: null, // プロジェクトIDがある場合は設定
-        organization_id: null, // 組織IDがある場合は設定
       }
 
       const { data, error } = await supabase.from("resources").insert([toolData]).select()
@@ -126,7 +153,7 @@ export function ToolList() {
         last_maintenance_date: "",
       })
 
-      fetchTools()
+      fetchTools() // 備品追加後にリロード
       setIsAddDialogOpen(false)
     } catch (error) {
       console.error("備品の追加に失敗しました:", error)
@@ -140,6 +167,7 @@ export function ToolList() {
     }
   }
 
+  // 備品を更新する関数
   async function updateTool() {
     try {
       if (!user) {
@@ -155,15 +183,14 @@ export function ToolList() {
         throw new Error("備品IDが不明です")
       }
 
-      if (!currentTool.name) {
-        toast({
-          title: "入力エラー",
-          description: "名前は必須です",
-          variant: "destructive",
-        })
+      // フォームバリデーション
+      const errors = validateForm(currentTool)
+      if (Object.keys(errors).length > 0) {
+        setFormErrors(errors)
         return
       }
 
+      setFormErrors({})
       setIsLoading(true)
 
       // 更新データを準備
@@ -177,7 +204,6 @@ export function ToolList() {
           currentTool.last_maintenance_date ? currentTool.last_maintenance_date.split("T")[0] : "未設定"
         }`,
         updated_at: new Date().toISOString(),
-        updated_by: user.id, // 更新者IDを追加
       }
 
       const { data, error } = await supabase.from("resources").update(updateData).eq("id", currentTool.id).select()
@@ -191,7 +217,7 @@ export function ToolList() {
         description: "備品情報が正常に更新されました",
       })
 
-      fetchTools()
+      fetchTools() // 備品更新後にリロード
       setIsEditDialogOpen(false)
     } catch (error) {
       console.error("備品の更新に失敗しました:", error)
@@ -205,6 +231,7 @@ export function ToolList() {
     }
   }
 
+  // 備品を削除する関数
   async function deleteTool(id: string) {
     try {
       if (!user) {
@@ -232,7 +259,7 @@ export function ToolList() {
         description: "備品が正常に削除されました",
       })
 
-      fetchTools()
+      fetchTools() // 備品削除後にリロード
     } catch (error) {
       console.error("備品の削除に失敗しました:", error)
       toast({
@@ -243,6 +270,12 @@ export function ToolList() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // 手動リフレッシュ機能
+  const handleRefresh = () => {
+    setIsRefreshing(true)
+    fetchTools()
   }
 
   // 説明文から情報を抽出する関数
@@ -286,17 +319,24 @@ export function ToolList() {
     return info
   }
 
+  // 検索条件に一致する備品をフィルタリング
   const filteredTools = tools.filter((t) => {
+    if (!searchTerm) return true
+
     const searchLower = searchTerm.toLowerCase()
     const info = extractInfoFromDescription(t.description)
+
     return (
       t.name?.toLowerCase().includes(searchLower) ||
       info.model?.toLowerCase().includes(searchLower) ||
       info.manufacturer?.toLowerCase().includes(searchLower) ||
-      info.storage_location?.toLowerCase().includes(searchLower)
+      info.storage_location?.toLowerCase().includes(searchLower) ||
+      t.status?.toLowerCase().includes(searchLower) ||
+      info.condition?.toLowerCase().includes(searchLower)
     )
   })
 
+  // 状態に応じたバッジを表示する関数
   const getConditionBadge = (condition: string) => {
     switch (condition) {
       case "excellent":
@@ -312,6 +352,7 @@ export function ToolList() {
     }
   }
 
+  // 日付をフォーマットする関数
   const formatDate = (dateString: string) => {
     if (!dateString || dateString === "未設定") return "-"
     try {
@@ -333,12 +374,16 @@ export function ToolList() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-[250px]"
           />
+          <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isRefreshing} title="リスト更新">
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+          </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button
                 onClick={(e) => {
                   e.preventDefault()
                   setIsAddDialogOpen(true)
+                  setFormErrors({})
                 }}
               >
                 <Plus className="mr-2 h-4 w-4" />
@@ -358,7 +403,9 @@ export function ToolList() {
                     id="name"
                     value={newTool.name}
                     onChange={(e) => setNewTool({ ...newTool, name: e.target.value })}
+                    className={formErrors.name ? "border-red-500" : ""}
                   />
+                  {formErrors.name && <p className="text-red-500 text-sm">{formErrors.name}</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
@@ -385,7 +432,9 @@ export function ToolList() {
                     type="date"
                     value={newTool.purchase_date}
                     onChange={(e) => setNewTool({ ...newTool, purchase_date: e.target.value })}
+                    className={formErrors.purchase_date ? "border-red-500" : ""}
                   />
+                  {formErrors.purchase_date && <p className="text-red-500 text-sm">{formErrors.purchase_date}</p>}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="storage_location">保管場所</Label>
@@ -416,7 +465,11 @@ export function ToolList() {
                     type="date"
                     value={newTool.last_maintenance_date}
                     onChange={(e) => setNewTool({ ...newTool, last_maintenance_date: e.target.value })}
+                    className={formErrors.last_maintenance_date ? "border-red-500" : ""}
                   />
+                  {formErrors.last_maintenance_date && (
+                    <p className="text-red-500 text-sm">{formErrors.last_maintenance_date}</p>
+                  )}
                 </div>
               </div>
               <DialogFooter>
@@ -493,6 +546,7 @@ export function ToolList() {
                                   condition: info.condition || "good",
                                   last_maintenance_date: info.last_maintenance_date || "",
                                 })
+                                setFormErrors({})
                               }
                             }}
                           >
@@ -514,6 +568,7 @@ export function ToolList() {
                                     last_maintenance_date: info.last_maintenance_date || "",
                                   })
                                   setIsEditDialogOpen(true)
+                                  setFormErrors({})
                                 }}
                               >
                                 <Pencil className="h-4 w-4" />
@@ -531,7 +586,9 @@ export function ToolList() {
                                       id="edit-name"
                                       value={currentTool.name}
                                       onChange={(e) => setCurrentTool({ ...currentTool, name: e.target.value })}
+                                      className={formErrors.name ? "border-red-500" : ""}
                                     />
+                                    {formErrors.name && <p className="text-red-500 text-sm">{formErrors.name}</p>}
                                   </div>
                                   <div className="grid grid-cols-2 gap-4">
                                     <div className="grid gap-2">
@@ -566,7 +623,11 @@ export function ToolList() {
                                       onChange={(e) =>
                                         setCurrentTool({ ...currentTool, purchase_date: e.target.value })
                                       }
+                                      className={formErrors.purchase_date ? "border-red-500" : ""}
                                     />
+                                    {formErrors.purchase_date && (
+                                      <p className="text-red-500 text-sm">{formErrors.purchase_date}</p>
+                                    )}
                                   </div>
                                   <div className="grid gap-2">
                                     <Label htmlFor="edit-storage_location">保管場所</Label>
@@ -606,7 +667,11 @@ export function ToolList() {
                                       onChange={(e) =>
                                         setCurrentTool({ ...currentTool, last_maintenance_date: e.target.value })
                                       }
+                                      className={formErrors.last_maintenance_date ? "border-red-500" : ""}
                                     />
+                                    {formErrors.last_maintenance_date && (
+                                      <p className="text-red-500 text-sm">{formErrors.last_maintenance_date}</p>
+                                    )}
                                   </div>
                                 </div>
                               )}

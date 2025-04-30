@@ -7,8 +7,8 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { toast } from "@/components/ui/use-toast"
-import { insertClientData } from "@/lib/supabase-utils"
+import { useToast } from "@/hooks/use-toast"
+import { getClientSupabase } from "@/lib/supabase-utils"
 import { useAuth } from "@/hooks/use-auth"
 
 interface ToolFormProps {
@@ -19,7 +19,9 @@ interface ToolFormProps {
 
 export function ToolForm({ open, onOpenChange, onSuccess }: ToolFormProps) {
   const { user } = useAuth() // 認証情報を取得
+  const { toast } = useToast()
   const [submitting, setSubmitting] = useState(false)
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [formData, setFormData] = useState({
     name: "",
     type: "hand_tool", // hand_tool, power_tool, equipment, other
@@ -46,6 +48,29 @@ export function ToolForm({ open, onOpenChange, onSuccess }: ToolFormProps) {
       location: "",
       notes: "",
     })
+    setFormErrors({})
+  }
+
+  // フォームバリデーション関数
+  const validateForm = () => {
+    const errors: Record<string, string> = {}
+
+    if (!formData.name || formData.name.trim() === "") {
+      errors.name = "備品名は必須です"
+    }
+
+    if (formData.purchaseDate) {
+      const purchaseDate = new Date(formData.purchaseDate)
+      if (isNaN(purchaseDate.getTime()) || purchaseDate > new Date()) {
+        errors.purchaseDate = "有効な購入日を入力してください"
+      }
+    }
+
+    if (formData.purchasePrice && isNaN(Number(formData.purchasePrice))) {
+      errors.purchasePrice = "購入価格は数値で入力してください"
+    }
+
+    return errors
   }
 
   const handleSubmit = async (e) => {
@@ -60,35 +85,40 @@ export function ToolForm({ open, onOpenChange, onSuccess }: ToolFormProps) {
       return
     }
 
-    if (!formData.name) {
-      toast({
-        title: "入力エラー",
-        description: "備品名は必須です",
-        variant: "destructive",
-      })
+    // フォームバリデーション
+    const errors = validateForm()
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors)
       return
     }
 
+    setFormErrors({})
     setSubmitting(true)
+
     try {
+      const supabase = getClientSupabase()
+
       // 実際のデータベーススキーマに合わせたデータ構造
-      const result = await insertClientData("resources", {
+      const toolData = {
         name: formData.name,
         type: "工具", // リソースタイプを「工具」に固定
         status: formData.status,
-        description: `型式: ${formData.model || "未設定"}, メーカー: ${
-          formData.manufacturer || "未設定"
-        }, シリアル番号: ${formData.serialNumber || "未設定"}, 購入日: ${
-          formData.purchaseDate || "未設定"
-        }, 購入価格: ${formData.purchasePrice || "未設定"}, 保管場所: ${formData.location || "未設定"}, 備考: ${
-          formData.notes || "なし"
-        }`,
+        description:
+          formData.notes ||
+          `型式: ${formData.model || "未設定"}, メーカー: ${
+            formData.manufacturer || "未設定"
+          }, シリアル番号: ${formData.serialNumber || "未設定"}, 購入日: ${
+            formData.purchaseDate || "未設定"
+          }, 購入価格: ${formData.purchasePrice || "未設定"}, 保管場所: ${formData.location || "未設定"}`,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        created_by: user.id, // ユーザーIDを追加
-        project_id: null, // プロジェクトIDがある場合は設定
-        organization_id: null, // 組織IDがある場合は設定
-      })
+      }
+
+      const { data, error } = await supabase.from("resources").insert([toolData]).select()
+
+      if (error) {
+        throw error
+      }
 
       toast({
         title: "成功",
@@ -121,13 +151,17 @@ export function ToolForm({ open, onOpenChange, onSuccess }: ToolFormProps) {
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="name">備品名</Label>
+              <Label htmlFor="name">
+                備品名 <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="例: 電動ドリル"
+                className={formErrors.name ? "border-red-500" : ""}
               />
+              {formErrors.name && <p className="text-red-500 text-sm">{formErrors.name}</p>}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="type">備品タイプ</Label>
@@ -197,7 +231,9 @@ export function ToolForm({ open, onOpenChange, onSuccess }: ToolFormProps) {
                 type="date"
                 value={formData.purchaseDate}
                 onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
+                className={formErrors.purchaseDate ? "border-red-500" : ""}
               />
+              {formErrors.purchaseDate && <p className="text-red-500 text-sm">{formErrors.purchaseDate}</p>}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="purchasePrice">購入価格</Label>
@@ -207,7 +243,9 @@ export function ToolForm({ open, onOpenChange, onSuccess }: ToolFormProps) {
                 value={formData.purchasePrice}
                 onChange={(e) => setFormData({ ...formData, purchasePrice: e.target.value })}
                 placeholder="例: 15000"
+                className={formErrors.purchasePrice ? "border-red-500" : ""}
               />
+              {formErrors.purchasePrice && <p className="text-red-500 text-sm">{formErrors.purchasePrice}</p>}
             </div>
           </div>
           <div className="grid gap-2">
