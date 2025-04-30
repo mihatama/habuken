@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
@@ -20,24 +22,42 @@ import * as z from "zod"
 import { useToast } from "@/components/ui/use-toast"
 import { getClientSupabase } from "@/lib/supabase-utils"
 
-// フォームのバリデーションスキーマ
-const formSchema = z.object({
-  staffId: z.string({
-    required_error: "スタッフを選択してください",
-  }),
-  leaveType: z.string({
-    required_error: "休暇タイプを選択してください",
-  }),
-  startDate: z.string({
-    required_error: "開始日を入力してください",
-  }),
-  endDate: z.string({
-    required_error: "終了日を入力してください",
-  }),
-  reason: z.string().min(5, {
-    message: "理由は5文字以上で入力してください",
-  }),
-})
+// フォームのバリデーションスキーマを更新します
+// 既存のformSchemaを以下のコードに置き換えてください：
+
+const formSchema = z
+  .object({
+    staffId: z.string({
+      required_error: "スタッフを選択してください",
+    }),
+    leaveType: z.string({
+      required_error: "休暇タイプを選択してください",
+    }),
+    startDate: z.string({
+      required_error: "開始日を入力してください",
+    }),
+    endDate: z.string({
+      required_error: "終了日を入力してください",
+    }),
+    reason: z.string().min(5, {
+      message: "理由は5文字以上で入力してください",
+    }),
+  })
+  .refine(
+    (data) => {
+      // 開始日と終了日が入力されている場合のみ比較
+      if (data.startDate && data.endDate) {
+        const start = new Date(data.startDate)
+        const end = new Date(data.endDate)
+        return end >= start // 終了日が開始日以降であることを確認
+      }
+      return true
+    },
+    {
+      message: "終了日は開始日と同じか、それ以降の日付を選択してください",
+      path: ["endDate"], // エラーを表示するフィールド
+    },
+  )
 
 interface LeaveRequestFormProps {
   open: boolean
@@ -98,6 +118,24 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
       fetchStaff()
     }
   }, [open, toast])
+
+  // onSubmit関数の前に、日付変更時のハンドラーを追加します
+  // useFormの後、onSubmit関数の前に以下のコードを追加：
+
+  // 開始日が変更されたときに終了日を自動的に更新
+  const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const startDate = e.target.value
+    form.setValue("startDate", startDate)
+
+    // 終了日が空か、開始日より前の場合は終了日を開始日と同じに設定
+    const endDate = form.getValues("endDate")
+    if (!endDate || new Date(endDate) < new Date(startDate)) {
+      form.setValue("endDate", startDate)
+    }
+
+    // バリデーションを実行
+    form.trigger("endDate")
+  }
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
@@ -251,7 +289,14 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
                     開始日 <span className="text-red-500">*</span>
                   </FormLabel>
                   <FormControl>
-                    <Input type="date" {...field} />
+                    <Input
+                      type="date"
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e)
+                        handleStartDateChange(e)
+                      }}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
