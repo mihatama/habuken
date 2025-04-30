@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -23,12 +23,13 @@ import { getClientSupabase } from "@/lib/supabase-utils"
 
 // フォームのバリデーションスキーマ
 const formSchema = z.object({
-  staffId: z.string({
-    required_error: "スタッフを選択してください",
-  }),
-  name: z.string({
-    required_error: "名前を入力してください",
-  }),
+  name: z
+    .string({
+      required_error: "名前を入力してください",
+    })
+    .min(1, {
+      message: "名前を入力してください",
+    }),
   leaveType: z.string({
     required_error: "休暇タイプを選択してください",
   }),
@@ -53,33 +54,10 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
   const { toast } = useToast()
   const addLeaveRequest = useAddLeaveRequest()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [staffList, setStaffList] = useState<Array<{ id: string; full_name: string }> | null>(null)
-
-  useEffect(() => {
-    const fetchStaff = async () => {
-      try {
-        const supabase = getClientSupabase()
-        const { data, error } = await supabase.from("staff").select("id, full_name").order("full_name")
-
-        if (error) throw error
-        setStaffList(data)
-      } catch (error) {
-        console.error("スタッフデータ取得エラー:", error)
-        toast({
-          title: "エラー",
-          description: "スタッフデータの取得に失敗しました",
-          variant: "destructive",
-        })
-      }
-    }
-
-    fetchStaff()
-  }, [toast])
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      staffId: "",
       name: "",
       leaveType: "",
       startDate: "",
@@ -113,7 +91,6 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
       const { data, error } = await supabase
         .from("leave_requests")
         .insert({
-          staff_id: values.staffId,
           name: values.name,
           start_date: values.startDate,
           end_date: values.endDate,
@@ -168,40 +145,12 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="staffId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>スタッフ名</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="スタッフを選択" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {staffList ? (
-                        staffList.map((staff) => (
-                          <SelectItem key={staff.id} value={staff.id}>
-                            {staff.full_name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="loading" disabled>
-                          読み込み中...
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>名前</FormLabel>
+                  <FormLabel>
+                    名前 <span className="text-red-500">*</span>
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder="名前を入力" {...field} />
                   </FormControl>
@@ -237,7 +186,9 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
               name="startDate"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>開始日</FormLabel>
+                  <FormLabel>
+                    開始日 <span className="text-red-500">*</span>
+                  </FormLabel>
                   <FormControl>
                     <Input type="date" {...field} />
                   </FormControl>
@@ -250,7 +201,9 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
               name="endDate"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>終了日</FormLabel>
+                  <FormLabel>
+                    終了日 <span className="text-red-500">*</span>
+                  </FormLabel>
                   <FormControl>
                     <Input type="date" {...field} />
                   </FormControl>
@@ -263,17 +216,22 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
               name="reason"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>理由</FormLabel>
+                  <FormLabel>
+                    理由 <span className="text-red-500">*</span>
+                  </FormLabel>
                   <FormControl>
-                    <Textarea {...field} />
+                    <Textarea placeholder="休暇の理由を入力してください" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
             <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                キャンセル
+              </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "送信中..." : "申請する"}
+                {isSubmitting ? "送信中..." : "申請"}
               </Button>
             </DialogFooter>
           </form>
