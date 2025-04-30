@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { getClientSupabase } from "@/lib/supabase-utils"
 import { Calendar, Briefcase, Users, Truck, Car, Key, ClipboardList, FileText, Settings, LogOut } from "lucide-react"
-import { InlineLoginForm } from "@/components/inline-login-form"
 import { useAuth } from "@/contexts/auth-context"
 
 export function MobileNav({ isOpen, onClose }) {
@@ -82,7 +81,9 @@ export function MobileNav({ isOpen, onClose }) {
       {!user ? (
         <div className="mt-6 p-4 border rounded-lg">
           <h3 className="text-lg font-medium mb-4">システムにアクセス</h3>
-          <InlineLoginForm />
+          <Button className="w-full" onClick={() => router.push("/login")}>
+            ログイン
+          </Button>
         </div>
       ) : (
         <nav className="mt-6 flex flex-col space-y-4">
