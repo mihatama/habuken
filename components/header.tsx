@@ -9,6 +9,7 @@ import { UserNav } from "@/components/user-nav"
 import { useAuth } from "@/contexts/auth-context"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Calendar, Briefcase, Users, Truck, Car, Key, ClipboardList, FileText, Settings } from "lucide-react"
+import { InlineLoginForm } from "@/components/inline-login-form"
 
 export function Header() {
   const router = useRouter()
@@ -169,8 +170,8 @@ export function Header() {
             <Skeleton className="h-10 w-10 rounded-full" />
           </div>
         ) : !user ? (
-          <div className="ml-auto">
-            <Button onClick={() => handleNavigation("/login")}>ログイン</Button>
+          <div className="ml-auto relative">
+            <InlineLoginForm />
           </div>
         ) : (
           <div className="ml-auto md:hidden">
