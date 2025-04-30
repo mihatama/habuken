@@ -22,9 +22,7 @@ import * as z from "zod"
 import { useToast } from "@/components/ui/use-toast"
 import { getClientSupabase } from "@/lib/supabase-utils"
 
-// フォームのバリデーションスキーマを更新します
-// 既存のformSchemaを以下のコードに置き換えてください：
-
+// formSchemaに半日休暇のオプションを追加
 const formSchema = z
   .object({
     staffId: z.string({
@@ -39,6 +37,8 @@ const formSchema = z
     endDate: z.string({
       required_error: "終了日を入力してください",
     }),
+    isHalfDay: z.boolean().default(false),
+    halfDayType: z.enum(["AM", "PM"]).optional(),
     reason: z.string().min(5, {
       message: "理由は5文字以上で入力してください",
     }),
@@ -58,6 +58,16 @@ const formSchema = z
       path: ["endDate"], // エラーを表示するフィールド
     },
   )
+  .refine(
+    (data) => {
+      // 半日休暇が選択されている場合は、半日のタイプ（AM/PM）が必須
+      return !data.isHalfDay || (data.isHalfDay && data.halfDayType)
+    },
+    {
+      message: "半日休暇の場合は、AM/PMを選択してください",
+      path: ["halfDayType"],
+    },
+  )
 
 interface LeaveRequestFormProps {
   open: boolean
@@ -72,6 +82,7 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // useFormのdefaultValuesに半日休暇のオプションを追加
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -79,6 +90,8 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
       leaveType: "",
       startDate: "",
       endDate: "",
+      isHalfDay: false,
+      halfDayType: undefined,
       reason: "",
     },
   })
@@ -145,6 +158,7 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
       console.log("Submitting form with values:", values)
 
       // APIエンドポイントを使用して休暇申請を作成
+      // onSubmit関数内のAPIリクエストボディに半日休暇の情報を追加
       const response = await fetch("/api/leave-requests", {
         method: "POST",
         headers: {
@@ -156,6 +170,8 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
           end_date: values.endDate,
           reason: values.reason,
           leave_type: values.leaveType,
+          is_half_day: values.isHalfDay,
+          half_day_type: values.halfDayType,
         }),
       })
 
@@ -317,6 +333,58 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
                 </FormItem>
               )}
             />
+            {/* フォームの中に半日休暇のオプションを追加（endDateフィールドの後に追加） */}
+            <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="isHalfDay"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
+                    <FormControl>
+                      <input
+                        type="checkbox"
+                        checked={field.value}
+                        onChange={(e) => {
+                          field.onChange(e.target.checked)
+                          // チェックが外れた場合は半日タイプをリセット
+                          if (!e.target.checked) {
+                            form.setValue("halfDayType", undefined)
+                          }
+                        }}
+                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>半日休暇</FormLabel>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              {form.watch("isHalfDay") && (
+                <FormField
+                  control={form.control}
+                  name="halfDayType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>時間帯</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="時間帯を選択" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="AM">午前（AM）</SelectItem>
+                          <SelectItem value="PM">午後（PM）</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+            </div>
             <FormField
               control={form.control}
               name="reason"

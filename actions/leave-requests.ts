@@ -9,6 +9,8 @@ interface LeaveRequestData {
   end_date: string
   reason: string
   leave_type?: string
+  is_half_day?: boolean
+  half_day_type?: "AM" | "PM"
 }
 
 // サーバーアクション専用のSupabaseクライアント（サービスロールを使用）
@@ -44,6 +46,8 @@ export async function createLeaveRequestAction(data: LeaveRequestData) {
         end_date: data.end_date,
         reason: data.reason,
         leave_type: data.leave_type,
+        is_half_day: data.is_half_day || false,
+        half_day_type: data.half_day_type,
         status: "pending",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
