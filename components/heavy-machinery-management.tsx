@@ -75,6 +75,8 @@ export function HeavyMachineryManagement() {
       // 数値フィールドの処理
       const machineryData = {
         ...newMachinery,
+        // 空の日付文字列の場合はnullを設定
+        last_inspection_date: newMachinery.last_inspection_date || null,
         daily_rate: newMachinery.daily_rate ? Number.parseFloat(newMachinery.daily_rate) : null,
         weekly_rate: newMachinery.weekly_rate ? Number.parseFloat(newMachinery.weekly_rate) : null,
         monthly_rate: newMachinery.monthly_rate ? Number.parseFloat(newMachinery.monthly_rate) : null,
@@ -139,7 +141,8 @@ export function HeavyMachineryManagement() {
         type: currentMachinery.type,
         location: currentMachinery.location,
         ownership_type: currentMachinery.ownership_type,
-        last_inspection_date: currentMachinery.last_inspection_date,
+        // 空の日付文字列の場合はnullを設定
+        last_inspection_date: currentMachinery.last_inspection_date || null,
         daily_rate: currentMachinery.daily_rate ? Number.parseFloat(String(currentMachinery.daily_rate)) : null,
         weekly_rate: currentMachinery.weekly_rate ? Number.parseFloat(String(currentMachinery.weekly_rate)) : null,
         monthly_rate: currentMachinery.monthly_rate ? Number.parseFloat(String(currentMachinery.monthly_rate)) : null,
