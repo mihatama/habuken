@@ -117,225 +117,6 @@ export interface Database {
           skills?: string[] | null
         }
       }
-      resources: {
-        Row: {
-          id: string
-          name: string
-          type: string
-          status: string
-          description: string | null
-          created_at: string
-          updated_at: string
-          created_by: string
-          updated_by: string | null
-          project_id: string | null
-          organization_id: string | null
-        }
-        Insert: {
-          id?: string
-          name: string
-          type: string
-          status?: string
-          description?: string | null
-          created_at?: string
-          updated_at?: string
-          created_by: string
-          updated_by?: string | null
-          project_id?: string | null
-          organization_id?: string | null
-        }
-        Update: {
-          id?: string
-          name?: string
-          type?: string
-          status?: string
-          description?: string | null
-          created_at?: string
-          updated_at?: string
-          created_by?: string
-          updated_by?: string | null
-          project_id?: string | null
-          organization_id?: string | null
-        }
-      }
-      shifts: {
-        Row: {
-          id: string
-          title: string
-          project_id: string
-          staff_id: string | null
-          resource_id: string | null
-          start_time: string
-          end_time: string
-          notes: string | null
-          event_type: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          title: string
-          project_id: string
-          staff_id?: string | null
-          resource_id?: string | null
-          start_time: string
-          end_time: string
-          notes?: string | null
-          event_type?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          title?: string
-          project_id?: string
-          staff_id?: string | null
-          resource_id?: string | null
-          start_time?: string
-          end_time?: string
-          notes?: string | null
-          event_type?: string
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      leave_requests: {
-        Row: {
-          id: string
-          staff_id: string
-          start_date: string
-          end_date: string
-          reason: string | null
-          status: string
-          rejectReason: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          staff_id: string
-          start_date: string
-          end_date: string
-          reason?: string | null
-          status?: string
-          rejectReason?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          staff_id?: string
-          start_date?: string
-          end_date?: string
-          reason?: string | null
-          status?: string
-          rejectReason?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      daily_reports: {
-        Row: {
-          id: string
-          project_id: string
-          report_date: string
-          weather: string | null
-          temperature: number | null
-          work_description: string
-          issues: string | null
-          submitted_by: string
-          created_at: string
-          updated_at: string
-          deal_id: string | null
-        }
-        Insert: {
-          id?: string
-          project_id: string
-          report_date: string
-          weather?: string | null
-          temperature?: number | null
-          work_description: string
-          issues?: string | null
-          submitted_by: string
-          created_at?: string
-          updated_at?: string
-          deal_id?: string | null
-        }
-        Update: {
-          id?: string
-          project_id?: string
-          report_date?: string
-          weather?: string | null
-          temperature?: number | null
-          work_description?: string
-          issues?: string | null
-          submitted_by?: string
-          created_at?: string
-          updated_at?: string
-          deal_id?: string | null
-        }
-      }
-      safety_inspections: {
-        Row: {
-          id: string
-          project_id: string
-          inspection_date: string
-          inspector: string
-          location: string
-          findings: string
-          action_items: string | null
-          status: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          project_id: string
-          inspection_date: string
-          inspector: string
-          location: string
-          findings: string
-          action_items?: string | null
-          status?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          project_id?: string
-          inspection_date?: string
-          inspector?: string
-          location?: string
-          findings?: string
-          action_items?: string | null
-          status?: string
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      user_roles: {
-        Row: {
-          id: string
-          user_id: string
-          role: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          role: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          role?: string
-          created_at?: string
-          updated_at?: string
-        }
-      }
       deals: {
         Row: {
           id: string
@@ -522,6 +303,48 @@ export interface Database {
           updated_at?: string
         }
       }
+      daily_reports: {
+        Row: {
+          id: string
+          project_id: string
+          deal_id: string | null
+          report_date: string
+          weather: string | null
+          temperature: number | null
+          work_description: string
+          issues: string | null
+          submitted_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          deal_id?: string | null
+          report_date: string
+          weather?: string | null
+          temperature?: number | null
+          work_description: string
+          issues?: string | null
+          submitted_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          deal_id?: string | null
+          report_date?: string
+          weather?: string | null
+          temperature?: number | null
+          work_description?: string
+          issues?: string | null
+          submitted_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      // 他のテーブル定義は省略
     }
     Views: {
       [_ in never]: never
@@ -535,10 +358,10 @@ export interface Database {
   }
 }
 
-export type Staff = Database["public"]["Tables"]["staff"]["Row"]
 export type Deal = Database["public"]["Tables"]["deals"]["Row"]
 export type DealStaff = Database["public"]["Tables"]["deal_staff"]["Row"]
 export type DealMachinery = Database["public"]["Tables"]["deal_machinery"]["Row"]
 export type DealVehicle = Database["public"]["Tables"]["deal_vehicles"]["Row"]
 export type DealTool = Database["public"]["Tables"]["deal_tools"]["Row"]
 export type DealPeriod = Database["public"]["Tables"]["deal_periods"]["Row"]
+export type Staff = Database["public"]["Tables"]["staff"]["Row"]
