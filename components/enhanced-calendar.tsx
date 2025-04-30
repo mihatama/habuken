@@ -20,6 +20,46 @@ import { useMediaQuery } from "@/hooks/use-media-query"
 moment.locale("ja")
 const localizer = momentLocalizer(moment)
 
+// カスタムCSSを追加して時間表示を非表示にする
+const customDayPropGetter = () => {
+  return {
+    className: "no-time-display",
+    style: {
+      margin: 0,
+      padding: 0,
+    },
+  }
+}
+
+// カスタムスタイルを定義
+const customStyles = `
+  .no-time-display .rbc-time-content {
+    display: none;
+  }
+  
+  .no-time-display .rbc-time-header {
+    border-bottom: none;
+  }
+  
+  .no-time-display .rbc-time-view {
+    border-bottom: 1px solid #ddd;
+  }
+  
+  .no-time-display .rbc-allday-cell {
+    height: auto;
+    max-height: none;
+  }
+  
+  .no-time-display .rbc-row-content {
+    height: auto;
+  }
+  
+  .no-time-display .rbc-time-header-content {
+    height: auto;
+    min-height: 70vh;
+  }
+`
+
 export interface CalendarEvent {
   id: string | number
   title: string
@@ -302,6 +342,9 @@ export function EnhancedCalendar({
 
   return (
     <div className="flex flex-col h-full">
+      {/* カスタムCSSをページに挿入 */}
+      <style>{customStyles}</style>
+
       <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => handleNavigate("PREV")} aria-label="前の期間">
@@ -348,11 +391,14 @@ export function EnhancedCalendar({
         <Calendar
           ref={calendarRef}
           localizer={localizer}
-          events={events}
+          events={events.map((event) => ({ ...event, allDay: true }))} // すべてのイベントを終日イベントとして扱う
           startAccessor="start"
           endAccessor="end"
           style={{ height: "100%" }}
-          views={{ week: true, month: true }}
+          views={{
+            week: true,
+            month: true,
+          }}
           view={view}
           onView={(newView: any) => setView(newView)}
           date={currentDate}
@@ -361,6 +407,7 @@ export function EnhancedCalendar({
           onSelectSlot={handleSelectSlot}
           onSelectEvent={handleSelectEvent}
           eventPropGetter={eventStyleGetter}
+          dayPropGetter={customDayPropGetter}
           resizable={!readOnly} // Disable resizing in read-only mode
           onEventResize={handleEventResize}
           draggableAccessor={() => !readOnly} // Disable dragging in read-only mode
