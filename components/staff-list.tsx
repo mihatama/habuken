@@ -7,14 +7,14 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react"
+import { Plus, Pencil, Trash2, Loader2, RefreshCw } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
-import { getClientSupabase } from "@/lib/supabase-utils"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 export function StaffList() {
   const { toast } = useToast()
-  const supabase = getClientSupabase() // シングルトンインスタンスを使用
+  const supabase = createClientComponentClient()
 
   const [staff, setStaff] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -22,6 +22,7 @@ export function StaffList() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [currentStaff, setCurrentStaff] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [newStaff, setNewStaff] = useState({
     full_name: "",
     position: "",
@@ -38,18 +39,24 @@ export function StaffList() {
   async function fetchStaff() {
     try {
       setIsLoading(true)
+      setError(null)
+
+      console.log("スタッフデータを取得中...")
       const { data, error } = await supabase.from("staff").select("*").order("full_name", { ascending: true })
 
       if (error) {
+        console.error("スタッフ取得エラー:", error)
         throw error
       }
 
+      console.log("取得したスタッフデータ:", data)
       setStaff(data || [])
-    } catch (error) {
+    } catch (error: any) {
       console.error("スタッフの取得に失敗しました:", error)
+      setError(error.message || "スタッフデータの取得に失敗しました")
       toast({
         title: "エラー",
-        description: "スタッフの取得に失敗しました",
+        description: "スタッフの取得に失敗しました: " + (error.message || "不明なエラー"),
         variant: "destructive",
       })
     } finally {
@@ -91,11 +98,11 @@ export function StaffList() {
 
       fetchStaff()
       setIsAddDialogOpen(false)
-    } catch (error) {
+    } catch (error: any) {
       console.error("スタッフの追加に失敗しました:", error)
       toast({
         title: "エラー",
-        description: "スタッフの追加に失敗しました",
+        description: "スタッフの追加に失敗しました: " + (error.message || "不明なエラー"),
         variant: "destructive",
       })
     } finally {
@@ -143,11 +150,11 @@ export function StaffList() {
 
       fetchStaff()
       setIsEditDialogOpen(false)
-    } catch (error) {
+    } catch (error: any) {
       console.error("スタッフの更新に失敗しました:", error)
       toast({
         title: "エラー",
-        description: "スタッフの更新に失敗しました",
+        description: "スタッフの更新に失敗しました: " + (error.message || "不明なエラー"),
         variant: "destructive",
       })
     } finally {
@@ -174,11 +181,11 @@ export function StaffList() {
       })
 
       fetchStaff()
-    } catch (error) {
+    } catch (error: any) {
       console.error("スタッフの削除に失敗しました:", error)
       toast({
         title: "エラー",
-        description: "スタッフの削除に失敗しました",
+        description: "スタッフの削除に失敗しました: " + (error.message || "不明なエラー"),
         variant: "destructive",
       })
     } finally {
@@ -223,6 +230,9 @@ export function StaffList() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-[250px]"
           />
+          <Button variant="outline" size="icon" onClick={fetchStaff} disabled={isLoading}>
+            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+          </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -310,6 +320,14 @@ export function StaffList() {
         {isLoading && staff.length === 0 ? (
           <div className="flex justify-center items-center py-8">
             <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <p className="text-red-500 mb-4">{error}</p>
+            <Button variant="outline" onClick={fetchStaff}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              再読み込み
+            </Button>
           </div>
         ) : (
           <Table>

@@ -8,13 +8,18 @@ export async function getProjects() {
   const supabase = getServerSupabase()
 
   try {
+    console.log("Server: Fetching projects from Supabase...")
     const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false })
 
-    if (error) throw error
+    if (error) {
+      console.error("Server: Error fetching projects:", error)
+      throw error
+    }
 
+    console.log("Server: Projects fetched successfully:", data?.length || 0, "projects")
     return { success: true, data }
   } catch (error: any) {
-    console.error("プロジェクト取得エラー:", error)
+    console.error("Server: Failed to fetch projects:", error)
     return { success: false, error: error.message }
   }
 }
@@ -33,6 +38,8 @@ export async function createProject(projectData: any) {
       throw new Error("認証されていません")
     }
 
+    console.log("Server: Creating project with data:", projectData)
+
     // プロジェクトを追加
     const { data, error } = await supabase
       .from("projects")
@@ -42,7 +49,12 @@ export async function createProject(projectData: any) {
       })
       .select()
 
-    if (error) throw error
+    if (error) {
+      console.error("Server: Error creating project:", error)
+      throw error
+    }
+
+    console.log("Server: Project created:", data)
 
     // プロジェクト割り当てがある場合は保存
     if (projectData.assignments && projectData.assignments.length > 0) {
@@ -53,9 +65,14 @@ export async function createProject(projectData: any) {
         project_id: projectId,
       }))
 
+      console.log("Server: Creating assignments:", assignmentsWithProjectId)
+
       const { error: assignmentError } = await supabase.from("project_assignments").insert(assignmentsWithProjectId)
 
-      if (assignmentError) throw assignmentError
+      if (assignmentError) {
+        console.error("Server: Error creating assignments:", assignmentError)
+        throw assignmentError
+      }
     }
 
     // キャッシュを再検証
@@ -63,7 +80,7 @@ export async function createProject(projectData: any) {
 
     return { success: true, data }
   } catch (error: any) {
-    console.error("プロジェクト作成エラー:", error)
+    console.error("Server: Project creation error:", error)
     return { success: false, error: error.message }
   }
 }
@@ -73,6 +90,7 @@ export async function updateProject(id: string, projectData: any) {
   const supabase = getServerSupabase()
 
   try {
+    console.log("Server: Updating project:", id, projectData)
     const { data, error } = await supabase
       .from("projects")
       .update({
@@ -82,14 +100,19 @@ export async function updateProject(id: string, projectData: any) {
       .eq("id", id)
       .select()
 
-    if (error) throw error
+    if (error) {
+      console.error("Server: Error updating project:", error)
+      throw error
+    }
+
+    console.log("Server: Project updated successfully:", data)
 
     // キャッシュを再検証
     revalidatePath("/master/project")
 
     return { success: true, data }
   } catch (error: any) {
-    console.error("プロジェクト更新エラー:", error)
+    console.error("Server: Project update error:", error)
     return { success: false, error: error.message }
   }
 }
@@ -99,22 +122,31 @@ export async function deleteProject(id: string) {
   const supabase = getServerSupabase()
 
   try {
+    console.log("Server: Deleting project:", id)
     // 関連する割り当てを削除
     const { error: assignmentError } = await supabase.from("project_assignments").delete().eq("project_id", id)
 
-    if (assignmentError) throw assignmentError
+    if (assignmentError) {
+      console.error("Server: Error deleting project assignments:", assignmentError)
+      throw assignmentError
+    }
 
     // プロジェクトを削除
     const { error } = await supabase.from("projects").delete().eq("id", id)
 
-    if (error) throw error
+    if (error) {
+      console.error("Server: Error deleting project:", error)
+      throw error
+    }
+
+    console.log("Server: Project deleted successfully")
 
     // キャッシュを再検証
     revalidatePath("/master/project")
 
     return { success: true }
   } catch (error: any) {
-    console.error("プロジェクト削除エラー:", error)
+    console.error("Server: Project deletion error:", error)
     return { success: false, error: error.message }
   }
 }

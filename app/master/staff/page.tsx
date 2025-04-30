@@ -1,5 +1,4 @@
 import type { Metadata } from "next"
-import { DashboardLayout } from "@/components/dashboard-layout"
 import { StaffList } from "@/components/staff-list"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { StaffCalendar } from "@/components/staff-calendar"
@@ -12,11 +11,14 @@ export const metadata: Metadata = {
 
 export default function StaffPage() {
   return (
-    <DashboardLayout
-      title="スタッフ管理"
-      description="スタッフの登録、編集、シフト管理を行います。スタッフの情報更新や休暇申請の確認ができます。"
-      isAdmin={true}
-    >
+    <div className="container mx-auto p-6 pt-20">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">スタッフ管理</h1>
+        <p className="text-muted-foreground">
+          スタッフの登録、編集、シフト管理を行います。スタッフの情報更新や休暇申請の確認ができます。
+        </p>
+      </div>
+
       <div className="flex flex-col space-y-6">
         <Tabs defaultValue="list" className="mb-6">
           <TabsList>
@@ -35,6 +37,6 @@ export default function StaffPage() {
           </TabsContent>
         </Tabs>
       </div>
-    </DashboardLayout>
+    </div>
   )
 }

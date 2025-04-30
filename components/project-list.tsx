@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -8,11 +8,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Pencil, Trash2, Loader2, Search, X } from "lucide-react"
+import { Plus, Pencil, Trash2, Loader2, Search, X, AlertCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
 import { useProjects, useCreateProject, useUpdateProject, useDeleteProject } from "@/hooks/use-projects"
 import { useStaff, useHeavyMachinery, useVehicles, useTools } from "@/hooks/use-resources"
@@ -23,7 +24,8 @@ export function ProjectList() {
   const { user } = useAuth()
 
   // React Queryフックを使用してデータを取得
-  const { data: projects = [], isLoading: dataLoading, refetch: refetchProjects } = useProjects()
+  const { data: projects = [], isLoading: dataLoading, refetch: refetchProjects, error: projectsError } = useProjects()
+
   const { data: staffList = [] } = useStaff()
   const { data: heavyMachineryList = [] } = useHeavyMachinery()
   const { data: vehiclesList = [] } = useVehicles()
@@ -59,6 +61,19 @@ export function ProjectList() {
     selectedVehicles: [] as string[],
     selectedTools: [] as string[],
   })
+
+  // コンポーネントマウント時にデータを再取得
+  useEffect(() => {
+    console.log("ProjectList component mounted, fetching data...")
+    refetchProjects()
+  }, [refetchProjects])
+
+  // データ取得結果をログに出力
+  useEffect(() => {
+    if (projects && projects.length > 0) {
+      console.log("Projects loaded:", projects.length, "projects")
+    }
+  }, [projects])
 
   // 検索条件に一致するプロジェクトをフィルタリング
   const filteredProjects = projects.filter(
@@ -368,6 +383,29 @@ export function ProjectList() {
     if (!dateString) return "-"
     const date = new Date(dateString)
     return date.toLocaleDateString("ja-JP")
+  }
+
+  // データ取得エラー時の表示
+  if (projectsError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>案件一覧</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>エラー</AlertTitle>
+            <AlertDescription>
+              案件データの取得中にエラーが発生しました。ページを再読み込みするか、管理者にお問い合わせください。
+              <Button variant="outline" size="sm" className="mt-2" onClick={() => refetchProjects()}>
+                再読み込み
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (

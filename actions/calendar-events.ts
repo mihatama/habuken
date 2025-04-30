@@ -1,7 +1,8 @@
 "use server"
 
-import { getServerSupabase } from "../lib/supabase-utils"
+import { createClient } from "@supabase/supabase-js"
 import { revalidatePath } from "next/cache"
+import { cookies } from "next/headers"
 
 // 型定義
 export interface CalendarEvent {
@@ -16,6 +17,29 @@ export interface CalendarEvent {
   event_type: "project" | "staff" | "tool" | "general"
   created_at?: string
   updated_at?: string
+}
+
+// サーバーサイド用のSupabaseクライアントを取得
+function getServerSupabase() {
+  const cookieStore = cookies()
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("Supabase環境変数が設定されていません")
+  }
+
+  return createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      persistSession: false,
+    },
+    cookies: {
+      get(name: string) {
+        return cookieStore.get(name)?.value
+      },
+    },
+  })
 }
 
 // イベント作成
@@ -227,13 +251,6 @@ export async function createMultipleAssignmentEvent({
 }) {
   try {
     const supabase = getServerSupabase()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { success: false, error: "ユーザーが認証されていません" }
-    }
 
     // 基本イベントデータ
     const baseEventData = {
@@ -242,7 +259,7 @@ export async function createMultipleAssignmentEvent({
       end_time: new Date(end_time).toISOString(),
       notes,
       project_id: project_id || null,
-      created_by: user.id,
+      created_by: "system", // サーバーアクションではユーザーIDを直接取得できないため
       event_type,
     }
 

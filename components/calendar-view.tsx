@@ -15,6 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@supabase/supabase-js"
 import { getCalendarEvents } from "@/actions/calendar-events"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertCircle, RefreshCw } from "lucide-react"
 
 // 日本語ローカライザーの設定
 moment.locale("ja")
@@ -49,10 +51,16 @@ interface Staff {
 }
 
 // Supabaseクライアントの作成
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
-)
+const getSupabaseClient = () => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Supabase環境変数が設定されていません")
+  }
+
+  return createClient(supabaseUrl, supabaseAnonKey)
+}
 
 export function CalendarView() {
   const [events, setEvents] = useState<CalendarEvent[]>([])
@@ -60,6 +68,8 @@ export function CalendarView() {
   const [staff, setStaff] = useState<Staff[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [newEvent, setNewEvent] = useState({
     title: "",
     start: "",
@@ -72,72 +82,80 @@ export function CalendarView() {
   const { toast } = useToast()
 
   // カレンダーイベントの取得
+  const fetchData = async () => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      // getCalendarEvents関数を使用してイベントを取得
+      const now = new Date()
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+
+      const result = await getCalendarEvents({
+        startDate: firstDay.toISOString(),
+        endDate: lastDay.toISOString(),
+      })
+
+      if (!result.success) {
+        throw new Error(result.error || "イベントの取得に失敗しました")
+      }
+
+      // 日付文字列をDateオブジェクトに変換
+      const formattedEvents = result.data.map((event: any) => ({
+        id: event.id,
+        title: event.title,
+        start: new Date(event.start_time),
+        end: new Date(event.end_time),
+        description: event.notes,
+        type: event.event_type,
+        project_id: event.project_id,
+        staff_id: event.staff_id,
+        resource_id: event.resource_id,
+      }))
+
+      setEvents(formattedEvents)
+
+      // プロジェクトとスタッフのデータを取得
+      await fetchProjectsAndStaff()
+    } catch (error) {
+      console.error("イベント取得エラー:", error)
+      setError(error instanceof Error ? error.message : "イベントの取得に失敗しました")
+      toast({
+        title: "エラー",
+        description: "カレンダーイベントの取得に失敗しました",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const fetchProjectsAndStaff = async () => {
+    try {
+      const supabase = getSupabaseClient()
+
+      // プロジェクトデータを取得
+      const { data: projectsData, error: projectsError } = await supabase.from("projects").select("id, name")
+      if (projectsError) throw new Error(`プロジェクトデータ取得エラー: ${projectsError.message}`)
+      setProjects(projectsData || [])
+
+      // スタッフデータを取得
+      const { data: staffData, error: staffError } = await supabase.from("staff").select("id, full_name")
+      if (staffError) throw new Error(`スタッフデータ取得エラー: ${staffError.message}`)
+      setStaff(staffData || [])
+    } catch (error) {
+      console.error("データ取得エラー:", error)
+      toast({
+        title: "エラー",
+        description: "プロジェクトとスタッフのデータ取得に失敗しました",
+        variant: "destructive",
+      })
+    }
+  }
+
   useEffect(() => {
-    async function fetchEvents() {
-      try {
-        // getCalendarEvents関数を使用してイベントを取得
-        const now = new Date()
-        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
-        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-
-        const result = await getCalendarEvents({
-          startDate: firstDay.toISOString(),
-          endDate: lastDay.toISOString(),
-        })
-
-        if (!result.success) {
-          throw new Error(result.error || "イベントの取得に失敗しました")
-        }
-
-        // 日付文字列をDateオブジェクトに変換
-        const formattedEvents = result.data.map((event: any) => ({
-          id: event.id,
-          title: event.title,
-          start: new Date(event.start_time),
-          end: new Date(event.end_time),
-          description: event.notes,
-          type: event.event_type,
-          project_id: event.project_id,
-          staff_id: event.staff_id,
-          resource_id: event.resource_id,
-        }))
-
-        setEvents(formattedEvents)
-      } catch (error) {
-        console.error("イベント取得エラー:", error)
-        toast({
-          title: "エラー",
-          description: "カレンダーイベントの取得に失敗しました",
-          variant: "destructive",
-        })
-      }
-    }
-
-    async function fetchProjects() {
-      try {
-        const { data, error } = await supabase.from("projects").select("id, name")
-
-        if (error) throw error
-        setProjects(data || [])
-      } catch (error) {
-        console.error("プロジェクト取得エラー:", error)
-      }
-    }
-
-    async function fetchStaff() {
-      try {
-        const { data, error } = await supabase.from("staff").select("id, full_name")
-
-        if (error) throw error
-        setStaff(data || [])
-      } catch (error) {
-        console.error("スタッフ取得エラー:", error)
-      }
-    }
-
-    fetchEvents()
-    fetchProjects()
-    fetchStaff()
+    fetchData()
   }, [toast])
 
   // 日付選択ハンドラー
@@ -164,6 +182,8 @@ export function CalendarView() {
         })
         return
       }
+
+      const supabase = getSupabaseClient()
 
       // Supabaseに保存するデータ形式に変換
       const eventData = {
@@ -265,6 +285,43 @@ export function CalendarView() {
       default:
         return type
     }
+  }
+
+  if (error) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>カレンダー</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>エラーが発生しました</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+          <Button onClick={fetchData} className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" />
+            再読み込み
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>カレンダー</CardTitle>
+        </CardHeader>
+        <CardContent className="flex justify-center items-center h-[600px]">
+          <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            <p>読み込み中...</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (

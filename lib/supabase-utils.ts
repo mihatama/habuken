@@ -1,51 +1,47 @@
 import { createClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/supabase"
+import { cookies } from "next/headers"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
-// シングルトンパターンでクライアントを管理
-let supabaseClient: ReturnType<typeof createClient> | null = null
-
-export function getClientSupabase() {
-  if (!supabaseClient) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error("Supabase環境変数が設定されていません")
-      throw new Error("Supabase環境変数が設定されていません")
-    }
-
-    console.log("Supabaseクライアントを初期化します")
-    supabaseClient = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-      },
-    })
+// サーバーコンポーネント用のSupabaseクライアント
+export function getServerSupabase() {
+  if (typeof window !== "undefined") {
+    console.warn("getServerSupabase was called on the client side")
+    return getClientSupabase()
   }
-  return supabaseClient
-}
 
-// サーバーサイド用のSupabaseクライアント
-export async function getServerSupabase() {
-  const { createServerClient } = await import("@supabase/auth-helpers-nextjs")
-  const { cookies } = await import("next/headers")
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  const cookieStore = cookies()
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("Supabase環境変数が設定されていません")
+  }
 
-  return createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+  // サーバーサイドでは毎回新しいクライアントを作成する
+  // これはサーバーアクションが複数のリクエストで共有されないようにするため
+  return createClient<Database>(supabaseUrl, supabaseKey, {
+    auth: { persistSession: false },
     cookies: {
       get(name: string) {
-        return cookieStore.get(name)?.value
-      },
-      set(name: string, value: string, options: any) {
-        cookieStore.set({ name, value, ...options })
-      },
-      remove(name: string, options: any) {
-        cookieStore.set({ name, value: "", ...options })
+        try {
+          const cookieStore = cookies()
+          return cookieStore.get(name)?.value
+        } catch (error) {
+          return undefined
+        }
       },
     },
   })
+}
+
+// クライアントコンポーネント用のSupabaseクライアント
+let clientSupabase: ReturnType<typeof createClientComponentClient<Database>> | null = null
+
+export function getClientSupabase() {
+  if (!clientSupabase) {
+    clientSupabase = createClientComponentClient<Database>()
+  }
+  return clientSupabase
 }
 
 // エラーハンドリング用のカスタムエラークラス

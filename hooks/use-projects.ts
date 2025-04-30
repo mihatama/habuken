@@ -12,10 +12,21 @@ export function useProjects() {
   return useQuery({
     queryKey: ["projects"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false })
+      try {
+        console.log("Fetching projects from Supabase...")
+        const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false })
 
-      if (error) throw error
-      return data || []
+        if (error) {
+          console.error("Error fetching projects:", error)
+          throw error
+        }
+
+        console.log("Projects fetched successfully:", data?.length || 0, "projects")
+        return data || []
+      } catch (error) {
+        console.error("Failed to fetch projects:", error)
+        throw error
+      }
     },
     staleTime: 1000, // 1秒後にデータを古いと見なす
     refetchOnWindowFocus: true,
@@ -51,7 +62,10 @@ export function useCreateProject() {
           })
           .select()
 
-        if (projectError) throw projectError
+        if (projectError) {
+          console.error("Error creating project:", projectError)
+          throw projectError
+        }
 
         console.log("Project created:", projectResult)
 
@@ -71,7 +85,10 @@ export function useCreateProject() {
 
           const { error: assignmentError } = await supabase.from("project_assignments").insert(assignmentsWithProjectId)
 
-          if (assignmentError) throw assignmentError
+          if (assignmentError) {
+            console.error("Error creating assignments:", assignmentError)
+            throw assignmentError
+          }
         }
 
         return { success: true, data: projectResult }
@@ -122,6 +139,7 @@ export function useUpdateProject() {
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
       try {
+        console.log("Updating project:", id, data)
         const { data: result, error } = await supabase
           .from("projects")
           .update({
@@ -131,9 +149,15 @@ export function useUpdateProject() {
           .eq("id", id)
           .select()
 
-        if (error) throw error
+        if (error) {
+          console.error("Error updating project:", error)
+          throw error
+        }
+
+        console.log("Project updated successfully:", result)
         return { success: true, data: result }
       } catch (error: any) {
+        console.error("Project update error:", error)
         return {
           success: false,
           error: error.message || "プロジェクトの更新に失敗しました",
@@ -175,17 +199,27 @@ export function useDeleteProject() {
   return useMutation({
     mutationFn: async (id: string) => {
       try {
+        console.log("Deleting project:", id)
         // 関連する割り当てを先に削除
         const { error: assignmentError } = await supabase.from("project_assignments").delete().eq("project_id", id)
 
-        if (assignmentError) throw assignmentError
+        if (assignmentError) {
+          console.error("Error deleting project assignments:", assignmentError)
+          throw assignmentError
+        }
 
         // プロジェクトを削除
         const { error } = await supabase.from("projects").delete().eq("id", id)
 
-        if (error) throw error
+        if (error) {
+          console.error("Error deleting project:", error)
+          throw error
+        }
+
+        console.log("Project deleted successfully")
         return { success: true }
       } catch (error: any) {
+        console.error("Project deletion error:", error)
         return {
           success: false,
           error: error.message || "プロジェクトの削除に失敗しました",
