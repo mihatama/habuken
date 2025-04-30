@@ -26,7 +26,7 @@ export function HeavyMachineryManagement() {
     name: "",
     type: "",
     location: "",
-    ownership_type: "owned",
+    ownership_type: "自社保有",
     last_inspection_date: "",
     daily_rate: "",
     weekly_rate: "",
@@ -97,7 +97,7 @@ export function HeavyMachineryManagement() {
         name: "",
         type: "",
         location: "",
-        ownership_type: "owned",
+        ownership_type: "自社保有",
         last_inspection_date: "",
         daily_rate: "",
         weekly_rate: "",
@@ -217,12 +217,12 @@ export function HeavyMachineryManagement() {
 
   const getOwnershipBadge = (type: string) => {
     switch (type) {
-      case "owned":
+      case "自社保有":
         return <Badge variant="outline">自社所有</Badge>
-      case "leased":
+      case "リース":
         return <Badge variant="outline">リース</Badge>
-      case "rented":
-        return <Badge variant="outline">レンタル</Badge>
+      case "その他":
+        return <Badge variant="outline">その他</Badge>
       default:
         return <Badge variant="outline">{type}</Badge>
     }
@@ -285,9 +285,9 @@ export function HeavyMachineryManagement() {
                     value={newMachinery.ownership_type}
                     onChange={(e) => setNewMachinery({ ...newMachinery, ownership_type: e.target.value })}
                   >
-                    <option value="owned">自社所有</option>
-                    <option value="leased">リース</option>
-                    <option value="rented">レンタル</option>
+                    <option value="自社保有">自社所有</option>
+                    <option value="リース">リース</option>
+                    <option value="その他">その他</option>
                   </select>
                 </div>
                 <div className="grid gap-2">
@@ -443,9 +443,9 @@ export function HeavyMachineryManagement() {
                                       setCurrentMachinery({ ...currentMachinery, ownership_type: e.target.value })
                                     }
                                   >
-                                    <option value="owned">自社所有</option>
-                                    <option value="leased">リース</option>
-                                    <option value="rented">レンタル</option>
+                                    <option value="自社保有">自社所有</option>
+                                    <option value="リース">リース</option>
+                                    <option value="その他">その他</option>
                                   </select>
                                 </div>
                                 <div className="grid gap-2">
