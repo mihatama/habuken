@@ -9,6 +9,12 @@ import { Badge } from "@/components/ui/badge"
 import { getClientSupabase } from "@/lib/supabase-utils"
 import { Loader2, ArrowLeft, Calendar, Users, Truck, Car, Package, FileText, Shield, Plus } from "lucide-react"
 
+// Helper function to validate UUID
+function isValidUUID(uuid: string) {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  return uuidRegex.test(uuid)
+}
+
 export function DealDetails({ id }: { id: string }) {
   const router = useRouter()
   const [deal, setDeal] = useState<any>(null)
@@ -25,6 +31,11 @@ export function DealDetails({ id }: { id: string }) {
   useEffect(() => {
     async function fetchDealData() {
       try {
+        // Validate UUID before making any database calls
+        if (!isValidUUID(id)) {
+          throw new Error(`無効なIDです: ${id}`)
+        }
+
         setLoading(true)
         const supabase = getClientSupabase()
 
