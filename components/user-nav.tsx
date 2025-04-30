@@ -12,16 +12,16 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { getClientSupabase } from "@/lib/supabase-utils"
+import { useAuth } from "@/contexts/auth-context"
 import { useRouter } from "next/navigation"
 
 export function UserNav({ user }) {
   const router = useRouter()
+  const { signOut } = useAuth()
 
   const handleSignOut = async () => {
     try {
-      const supabase = getClientSupabase()
-      await supabase.auth.signOut()
+      await signOut()
       router.push("/login")
     } catch (error) {
       console.error("サインアウトエラー:", error)
@@ -41,7 +41,7 @@ export function UserNav({ user }) {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user?.email || "ユーザー"}</p>
+            <p className="text-sm font-medium leading-none">{user?.user_metadata?.full_name || "ユーザー"}</p>
             <p className="text-xs leading-none text-muted-foreground">{user?.email || "メールアドレスなし"}</p>
           </div>
         </DropdownMenuLabel>

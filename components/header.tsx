@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { MobileNav } from "@/components/mobile-nav"
 import { UserNav } from "@/components/user-nav"
+import { useAuth } from "@/contexts/auth-context"
 
-export function Header({ user }) {
+export function Header() {
   const router = useRouter()
+  const { user, loading } = useAuth()
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
 
   return (
@@ -40,7 +42,9 @@ export function Header({ user }) {
           </nav>
         </div>
         <div className="flex items-center space-x-4">
-          {user ? (
+          {loading ? (
+            <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200"></div>
+          ) : user ? (
             <>
               <UserNav user={user} />
               <Button
