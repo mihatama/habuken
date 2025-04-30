@@ -124,9 +124,12 @@ export interface Database {
           type: string
           status: string
           description: string | null
-          metadata: Json | null // metadataフィールドを追加
           created_at: string
           updated_at: string
+          created_by: string // 作成者IDを追加
+          updated_by: string | null // 更新者IDを追加
+          project_id: string | null // プロジェクトIDを追加
+          organization_id: string | null // 組織IDを追加
         }
         Insert: {
           id?: string
@@ -134,9 +137,12 @@ export interface Database {
           type: string
           status?: string
           description?: string | null
-          metadata?: Json | null // metadataフィールドを追加
           created_at?: string
           updated_at?: string
+          created_by: string // 作成者IDを必須に
+          updated_by?: string | null
+          project_id?: string | null
+          organization_id?: string | null
         }
         Update: {
           id?: string
@@ -144,9 +150,12 @@ export interface Database {
           type?: string
           status?: string
           description?: string | null
-          metadata?: Json | null // metadataフィールドを追加
           created_at?: string
           updated_at?: string
+          created_by?: string
+          updated_by?: string | null
+          project_id?: string | null
+          organization_id?: string | null
         }
       }
       shifts: {

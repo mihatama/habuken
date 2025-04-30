@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/use-toast"
 import { insertClientData } from "@/lib/supabase-utils"
+import { useAuth } from "@/hooks/use-auth"
 
 interface ToolFormProps {
   open: boolean
@@ -17,6 +18,7 @@ interface ToolFormProps {
 }
 
 export function ToolForm({ open, onOpenChange, onSuccess }: ToolFormProps) {
+  const { user } = useAuth() // 認証情報を取得
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
@@ -49,6 +51,15 @@ export function ToolForm({ open, onOpenChange, onSuccess }: ToolFormProps) {
   const handleSubmit = async (e) => {
     if (e) e.preventDefault()
 
+    if (!user) {
+      toast({
+        title: "認証エラー",
+        description: "ログインしてください",
+        variant: "destructive",
+      })
+      return
+    }
+
     if (!formData.name) {
       toast({
         title: "入力エラー",
@@ -74,6 +85,9 @@ export function ToolForm({ open, onOpenChange, onSuccess }: ToolFormProps) {
         }`,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        created_by: user.id, // ユーザーIDを追加
+        project_id: null, // プロジェクトIDがある場合は設定
+        organization_id: null, // 組織IDがある場合は設定
       })
 
       toast({

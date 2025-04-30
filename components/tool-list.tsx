@@ -11,10 +11,12 @@ import { Plus, Pencil, Trash2, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { getClientSupabase } from "@/lib/supabase-utils"
+import { useAuth } from "@/hooks/use-auth"
 
 export function ToolList() {
   const { toast } = useToast()
   const supabase = getClientSupabase() // シングルトンインスタンスを使用
+  const { user } = useAuth() // 認証情報を取得
 
   const [tools, setTools] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -65,6 +67,15 @@ export function ToolList() {
 
   async function addTool() {
     try {
+      if (!user) {
+        toast({
+          title: "認証エラー",
+          description: "ログインしてください",
+          variant: "destructive",
+        })
+        return
+      }
+
       if (!newTool.name) {
         toast({
           title: "入力エラー",
@@ -88,6 +99,9 @@ export function ToolList() {
         }, 最終メンテナンス日: ${newTool.last_maintenance_date || "未設定"}`,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        created_by: user.id, // ユーザーIDを追加
+        project_id: null, // プロジェクトIDがある場合は設定
+        organization_id: null, // 組織IDがある場合は設定
       }
 
       const { data, error } = await supabase.from("resources").insert([toolData]).select()
@@ -128,6 +142,15 @@ export function ToolList() {
 
   async function updateTool() {
     try {
+      if (!user) {
+        toast({
+          title: "認証エラー",
+          description: "ログインしてください",
+          variant: "destructive",
+        })
+        return
+      }
+
       if (!currentTool || !currentTool.id) {
         throw new Error("備品IDが不明です")
       }
@@ -154,6 +177,7 @@ export function ToolList() {
           currentTool.last_maintenance_date ? currentTool.last_maintenance_date.split("T")[0] : "未設定"
         }`,
         updated_at: new Date().toISOString(),
+        updated_by: user.id, // 更新者IDを追加
       }
 
       const { data, error } = await supabase.from("resources").update(updateData).eq("id", currentTool.id).select()
@@ -183,6 +207,15 @@ export function ToolList() {
 
   async function deleteTool(id: string) {
     try {
+      if (!user) {
+        toast({
+          title: "認証エラー",
+          description: "ログインしてください",
+          variant: "destructive",
+        })
+        return
+      }
+
       if (!confirm("この備品を削除してもよろしいですか？")) {
         return
       }
