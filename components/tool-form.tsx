@@ -60,22 +60,18 @@ export function ToolForm({ open, onOpenChange, onSuccess }: ToolFormProps) {
 
     setSubmitting(true)
     try {
-      // 修正: statusフィールドをconditionに変更し、不要なフィールドを削除
+      // 実際のデータベーススキーマに合わせたデータ構造
       const result = await insertClientData("resources", {
         name: formData.name,
         type: "工具", // リソースタイプを「工具」に固定
-        description: formData.notes, // notesをdescriptionに変更
-        status: formData.status, // statusはそのまま使用
-        // 以下のフィールドはmetadataオブジェクトとして保存
-        metadata: {
-          resource_type: formData.type,
-          model: formData.model,
-          manufacturer: formData.manufacturer,
-          serial_number: formData.serialNumber,
-          purchase_date: formData.purchaseDate || null,
-          purchase_price: formData.purchasePrice ? Number.parseFloat(formData.purchasePrice) : null,
-          location: formData.location,
-        },
+        status: formData.status,
+        description: `型式: ${formData.model || "未設定"}, メーカー: ${
+          formData.manufacturer || "未設定"
+        }, シリアル番号: ${formData.serialNumber || "未設定"}, 購入日: ${
+          formData.purchaseDate || "未設定"
+        }, 購入価格: ${formData.purchasePrice || "未設定"}, 保管場所: ${formData.location || "未設定"}, 備考: ${
+          formData.notes || "なし"
+        }`,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })

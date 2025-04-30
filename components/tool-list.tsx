@@ -76,20 +76,16 @@ export function ToolList() {
 
       setIsLoading(true)
 
-      // Supabaseのスキーマに合わせたデータ構造に変更
+      // 実際のデータベーススキーマに合わせたデータ構造
       const toolData = {
         name: newTool.name,
         type: "工具",
         status: "available", // デフォルトステータス
-        description: "", // 説明（空）
-        metadata: {
-          model: newTool.model,
-          manufacturer: newTool.manufacturer,
-          purchase_date: newTool.purchase_date || null,
-          storage_location: newTool.storage_location || null,
-          condition: newTool.condition,
-          last_maintenance_date: newTool.last_maintenance_date || null,
-        },
+        description: `型式: ${newTool.model || "未設定"}, メーカー: ${newTool.manufacturer || "未設定"}, 状態: ${
+          newTool.condition
+        }, 保管場所: ${newTool.storage_location || "未設定"}, 購入日: ${
+          newTool.purchase_date || "未設定"
+        }, 最終メンテナンス日: ${newTool.last_maintenance_date || "未設定"}`,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }
@@ -147,24 +143,16 @@ export function ToolList() {
 
       setIsLoading(true)
 
-      // 現在のツールのmetadataを取得または新規作成
-      const metadata = currentTool.metadata || {}
-
       // 更新データを準備
       const updateData = {
         name: currentTool.name,
-        // metadataフィールドを更新
-        metadata: {
-          ...metadata,
-          model: currentTool.model || metadata.model,
-          manufacturer: currentTool.manufacturer || metadata.manufacturer,
-          purchase_date: currentTool.purchase_date ? currentTool.purchase_date.split("T")[0] : metadata.purchase_date,
-          storage_location: currentTool.storage_location || metadata.storage_location,
-          condition: currentTool.condition || metadata.condition,
-          last_maintenance_date: currentTool.last_maintenance_date
-            ? currentTool.last_maintenance_date.split("T")[0]
-            : metadata.last_maintenance_date,
-        },
+        description: `型式: ${currentTool.model || "未設定"}, メーカー: ${currentTool.manufacturer || "未設定"}, 状態: ${
+          currentTool.condition || "good"
+        }, 保管場所: ${currentTool.storage_location || "未設定"}, 購入日: ${
+          currentTool.purchase_date ? currentTool.purchase_date.split("T")[0] : "未設定"
+        }, 最終メンテナンス日: ${
+          currentTool.last_maintenance_date ? currentTool.last_maintenance_date.split("T")[0] : "未設定"
+        }`,
         updated_at: new Date().toISOString(),
       }
 
@@ -224,13 +212,55 @@ export function ToolList() {
     }
   }
 
+  // 説明文から情報を抽出する関数
+  const extractInfoFromDescription = (description: string) => {
+    const info: any = {
+      model: "",
+      manufacturer: "",
+      condition: "good",
+      storage_location: "",
+      purchase_date: "",
+      last_maintenance_date: "",
+    }
+
+    if (!description) return info
+
+    // 型式を抽出
+    const modelMatch = description.match(/型式: ([^,]+)/)
+    if (modelMatch && modelMatch[1] !== "未設定") info.model = modelMatch[1]
+
+    // メーカーを抽出
+    const manufacturerMatch = description.match(/メーカー: ([^,]+)/)
+    if (manufacturerMatch && manufacturerMatch[1] !== "未設定") info.manufacturer = manufacturerMatch[1]
+
+    // 状態を抽出
+    const conditionMatch = description.match(/状態: ([^,]+)/)
+    if (conditionMatch && conditionMatch[1] !== "未設定") info.condition = conditionMatch[1]
+
+    // 保管場所を抽出
+    const locationMatch = description.match(/保管場所: ([^,]+)/)
+    if (locationMatch && locationMatch[1] !== "未設定") info.storage_location = locationMatch[1]
+
+    // 購入日を抽出
+    const purchaseDateMatch = description.match(/購入日: ([^,]+)/)
+    if (purchaseDateMatch && purchaseDateMatch[1] !== "未設定") info.purchase_date = purchaseDateMatch[1]
+
+    // 最終メンテナンス日を抽出
+    const maintenanceDateMatch = description.match(/最終メンテナンス日: ([^,]+)/)
+    if (maintenanceDateMatch && maintenanceDateMatch[1] !== "未設定")
+      info.last_maintenance_date = maintenanceDateMatch[1]
+
+    return info
+  }
+
   const filteredTools = tools.filter((t) => {
     const searchLower = searchTerm.toLowerCase()
+    const info = extractInfoFromDescription(t.description)
     return (
       t.name?.toLowerCase().includes(searchLower) ||
-      (t.metadata?.model || "")?.toLowerCase().includes(searchLower) ||
-      (t.metadata?.manufacturer || "")?.toLowerCase().includes(searchLower) ||
-      (t.metadata?.storage_location || "")?.toLowerCase().includes(searchLower)
+      info.model?.toLowerCase().includes(searchLower) ||
+      info.manufacturer?.toLowerCase().includes(searchLower) ||
+      info.storage_location?.toLowerCase().includes(searchLower)
     )
   })
 
@@ -250,9 +280,13 @@ export function ToolList() {
   }
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return "-"
-    const date = new Date(dateString)
-    return date.toLocaleDateString("ja-JP")
+    if (!dateString || dateString === "未設定") return "-"
+    try {
+      const date = new Date(dateString)
+      return date.toLocaleDateString("ja-JP")
+    } catch (e) {
+      return dateString
+    }
   }
 
   return (
@@ -385,171 +419,192 @@ export function ToolList() {
             </TableHeader>
             <TableBody>
               {filteredTools.length > 0 ? (
-                filteredTools.map((tool) => (
-                  <TableRow key={tool.id}>
-                    <TableCell className="font-medium">{tool.name}</TableCell>
-                    <TableCell>
-                      {tool.metadata?.model ? (
-                        <div>
-                          <div>{tool.metadata.model}</div>
-                          {tool.metadata.manufacturer && (
-                            <div className="text-sm text-muted-foreground">{tool.metadata.manufacturer}</div>
-                          )}
-                        </div>
-                      ) : tool.metadata?.manufacturer ? (
-                        tool.metadata.manufacturer
-                      ) : (
-                        "-"
-                      )}
-                    </TableCell>
-                    <TableCell>{formatDate(tool.metadata?.purchase_date || "")}</TableCell>
-                    <TableCell>{tool.metadata?.storage_location || "-"}</TableCell>
-                    <TableCell>{getConditionBadge(tool.metadata?.condition || "unknown")}</TableCell>
-                    <TableCell>{formatDate(tool.metadata?.last_maintenance_date || "")}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end space-x-2">
-                        <Dialog
-                          open={isEditDialogOpen && currentTool?.id === tool.id}
-                          onOpenChange={(open) => {
-                            setIsEditDialogOpen(open)
-                            if (open) {
-                              // metadataからデータを取り出して編集しやすい形に変換
-                              const metadata = tool.metadata || {}
-                              setCurrentTool({
-                                ...tool,
-                                model: metadata.model || "",
-                                manufacturer: metadata.manufacturer || "",
-                                purchase_date: metadata.purchase_date || "",
-                                storage_location: metadata.storage_location || "",
-                                condition: metadata.condition || "good",
-                                last_maintenance_date: metadata.last_maintenance_date || "",
-                              })
-                            }
-                          }}
-                        >
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                // metadataからデータを取り出して編集しやすい形に変換
-                                const metadata = tool.metadata || {}
+                filteredTools.map((tool) => {
+                  const info = extractInfoFromDescription(tool.description)
+                  return (
+                    <TableRow key={tool.id}>
+                      <TableCell className="font-medium">{tool.name}</TableCell>
+                      <TableCell>
+                        {info.model ? (
+                          <div>
+                            <div>{info.model}</div>
+                            {info.manufacturer && (
+                              <div className="text-sm text-muted-foreground">{info.manufacturer}</div>
+                            )}
+                          </div>
+                        ) : info.manufacturer ? (
+                          info.manufacturer
+                        ) : (
+                          "-"
+                        )}
+                      </TableCell>
+                      <TableCell>{formatDate(info.purchase_date)}</TableCell>
+                      <TableCell>{info.storage_location || "-"}</TableCell>
+                      <TableCell>{getConditionBadge(info.condition || "unknown")}</TableCell>
+                      <TableCell>{formatDate(info.last_maintenance_date)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end space-x-2">
+                          <Dialog
+                            open={isEditDialogOpen && currentTool?.id === tool.id}
+                            onOpenChange={(open) => {
+                              setIsEditDialogOpen(open)
+                              if (open) {
+                                // 説明文から情報を抽出
+                                const info = extractInfoFromDescription(tool.description)
                                 setCurrentTool({
                                   ...tool,
-                                  model: metadata.model || "",
-                                  manufacturer: metadata.manufacturer || "",
-                                  purchase_date: metadata.purchase_date || "",
-                                  storage_location: metadata.storage_location || "",
-                                  condition: metadata.condition || "good",
-                                  last_maintenance_date: metadata.last_maintenance_date || "",
+                                  model: info.model || "",
+                                  manufacturer: info.manufacturer || "",
+                                  purchase_date: info.purchase_date || "",
+                                  storage_location: info.storage_location || "",
+                                  condition: info.condition || "good",
+                                  last_maintenance_date: info.last_maintenance_date || "",
                                 })
-                                setIsEditDialogOpen(true)
-                              }}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>備品の編集</DialogTitle>
-                            </DialogHeader>
-                            {currentTool && (
-                              <div className="grid gap-4 py-4">
-                                <div className="grid gap-2">
-                                  <Label htmlFor="edit-name">名前</Label>
-                                  <Input
-                                    id="edit-name"
-                                    value={currentTool.name}
-                                    onChange={(e) => setCurrentTool({ ...currentTool, name: e.target.value })}
-                                  />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
+                              }
+                            }}
+                          >
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  // 説明文から情報を抽出
+                                  const info = extractInfoFromDescription(tool.description)
+                                  setCurrentTool({
+                                    ...tool,
+                                    model: info.model || "",
+                                    manufacturer: info.manufacturer || "",
+                                    purchase_date: info.purchase_date || "",
+                                    storage_location: info.storage_location || "",
+                                    condition: info.condition || "good",
+                                    last_maintenance_date: info.last_maintenance_date || "",
+                                  })
+                                  setIsEditDialogOpen(true)
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>備品の編集</DialogTitle>
+                              </DialogHeader>
+                              {currentTool && (
+                                <div className="grid gap-4 py-4">
                                   <div className="grid gap-2">
-                                    <Label htmlFor="edit-model">型式</Label>
+                                    <Label htmlFor="edit-name">名前</Label>
                                     <Input
-                                      id="edit-model"
-                                      value={currentTool.model || ""}
-                                      onChange={(e) => setCurrentTool({ ...currentTool, model: e.target.value })}
+                                      id="edit-name"
+                                      value={currentTool.name}
+                                      onChange={(e) => setCurrentTool({ ...currentTool, name: e.target.value })}
+                                    />
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid gap-2">
+                                      <Label htmlFor="edit-model">型式</Label>
+                                      <Input
+                                        id="edit-model"
+                                        value={currentTool.model || ""}
+                                        onChange={(e) => setCurrentTool({ ...currentTool, model: e.target.value })}
+                                      />
+                                    </div>
+                                    <div className="grid gap-2">
+                                      <Label htmlFor="edit-manufacturer">メーカー</Label>
+                                      <Input
+                                        id="edit-manufacturer"
+                                        value={currentTool.manufacturer || ""}
+                                        onChange={(e) =>
+                                          setCurrentTool({ ...currentTool, manufacturer: e.target.value })
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="grid gap-2">
+                                    <Label htmlFor="edit-purchase_date">購入日</Label>
+                                    <Input
+                                      id="edit-purchase_date"
+                                      type="date"
+                                      value={
+                                        currentTool.purchase_date && currentTool.purchase_date !== "未設定"
+                                          ? currentTool.purchase_date.split("T")[0]
+                                          : ""
+                                      }
+                                      onChange={(e) =>
+                                        setCurrentTool({ ...currentTool, purchase_date: e.target.value })
+                                      }
                                     />
                                   </div>
                                   <div className="grid gap-2">
-                                    <Label htmlFor="edit-manufacturer">メーカー</Label>
+                                    <Label htmlFor="edit-storage_location">保管場所</Label>
                                     <Input
-                                      id="edit-manufacturer"
-                                      value={currentTool.manufacturer || ""}
-                                      onChange={(e) => setCurrentTool({ ...currentTool, manufacturer: e.target.value })}
+                                      id="edit-storage_location"
+                                      value={currentTool.storage_location || ""}
+                                      onChange={(e) =>
+                                        setCurrentTool({ ...currentTool, storage_location: e.target.value })
+                                      }
+                                    />
+                                  </div>
+                                  <div className="grid gap-2">
+                                    <Label htmlFor="edit-condition">状態</Label>
+                                    <select
+                                      id="edit-condition"
+                                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                      value={currentTool.condition || "good"}
+                                      onChange={(e) => setCurrentTool({ ...currentTool, condition: e.target.value })}
+                                    >
+                                      <option value="excellent">優良</option>
+                                      <option value="good">良好</option>
+                                      <option value="fair">普通</option>
+                                      <option value="poor">不良</option>
+                                    </select>
+                                  </div>
+                                  <div className="grid gap-2">
+                                    <Label htmlFor="edit-last_maintenance_date">最終メンテナンス日</Label>
+                                    <Input
+                                      id="edit-last_maintenance_date"
+                                      type="date"
+                                      value={
+                                        currentTool.last_maintenance_date &&
+                                        currentTool.last_maintenance_date !== "未設定"
+                                          ? currentTool.last_maintenance_date.split("T")[0]
+                                          : ""
+                                      }
+                                      onChange={(e) =>
+                                        setCurrentTool({ ...currentTool, last_maintenance_date: e.target.value })
+                                      }
                                     />
                                   </div>
                                 </div>
-                                <div className="grid gap-2">
-                                  <Label htmlFor="edit-purchase_date">購入日</Label>
-                                  <Input
-                                    id="edit-purchase_date"
-                                    type="date"
-                                    value={currentTool.purchase_date ? currentTool.purchase_date.split("T")[0] : ""}
-                                    onChange={(e) => setCurrentTool({ ...currentTool, purchase_date: e.target.value })}
-                                  />
-                                </div>
-                                <div className="grid gap-2">
-                                  <Label htmlFor="edit-storage_location">保管場所</Label>
-                                  <Input
-                                    id="edit-storage_location"
-                                    value={currentTool.storage_location || ""}
-                                    onChange={(e) =>
-                                      setCurrentTool({ ...currentTool, storage_location: e.target.value })
-                                    }
-                                  />
-                                </div>
-                                <div className="grid gap-2">
-                                  <Label htmlFor="edit-condition">状態</Label>
-                                  <select
-                                    id="edit-condition"
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                    value={currentTool.condition || "good"}
-                                    onChange={(e) => setCurrentTool({ ...currentTool, condition: e.target.value })}
-                                  >
-                                    <option value="excellent">優良</option>
-                                    <option value="good">良好</option>
-                                    <option value="fair">普通</option>
-                                    <option value="poor">不良</option>
-                                  </select>
-                                </div>
-                                <div className="grid gap-2">
-                                  <Label htmlFor="edit-last_maintenance_date">最終メンテナンス日</Label>
-                                  <Input
-                                    id="edit-last_maintenance_date"
-                                    type="date"
-                                    value={
-                                      currentTool.last_maintenance_date
-                                        ? currentTool.last_maintenance_date.split("T")[0]
-                                        : ""
-                                    }
-                                    onChange={(e) =>
-                                      setCurrentTool({ ...currentTool, last_maintenance_date: e.target.value })
-                                    }
-                                  />
-                                </div>
-                              </div>
-                            )}
-                            <DialogFooter>
-                              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isLoading}>
-                                キャンセル
-                              </Button>
-                              <Button type="button" onClick={() => updateTool()} disabled={isLoading}>
-                                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                保存
-                              </Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-                        <Button variant="outline" size="icon" onClick={() => deleteTool(tool.id)} disabled={isLoading}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                              )}
+                              <DialogFooter>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setIsEditDialogOpen(false)}
+                                  disabled={isLoading}
+                                >
+                                  キャンセル
+                                </Button>
+                                <Button type="button" onClick={() => updateTool()} disabled={isLoading}>
+                                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                  保存
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => deleteTool(tool.id)}
+                            disabled={isLoading}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               ) : (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
