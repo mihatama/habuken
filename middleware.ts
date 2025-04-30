@@ -3,6 +3,9 @@ import type { NextRequest } from "next/server"
 import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs"
 
 export async function middleware(req: NextRequest) {
+  // デバッグ用のログ（サーバーサイドのログなのでブラウザには表示されません）
+  console.log("ミドルウェア実行:", req.nextUrl.pathname)
+
   const res = NextResponse.next()
   const supabase = createMiddlewareClient({ req, res })
 
@@ -19,7 +22,11 @@ export async function middleware(req: NextRequest) {
 
   // 認証が必要なパスにアクセスしようとしていて、セッションがない場合はログインページにリダイレクト
   const isAuthRequired = authRequiredPaths.some((authPath) => path.startsWith(authPath))
+
+  console.log("認証要件:", { path, isAuthRequired, hasSession: !!session })
+
   if (isAuthRequired && !session) {
+    console.log("未認証アクセス、リダイレクト:", path)
     const redirectUrl = new URL("/login", req.url)
     redirectUrl.searchParams.set("redirect", path)
     return NextResponse.redirect(redirectUrl)
@@ -27,6 +34,7 @@ export async function middleware(req: NextRequest) {
 
   // ログイン済みでログインページやサインアップページにアクセスしようとしている場合はダッシュボードにリダイレクト
   if (session && (path === "/login" || path === "/signup")) {
+    console.log("認証済みユーザーのログインページアクセス、リダイレクト")
     return NextResponse.redirect(new URL("/dashboard", req.url))
   }
 

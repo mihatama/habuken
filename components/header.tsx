@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { MobileNav } from "@/components/mobile-nav"
 import { UserNav } from "@/components/user-nav"
@@ -11,37 +11,72 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export function Header() {
   const router = useRouter()
+  const pathname = usePathname()
   const { user, loading } = useAuth()
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
+
+  // デバッグ用のログ
+  useEffect(() => {
+    console.log("Header rendering with user:", user)
+    console.log("Current pathname:", pathname)
+  }, [user, pathname])
+
+  // プログラムによるナビゲーション関数
+  const handleNavigation = (path: string) => {
+    try {
+      console.log(`${path} へ遷移します`)
+      router.push(path)
+    } catch (error) {
+      console.error("ナビゲーションエラー:", error)
+    }
+  }
 
   return (
     <header className="fixed top-0 z-40 w-full border-b bg-background">
       <div className="container flex h-16 items-center justify-between px-4 sm:px-6">
         <div className="flex items-center">
-          <Link href="/" className="flex items-center space-x-2">
+          <Link href="/" className="flex items-center space-x-2" onClick={() => console.log("Logo clicked")}>
             <span className="text-xl font-bold">建設業務管理</span>
           </Link>
           <nav className="hidden md:ml-10 md:flex md:items-center md:space-x-4">
             {!loading && user && (
               <>
-                <Link href="/dashboard" className="text-sm font-medium transition-colors hover:text-primary">
+                <button
+                  onClick={() => handleNavigation("/dashboard")}
+                  className="text-sm font-medium transition-colors hover:text-primary"
+                >
                   ダッシュボード
-                </Link>
-                <Link href="/master/project" className="text-sm font-medium transition-colors hover:text-primary">
+                </button>
+                <button
+                  onClick={() => handleNavigation("/master/project")}
+                  className="text-sm font-medium transition-colors hover:text-primary"
+                >
                   案件管理
-                </Link>
-                <Link href="/master/staff" className="text-sm font-medium transition-colors hover:text-primary">
+                </button>
+                <button
+                  onClick={() => handleNavigation("/master/staff")}
+                  className="text-sm font-medium transition-colors hover:text-primary"
+                >
                   スタッフ管理
-                </Link>
-                <Link href="/tools" className="text-sm font-medium transition-colors hover:text-primary">
+                </button>
+                <button
+                  onClick={() => handleNavigation("/tools")}
+                  className="text-sm font-medium transition-colors hover:text-primary"
+                >
                   備品管理
-                </Link>
-                <Link href="/reports" className="text-sm font-medium transition-colors hover:text-primary">
+                </button>
+                <button
+                  onClick={() => handleNavigation("/reports")}
+                  className="text-sm font-medium transition-colors hover:text-primary"
+                >
                   レポート
-                </Link>
-                <Link href="/settings" className="text-sm font-medium transition-colors hover:text-primary">
+                </button>
+                <button
+                  onClick={() => handleNavigation("/settings")}
+                  className="text-sm font-medium transition-colors hover:text-primary"
+                >
                   設定
-                </Link>
+                </button>
               </>
             )}
           </nav>

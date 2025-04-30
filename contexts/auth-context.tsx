@@ -17,35 +17,33 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// 開発環境用のモックユーザー
-const MOCK_USER: AuthUser = {
-  id: "1",
-  email: "info@mihatama.com",
-  user_metadata: {
-    full_name: "管理者",
-    role: "admin",
-  },
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const supabase = getClientSupabase()
 
+  // デバッグ用のログ
+  useEffect(() => {
+    console.log("認証状態:", { user, loading })
+  }, [user, loading])
+
   // セッションからユーザー情報を設定する関数
   const setUserFromSession = (session: Session | null) => {
     if (session) {
-      setUser({
+      const userData = {
         id: session.user.id,
         email: session.user.email || "",
         user_metadata: {
           full_name: session.user.user_metadata.full_name || "",
           role: session.user.user_metadata.role || "user",
         },
-      })
+      }
+      console.log("セッションからユーザー情報を設定:", userData)
+      setUser(userData)
       setSession(session)
     } else {
+      console.log("セッションなし、ユーザー情報をクリア")
       setUser(null)
       setSession(null)
     }
@@ -57,22 +55,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initAuth = async () => {
       try {
         setLoading(true)
+        console.log("認証状態を初期化中...")
 
         // 現在のセッションを取得
         const {
           data: { session },
         } = await supabase.auth.getSession()
 
-        if (session) {
-          setUserFromSession(session)
-        } else if (process.env.NODE_ENV === "development") {
-          // 開発環境ではモックユーザーを使用（オプション）
-          // setUser(MOCK_USER)
-          // console.log("開発環境: モックユーザーを設定しました")
-        } else {
-          setUser(null)
-          setSession(null)
-        }
+        console.log("セッション取得結果:", !!session)
+        setUserFromSession(session)
       } catch (error) {
         console.error("認証初期化エラー:", error)
         setUser(null)
@@ -87,7 +78,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 認証状態の変更を監視
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("認証状態変更イベント:", event)
       setUserFromSession(session)
     })
 
@@ -100,15 +92,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true)
-
-      // 開発環境での特別なログイン処理（テスト用）
-      if (process.env.NODE_ENV === "development" && email === "info@mihatama.com" && password === "gensuke") {
-        console.log("開発環境: 管理者としてログインします")
-        setUser(MOCK_USER)
-        return { success: true }
-      }
-
       console.log(`ログイン試行: ${email}`)
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -137,7 +122,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       setLoading(true)
+      console.log("ログアウト処理開始")
       await supabase.auth.signOut()
+      console.log("ログアウト成功")
       setUser(null)
       setSession(null)
     } catch (error) {
