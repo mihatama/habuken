@@ -17,7 +17,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { useAddLeaveRequest } from "@/hooks/use-leave-requests"
 import { useToast } from "@/components/ui/use-toast"
 import { getClientSupabase } from "@/lib/supabase-utils"
 
@@ -48,22 +47,43 @@ interface LeaveRequestFormProps {
 
 export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequestFormProps) {
   const { toast } = useToast()
-  const addLeaveRequest = useAddLeaveRequest()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [staffList, setStaffList] = useState<Array<{ id: string; full_name: string }> | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      staffId: "",
+      leaveType: "",
+      startDate: "",
+      endDate: "",
+      reason: "",
+    },
+  })
 
   useEffect(() => {
     const fetchStaff = async () => {
       try {
         setIsLoading(true)
+        setError(null)
+
         const supabase = getClientSupabase()
+        console.log("Fetching staff data...")
+
         const { data, error } = await supabase.from("staff").select("id, full_name").order("full_name")
 
-        if (error) throw error
+        if (error) {
+          console.error("Staff fetch error:", error)
+          throw error
+        }
+
+        console.log(`Fetched ${data?.length || 0} staff records`)
         setStaffList(data || [])
-      } catch (error) {
-        console.error("スタッフデータ取得エラー:", error)
+      } catch (err: any) {
+        console.error("スタッフデータ取得エラー:", err)
+        setError(err.message || "スタッフデータの取得に失敗しました")
         toast({
           title: "エラー",
           description: "スタッフデータの取得に失敗しました",
@@ -79,20 +99,12 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
     }
   }, [open, toast])
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      staffId: "",
-      leaveType: "",
-      startDate: "",
-      endDate: "",
-      reason: "",
-    },
-  })
-
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       setIsSubmitting(true)
+      setError(null)
+
+      console.log("Submitting form with values:", values)
 
       // Supabaseクライアントを取得
       const supabase = getClientSupabase()
@@ -100,19 +112,22 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
       // 現在のユーザー情報を取得
       const {
         data: { user },
+        error: userError,
       } = await supabase.auth.getUser()
 
-      if (!user) {
-        toast({
-          title: "エラー",
-          description: "ユーザー情報を取得できませんでした",
-          variant: "destructive",
-        })
-        return
+      if (userError) {
+        console.error("User fetch error:", userError)
+        throw new Error("ユーザー情報を取得できませんでした")
       }
 
+      if (!user) {
+        throw new Error("ユーザー情報を取得できませんでした")
+      }
+
+      console.log("Current user:", user.id)
+
       // 休暇申請を追加
-      const { error } = await supabase.from("leave_requests").insert({
+      const { error: insertError } = await supabase.from("leave_requests").insert({
         staff_id: values.staffId,
         start_date: values.startDate,
         end_date: values.endDate,
@@ -124,7 +139,12 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
         updated_at: new Date().toISOString(),
       })
 
-      if (error) throw error
+      if (insertError) {
+        console.error("Insert error:", insertError)
+        throw insertError
+      }
+
+      console.log("Leave request submitted successfully")
 
       toast({
         title: "申請完了",
@@ -141,16 +161,32 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
       if (onSuccess) {
         onSuccess()
       }
-    } catch (error) {
-      console.error("休暇申請エラー:", error)
+    } catch (err: any) {
+      console.error("休暇申請エラー:", err)
+      setError(err.message || "休暇申請の送信に失敗しました")
       toast({
         title: "エラー",
-        description: "休暇申請の送信に失敗しました",
+        description: "休暇申請の送信に失敗しました: " + (err.message || err),
         variant: "destructive",
       })
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // If there's an error with the dialog, render a fallback UI
+  if (error && !isLoading) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-white p-6 rounded-lg max-w-md w-full">
+          <h2 className="text-xl font-bold mb-4">エラーが発生しました</h2>
+          <p className="text-red-600 mb-4">{error}</p>
+          <div className="flex justify-end">
+            <Button onClick={() => onOpenChange(false)}>閉じる</Button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
