@@ -1,17 +1,17 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Plus, Check, X, AlertTriangle, Calendar, ImageIcon } from "lucide-react"
+import { Plus, Check, X, AlertTriangle, Calendar, ImageIcon, RefreshCw } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SafetyPatrolForm } from "./safety-patrol-form"
-import { useToast } from "@/components/ui/use-toast"
-import { fetchClientData, updateClientData } from "@/lib/supabase-utils"
+import { useToast } from "@/hooks/use-toast"
+import { fetchClientData, updateClientData, getClientSupabase } from "@/lib/supabase-utils"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 
 // チェックリスト項目の定義
@@ -32,21 +32,52 @@ export function SafetyPatrolLog() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [currentPatrol, setCurrentPatrol] = useState<any>(null)
   const [activeTab, setActiveTab] = useState("all")
+  const [tableExists, setTableExists] = useState<boolean | null>(null)
+  const [isCheckingTable, setIsCheckingTable] = useState(false)
   const { toast } = useToast()
   const queryClient = useQueryClient()
 
+  // Check if safety_patrols table exists
+  const checkTableExists = async () => {
+    try {
+      setIsCheckingTable(true)
+      const supabase = getClientSupabase()
+
+      const { error } = await supabase.from("safety_patrols").select("count(*)").limit(1).single()
+
+      if (error && error.message.includes("does not exist")) {
+        setTableExists(false)
+      } else {
+        setTableExists(true)
+      }
+    } catch (error) {
+      console.error("テーブル確認エラー:", error)
+      setTableExists(false)
+    } finally {
+      setIsCheckingTable(false)
+    }
+  }
+
+  useEffect(() => {
+    checkTableExists()
+  }, [])
+
   // 安全パトロールデータを取得
   const { data: patrols = [], isLoading } = useQuery({
-    queryKey: ["safetyPatrols"],
+    queryKey: ["safetyPatrols", tableExists],
     queryFn: async () => {
+      if (!tableExists) return []
+
       try {
         // 安全パトロールデータを取得
-        const { data } = await fetchClientData("safety_patrols", {
+        const { data, error } = await fetchClientData("safety_patrols", {
           join: [
             { table: "projects", on: "project_id", select: ["name as projectName"] },
             { table: "staff", on: "inspector_id", select: ["full_name as inspectorName"] },
           ],
         })
+
+        if (error) throw error
         return data || []
       } catch (error) {
         console.error("安全パトロールデータ取得エラー:", error)
@@ -58,6 +89,7 @@ export function SafetyPatrolLog() {
         return []
       }
     },
+    enabled: tableExists === true,
   })
 
   const filteredPatrols = patrols.filter(
@@ -162,6 +194,45 @@ export function SafetyPatrolLog() {
     }
 
     return { warningCount, dangerCount }
+  }
+
+  // If we're still checking if the table exists, show a loading state
+  if (isCheckingTable) {
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>安全・環境巡視日誌</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center p-8">
+            <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+            <span>データベース接続を確認中...</span>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // If the table doesn't exist, show a message
+  if (tableExists === false) {
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>安全・環境巡視日誌</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-md border border-yellow-200 dark:border-yellow-800 mb-4">
+            <p className="text-yellow-700 dark:text-yellow-300">
+              安全パトロールテーブルが存在しません。データベースが正しく設定されていることを確認してください。
+            </p>
+          </div>
+          <Button onClick={checkTableExists} className="mt-2">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            再確認
+          </Button>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (

@@ -1,3 +1,5 @@
+// Create a new component to manage the tool_reservations table
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -61,10 +63,9 @@ export function CreateToolReservationsTable() {
     }
   }
 
-  // Use useEffect to check if table exists when component mounts
   useEffect(() => {
+    // Check if table exists when component mounts
     checkTableExists()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Empty dependency array ensures this runs only once
 
   return (
@@ -101,7 +102,7 @@ export function CreateToolReservationsTable() {
         </Button>
 
         {!tableExists && (
-          <Button onClick={createTable} disabled={isCreating || tableExists === null}>
+          <Button onClick={createTable} disabled={isCreating || tableExists}>
             <Plus className="h-4 w-4 mr-2" />
             {isCreating ? "作成中..." : "テーブルを作成"}
           </Button>
