@@ -29,6 +29,7 @@ export function LeaveRequestManagement() {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("all")
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null)
 
   const fetchLeaveRequests = async () => {
     try {
@@ -58,6 +59,43 @@ export function LeaveRequestManagement() {
       })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleApproveRequest = async (requestId: string) => {
+    try {
+      setProcessingRequestId(requestId)
+
+      // APIエンドポイントを使用して承認処理を実行
+      const response = await fetch(`/api/leave-requests/${requestId}/approve`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "休暇申請の承認に失敗しました")
+      }
+
+      toast({
+        title: "承認完了",
+        description: "休暇申請が承認されました",
+        variant: "default",
+      })
+
+      // データを再取得して表示を更新
+      fetchLeaveRequests()
+    } catch (error: any) {
+      console.error("休暇申請承認エラー:", error)
+      toast({
+        title: "エラー",
+        description: error.message || "休暇申請の承認に失敗しました",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessingRequestId(null)
     }
   }
 
@@ -143,9 +181,23 @@ export function LeaveRequestManagement() {
                     <div className="text-sm mb-2">
                       <span className="font-medium">休暇種類:</span> {getLeaveTypeBadge(request.leave_type)}
                     </div>
-                    <div className="text-sm">
+                    <div className="text-sm mb-3">
                       <span className="font-medium">理由:</span> {request.reason}
                     </div>
+
+                    {/* 審査中の申請に対してのみ承認ボタンを表示 */}
+                    {request.status === "pending" && (
+                      <div className="flex justify-end mt-2">
+                        <Button
+                          size="sm"
+                          onClick={() => handleApproveRequest(request.id)}
+                          disabled={processingRequestId === request.id}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          {processingRequestId === request.id ? "処理中..." : "承認する"}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
