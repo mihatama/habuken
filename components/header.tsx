@@ -8,6 +8,7 @@ import { MobileNav } from "@/components/mobile-nav"
 import { UserNav } from "@/components/user-nav"
 import { useAuth } from "@/contexts/auth-context"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Calendar, Briefcase, Users, Truck, Car, Key, ClipboardList, FileText, Settings } from "lucide-react"
 
 export function Header() {
   const router = useRouter()
@@ -40,113 +41,153 @@ export function Header() {
 
   return (
     <header className="fixed top-0 z-40 w-full border-b bg-background">
-      <div className="container flex h-16 items-center justify-between px-4 sm:px-6">
+      <div className="container flex h-16 items-center px-4 sm:px-6">
         <div className="flex items-center">
           <Link
             href="/"
-            className="flex items-center space-x-2"
+            className="flex items-center mr-6"
             onClick={(e) => {
               e.preventDefault()
               handleNavigation("/")
             }}
           >
-            <span className="text-xl font-bold">建設業務管理</span>
+            <span className="text-xl font-bold">現助</span>
           </Link>
-          <nav className="hidden md:ml-10 md:flex md:items-center md:space-x-4">
-            {!loading && user && (
-              <>
-                <Link
-                  href="/dashboard"
-                  className="text-sm font-medium transition-colors hover:text-primary"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    handleNavigation("/dashboard")
-                  }}
-                >
-                  ダッシュボード
-                </Link>
-                <Link
-                  href="/master/project"
-                  className="text-sm font-medium transition-colors hover:text-primary"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    handleNavigation("/master/project")
-                  }}
-                >
-                  案件管理
-                </Link>
-                <Link
-                  href="/master/staff"
-                  className="text-sm font-medium transition-colors hover:text-primary"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    handleNavigation("/master/staff")
-                  }}
-                >
-                  スタッフ管理
-                </Link>
-                <Link
-                  href="/tools"
-                  className="text-sm font-medium transition-colors hover:text-primary"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    handleNavigation("/tools")
-                  }}
-                >
-                  備品管理
-                </Link>
-                <Link
-                  href="/reports"
-                  className="text-sm font-medium transition-colors hover:text-primary"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    handleNavigation("/reports")
-                  }}
-                >
-                  レポート
-                </Link>
-                <Link
-                  href="/settings"
-                  className="text-sm font-medium transition-colors hover:text-primary"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    handleNavigation("/settings")
-                  }}
-                >
-                  設定
-                </Link>
-              </>
-            )}
-          </nav>
         </div>
-        <div className="flex items-center space-x-4">
-          {loading ? (
-            <Skeleton className="h-10 w-10 rounded-full" />
-          ) : user ? (
-            <>
-              <UserNav user={user} />
-              <Button
-                variant="outline"
-                size="icon"
-                className="md:hidden"
-                onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
+
+        {!loading && user && (
+          <nav className="hidden md:flex md:flex-1 md:items-center md:justify-between">
+            <div className="flex items-center space-x-6">
+              <Link
+                href="/dashboard"
+                className="flex flex-col items-center text-sm font-medium transition-colors hover:text-primary"
+                onClick={(e) => {
+                  e.preventDefault()
+                  handleNavigation("/dashboard")
+                }}
               >
-                <span className="sr-only">メニューを開く</span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </Button>
-            </>
-          ) : (
+                <Calendar className="h-5 w-5 mb-1" />
+                <span>ダッシュボード</span>
+              </Link>
+              <Link
+                href="/master/project"
+                className="flex flex-col items-center text-sm font-medium transition-colors hover:text-primary"
+                onClick={(e) => {
+                  e.preventDefault()
+                  handleNavigation("/master/project")
+                }}
+              >
+                <Briefcase className="h-5 w-5 mb-1" />
+                <span>案件登録</span>
+              </Link>
+              <Link
+                href="/master/staff"
+                className="flex flex-col items-center text-sm font-medium transition-colors hover:text-primary"
+                onClick={(e) => {
+                  e.preventDefault()
+                  handleNavigation("/master/staff")
+                }}
+              >
+                <Users className="h-5 w-5 mb-1" />
+                <span>スタッフ</span>
+              </Link>
+              <Link
+                href="/master/heavy"
+                className="flex flex-col items-center text-sm font-medium transition-colors hover:text-primary"
+                onClick={(e) => {
+                  e.preventDefault()
+                  handleNavigation("/master/heavy")
+                }}
+              >
+                <Truck className="h-5 w-5 mb-1" />
+                <span>重機</span>
+              </Link>
+              <Link
+                href="/master/vehicle"
+                className="flex flex-col items-center text-sm font-medium transition-colors hover:text-primary"
+                onClick={(e) => {
+                  e.preventDefault()
+                  handleNavigation("/master/vehicle")
+                }}
+              >
+                <Car className="h-5 w-5 mb-1" />
+                <span>車両</span>
+              </Link>
+              <Link
+                href="/tools"
+                className="flex flex-col items-center text-sm font-medium transition-colors hover:text-primary"
+                onClick={(e) => {
+                  e.preventDefault()
+                  handleNavigation("/tools")
+                }}
+              >
+                <Key className="h-5 w-5 mb-1" />
+                <span>備品</span>
+              </Link>
+              <Link
+                href="/leave"
+                className="flex flex-col items-center text-sm font-medium transition-colors hover:text-primary"
+                onClick={(e) => {
+                  e.preventDefault()
+                  handleNavigation("/leave")
+                }}
+              >
+                <ClipboardList className="h-5 w-5 mb-1" />
+                <span>休暇申請</span>
+              </Link>
+              <Link
+                href="/reports"
+                className="flex flex-col items-center text-sm font-medium transition-colors hover:text-primary"
+                onClick={(e) => {
+                  e.preventDefault()
+                  handleNavigation("/reports")
+                }}
+              >
+                <FileText className="h-5 w-5 mb-1" />
+                <span>現場報告</span>
+              </Link>
+              <Link
+                href="/settings"
+                className="flex flex-col items-center text-sm font-medium transition-colors hover:text-primary"
+                onClick={(e) => {
+                  e.preventDefault()
+                  handleNavigation("/settings")
+                }}
+              >
+                <Settings className="h-5 w-5 mb-1" />
+                <span>設定</span>
+              </Link>
+            </div>
+            <div className="flex items-center">
+              <UserNav user={user} />
+            </div>
+          </nav>
+        )}
+
+        {loading ? (
+          <div className="ml-auto">
+            <Skeleton className="h-10 w-10 rounded-full" />
+          </div>
+        ) : !user ? (
+          <div className="ml-auto">
             <Button onClick={() => handleNavigation("/login")}>ログイン</Button>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="ml-auto md:hidden">
+            <Button variant="outline" size="icon" onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}>
+              <span className="sr-only">メニューを開く</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </Button>
+          </div>
+        )}
       </div>
       {user && <MobileNav isOpen={isMobileNavOpen} onClose={() => setIsMobileNavOpen(false)} />}
     </header>
