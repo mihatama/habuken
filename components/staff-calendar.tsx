@@ -35,15 +35,22 @@ export function StaffCalendar() {
       const data = await response.json()
 
       // 承認済みのデータのみをフィルタリング
-      const approvedLeaves = data.data.filter((leave: any) => leave.status === "approved")
+      const approvedLeaves = data.data?.filter((leave: any) => leave.status === "approved") || []
       console.log("承認済み休暇データ (カレンダー用):", approvedLeaves)
 
       // Map approved leave data to calendar events
       const leaveEvents = approvedLeaves.map((leave: any) => {
         // 休暇時間帯に基づいてタイトルと時間を調整
         let title = `${leave.staff_name || "スタッフ"}: 休暇`
-        const start = new Date(leave.start_date)
-        const end = new Date(leave.end_date)
+
+        // Ensure dates are properly formatted
+        const startDate = leave.start_date ? new Date(leave.start_date) : new Date()
+        const endDate = leave.end_date ? new Date(leave.end_date) : new Date()
+
+        // Validate dates
+        const start = isNaN(startDate.getTime()) ? new Date() : startDate
+        const end = isNaN(endDate.getTime()) ? new Date() : endDate
+
         const allDay = true
 
         // 休暇時間帯に応じてタイトルを変更
@@ -54,7 +61,7 @@ export function StaffCalendar() {
         }
 
         return {
-          id: `leave-${leave.id}`,
+          id: `leave-${leave.id || Math.random().toString(36).substring(2, 9)}`,
           title: title,
           start: start,
           end: end,
@@ -102,6 +109,7 @@ export function StaffCalendar() {
           categories={staffCategories}
           onRefresh={fetchStaffVacationData}
           readOnly={true} // Add this prop to indicate it's read-only
+          defaultDate={new Date()} // Add a valid default date
         />
       </CardContent>
     </Card>

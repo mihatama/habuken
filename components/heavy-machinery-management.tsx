@@ -11,6 +11,7 @@ import { Plus, Pencil, Trash2, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { getClientSupabase } from "@/lib/supabase-utils"
+import { OwnershipType } from "@/types/enums"
 
 export function HeavyMachineryManagement() {
   const { toast } = useToast()
@@ -25,12 +26,12 @@ export function HeavyMachineryManagement() {
   const [newMachinery, setNewMachinery] = useState({
     name: "",
     type: "",
-    model: "",
-    manufacturer: "",
-    year: "",
-    ownership_type: "owned",
     location: "",
-    status: "available",
+    ownership_type: OwnershipType.OwnedByCompany,
+    last_inspection_date: "",
+    daily_rate: "",
+    weekly_rate: "",
+    monthly_rate: "",
   })
 
   useEffect(() => {
@@ -71,7 +72,16 @@ export function HeavyMachineryManagement() {
       }
 
       setIsLoading(true)
-      const { data, error } = await supabase.from("heavy_machinery").insert([newMachinery]).select()
+
+      // 数値フィールドの処理
+      const machineryData = {
+        ...newMachinery,
+        daily_rate: newMachinery.daily_rate ? Number.parseFloat(newMachinery.daily_rate) : null,
+        weekly_rate: newMachinery.weekly_rate ? Number.parseFloat(newMachinery.weekly_rate) : null,
+        monthly_rate: newMachinery.monthly_rate ? Number.parseFloat(newMachinery.monthly_rate) : null,
+      }
+
+      const { data, error } = await supabase.from("heavy_machinery").insert([machineryData]).select()
 
       if (error) {
         throw error
@@ -85,12 +95,12 @@ export function HeavyMachineryManagement() {
       setNewMachinery({
         name: "",
         type: "",
-        model: "",
-        manufacturer: "",
-        year: "",
-        ownership_type: "owned",
         location: "",
-        status: "available",
+        ownership_type: OwnershipType.OwnedByCompany,
+        last_inspection_date: "",
+        daily_rate: "",
+        weekly_rate: "",
+        monthly_rate: "",
       })
 
       fetchMachinery()
@@ -99,7 +109,7 @@ export function HeavyMachineryManagement() {
       console.error("重機の追加に失敗しました:", error)
       toast({
         title: "エラー",
-        description: "重機の追加に失敗しました",
+        description: `重機の追加に失敗しました: ${error instanceof Error ? error.message : "不明なエラー"}`,
         variant: "destructive",
       })
     } finally {
@@ -123,18 +133,22 @@ export function HeavyMachineryManagement() {
       }
 
       setIsLoading(true)
+
+      // 数値フィールドの処理
+      const updateData = {
+        name: currentMachinery.name,
+        type: currentMachinery.type,
+        location: currentMachinery.location,
+        ownership_type: currentMachinery.ownership_type,
+        last_inspection_date: currentMachinery.last_inspection_date,
+        daily_rate: currentMachinery.daily_rate ? Number.parseFloat(String(currentMachinery.daily_rate)) : null,
+        weekly_rate: currentMachinery.weekly_rate ? Number.parseFloat(String(currentMachinery.weekly_rate)) : null,
+        monthly_rate: currentMachinery.monthly_rate ? Number.parseFloat(String(currentMachinery.monthly_rate)) : null,
+      }
+
       const { data, error } = await supabase
         .from("heavy_machinery")
-        .update({
-          name: currentMachinery.name,
-          type: currentMachinery.type,
-          model: currentMachinery.model,
-          manufacturer: currentMachinery.manufacturer,
-          year: currentMachinery.year,
-          ownership_type: currentMachinery.ownership_type,
-          location: currentMachinery.location,
-          status: currentMachinery.status,
-        })
+        .update(updateData)
         .eq("id", currentMachinery.id)
         .select()
 
@@ -153,7 +167,7 @@ export function HeavyMachineryManagement() {
       console.error("重機の更新に失敗しました:", error)
       toast({
         title: "エラー",
-        description: "重機の更新に失敗しました",
+        description: `重機の更新に失敗しました: ${error instanceof Error ? error.message : "不明なエラー"}`,
         variant: "destructive",
       })
     } finally {
@@ -196,32 +210,16 @@ export function HeavyMachineryManagement() {
     (m) =>
       m.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       m.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase()),
+      m.location?.toLowerCase().includes(searchTerm.toLowerCase()),
   )
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "available":
-        return <Badge className="bg-green-500 hover:bg-green-600">利用可能</Badge>
-      case "in_use":
-        return <Badge className="bg-blue-500 hover:bg-blue-600">使用中</Badge>
-      case "maintenance":
-        return <Badge className="bg-yellow-500 hover:bg-yellow-600">整備中</Badge>
-      case "unavailable":
-        return <Badge className="bg-red-500 hover:bg-red-600">利用不可</Badge>
-      default:
-        return <Badge>{status}</Badge>
-    }
-  }
 
   const getOwnershipBadge = (type: string) => {
     switch (type) {
-      case "owned":
+      case OwnershipType.OwnedByCompany:
         return <Badge variant="outline">自社所有</Badge>
-      case "leased":
+      case OwnershipType.Leased:
         return <Badge variant="outline">リース</Badge>
-      case "rented":
+      case OwnershipType.Rented:
         return <Badge variant="outline">レンタル</Badge>
       default:
         return <Badge variant="outline">{type}</Badge>
@@ -241,7 +239,7 @@ export function HeavyMachineryManagement() {
           />
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button onClick={() => setIsAddDialogOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
                 新規重機
               </Button>
@@ -269,45 +267,6 @@ export function HeavyMachineryManagement() {
                     onChange={(e) => setNewMachinery({ ...newMachinery, type: e.target.value })}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="model">型式</Label>
-                    <Input
-                      id="model"
-                      value={newMachinery.model}
-                      onChange={(e) => setNewMachinery({ ...newMachinery, model: e.target.value })}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="year">年式</Label>
-                    <Input
-                      id="year"
-                      value={newMachinery.year}
-                      onChange={(e) => setNewMachinery({ ...newMachinery, year: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="manufacturer">メーカー</Label>
-                  <Input
-                    id="manufacturer"
-                    value={newMachinery.manufacturer}
-                    onChange={(e) => setNewMachinery({ ...newMachinery, manufacturer: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="ownership_type">所有形態</Label>
-                  <select
-                    id="ownership_type"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={newMachinery.ownership_type}
-                    onChange={(e) => setNewMachinery({ ...newMachinery, ownership_type: e.target.value })}
-                  >
-                    <option value="owned">自社所有</option>
-                    <option value="leased">リース</option>
-                    <option value="rented">レンタル</option>
-                  </select>
-                </div>
                 <div className="grid gap-2">
                   <Label htmlFor="location">保管場所</Label>
                   <Input
@@ -317,18 +276,57 @@ export function HeavyMachineryManagement() {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="status">ステータス</Label>
+                  <Label htmlFor="ownership_type">所有形態</Label>
                   <select
-                    id="status"
+                    id="ownership_type"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={newMachinery.status}
-                    onChange={(e) => setNewMachinery({ ...newMachinery, status: e.target.value })}
+                    value={newMachinery.ownership_type}
+                    onChange={(e) =>
+                      setNewMachinery({ ...newMachinery, ownership_type: e.target.value as OwnershipType })
+                    }
                   >
-                    <option value="available">利用可能</option>
-                    <option value="in_use">使用中</option>
-                    <option value="maintenance">整備中</option>
-                    <option value="unavailable">利用不可</option>
+                    <option value={OwnershipType.OwnedByCompany}>自社所有</option>
+                    <option value={OwnershipType.Leased}>リース</option>
+                    <option value={OwnershipType.Rented}>レンタル</option>
                   </select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="last_inspection_date">最終点検日</Label>
+                  <Input
+                    id="last_inspection_date"
+                    type="date"
+                    value={newMachinery.last_inspection_date}
+                    onChange={(e) => setNewMachinery({ ...newMachinery, last_inspection_date: e.target.value })}
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="daily_rate">日額料金</Label>
+                    <Input
+                      id="daily_rate"
+                      type="number"
+                      value={newMachinery.daily_rate}
+                      onChange={(e) => setNewMachinery({ ...newMachinery, daily_rate: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="weekly_rate">週額料金</Label>
+                    <Input
+                      id="weekly_rate"
+                      type="number"
+                      value={newMachinery.weekly_rate}
+                      onChange={(e) => setNewMachinery({ ...newMachinery, weekly_rate: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="monthly_rate">月額料金</Label>
+                    <Input
+                      id="monthly_rate"
+                      type="number"
+                      value={newMachinery.monthly_rate}
+                      onChange={(e) => setNewMachinery({ ...newMachinery, monthly_rate: e.target.value })}
+                    />
+                  </div>
                 </div>
               </div>
               <DialogFooter>
@@ -355,10 +353,10 @@ export function HeavyMachineryManagement() {
               <TableRow>
                 <TableHead>名前</TableHead>
                 <TableHead>種類</TableHead>
-                <TableHead>型式/メーカー</TableHead>
-                <TableHead>所有形態</TableHead>
                 <TableHead>保管場所</TableHead>
-                <TableHead>ステータス</TableHead>
+                <TableHead>所有形態</TableHead>
+                <TableHead>最終点検日</TableHead>
+                <TableHead>料金（日/週/月）</TableHead>
                 <TableHead className="text-right">操作</TableHead>
               </TableRow>
             </TableHeader>
@@ -368,29 +366,20 @@ export function HeavyMachineryManagement() {
                   <TableRow key={machine.id}>
                     <TableCell className="font-medium">{machine.name}</TableCell>
                     <TableCell>{machine.type || "-"}</TableCell>
-                    <TableCell>
-                      {machine.model ? (
-                        <div>
-                          <div>{machine.model}</div>
-                          {machine.manufacturer && (
-                            <div className="text-sm text-muted-foreground">{machine.manufacturer}</div>
-                          )}
-                          {machine.year && <div className="text-sm text-muted-foreground">{machine.year}年式</div>}
-                        </div>
-                      ) : machine.manufacturer ? (
-                        <div>
-                          <div>{machine.manufacturer}</div>
-                          {machine.year && <div className="text-sm text-muted-foreground">{machine.year}年式</div>}
-                        </div>
-                      ) : machine.year ? (
-                        <div>{machine.year}年式</div>
-                      ) : (
-                        "-"
-                      )}
-                    </TableCell>
-                    <TableCell>{getOwnershipBadge(machine.ownership_type)}</TableCell>
                     <TableCell>{machine.location || "-"}</TableCell>
-                    <TableCell>{getStatusBadge(machine.status)}</TableCell>
+                    <TableCell>{getOwnershipBadge(machine.ownership_type)}</TableCell>
+                    <TableCell>
+                      {machine.last_inspection_date
+                        ? new Date(machine.last_inspection_date).toLocaleDateString("ja-JP")
+                        : "-"}
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        {machine.daily_rate ? `¥${machine.daily_rate.toLocaleString()}/日` : "-"}
+                        {machine.weekly_rate ? ` · ¥${machine.weekly_rate.toLocaleString()}/週` : ""}
+                        {machine.monthly_rate ? ` · ¥${machine.monthly_rate.toLocaleString()}/月` : ""}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
                         <Dialog
@@ -434,53 +423,6 @@ export function HeavyMachineryManagement() {
                                     onChange={(e) => setCurrentMachinery({ ...currentMachinery, type: e.target.value })}
                                   />
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div className="grid gap-2">
-                                    <Label htmlFor="edit-model">型式</Label>
-                                    <Input
-                                      id="edit-model"
-                                      value={currentMachinery.model || ""}
-                                      onChange={(e) =>
-                                        setCurrentMachinery({ ...currentMachinery, model: e.target.value })
-                                      }
-                                    />
-                                  </div>
-                                  <div className="grid gap-2">
-                                    <Label htmlFor="edit-year">年式</Label>
-                                    <Input
-                                      id="edit-year"
-                                      value={currentMachinery.year || ""}
-                                      onChange={(e) =>
-                                        setCurrentMachinery({ ...currentMachinery, year: e.target.value })
-                                      }
-                                    />
-                                  </div>
-                                </div>
-                                <div className="grid gap-2">
-                                  <Label htmlFor="edit-manufacturer">メーカー</Label>
-                                  <Input
-                                    id="edit-manufacturer"
-                                    value={currentMachinery.manufacturer || ""}
-                                    onChange={(e) =>
-                                      setCurrentMachinery({ ...currentMachinery, manufacturer: e.target.value })
-                                    }
-                                  />
-                                </div>
-                                <div className="grid gap-2">
-                                  <Label htmlFor="edit-ownership_type">所有形態</Label>
-                                  <select
-                                    id="edit-ownership_type"
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                    value={currentMachinery.ownership_type}
-                                    onChange={(e) =>
-                                      setCurrentMachinery({ ...currentMachinery, ownership_type: e.target.value })
-                                    }
-                                  >
-                                    <option value="owned">自社所有</option>
-                                    <option value="leased">リース</option>
-                                    <option value="rented">レンタル</option>
-                                  </select>
-                                </div>
                                 <div className="grid gap-2">
                                   <Label htmlFor="edit-location">保管場所</Label>
                                   <Input
@@ -492,20 +434,75 @@ export function HeavyMachineryManagement() {
                                   />
                                 </div>
                                 <div className="grid gap-2">
-                                  <Label htmlFor="edit-status">ステータス</Label>
+                                  <Label htmlFor="edit-ownership_type">所有形態</Label>
                                   <select
-                                    id="edit-status"
+                                    id="edit-ownership_type"
                                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                    value={currentMachinery.status}
+                                    value={currentMachinery.ownership_type}
                                     onChange={(e) =>
-                                      setCurrentMachinery({ ...currentMachinery, status: e.target.value })
+                                      setCurrentMachinery({
+                                        ...currentMachinery,
+                                        ownership_type: e.target.value as OwnershipType,
+                                      })
                                     }
                                   >
-                                    <option value="available">利用可能</option>
-                                    <option value="in_use">使用中</option>
-                                    <option value="maintenance">整備中</option>
-                                    <option value="unavailable">利用不可</option>
+                                    <option value={OwnershipType.OwnedByCompany}>自社所有</option>
+                                    <option value={OwnershipType.Leased}>リース</option>
+                                    <option value={OwnershipType.Rented}>レンタル</option>
                                   </select>
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label htmlFor="edit-last_inspection_date">最終点検日</Label>
+                                  <Input
+                                    id="edit-last_inspection_date"
+                                    type="date"
+                                    value={
+                                      currentMachinery.last_inspection_date
+                                        ? currentMachinery.last_inspection_date.split("T")[0]
+                                        : ""
+                                    }
+                                    onChange={(e) =>
+                                      setCurrentMachinery({
+                                        ...currentMachinery,
+                                        last_inspection_date: e.target.value,
+                                      })
+                                    }
+                                  />
+                                </div>
+                                <div className="grid grid-cols-3 gap-4">
+                                  <div className="grid gap-2">
+                                    <Label htmlFor="edit-daily_rate">日額料金</Label>
+                                    <Input
+                                      id="edit-daily_rate"
+                                      type="number"
+                                      value={currentMachinery.daily_rate || ""}
+                                      onChange={(e) =>
+                                        setCurrentMachinery({ ...currentMachinery, daily_rate: e.target.value })
+                                      }
+                                    />
+                                  </div>
+                                  <div className="grid gap-2">
+                                    <Label htmlFor="edit-weekly_rate">週額料金</Label>
+                                    <Input
+                                      id="edit-weekly_rate"
+                                      type="number"
+                                      value={currentMachinery.weekly_rate || ""}
+                                      onChange={(e) =>
+                                        setCurrentMachinery({ ...currentMachinery, weekly_rate: e.target.value })
+                                      }
+                                    />
+                                  </div>
+                                  <div className="grid gap-2">
+                                    <Label htmlFor="edit-monthly_rate">月額料金</Label>
+                                    <Input
+                                      id="edit-monthly_rate"
+                                      type="number"
+                                      value={currentMachinery.monthly_rate || ""}
+                                      onChange={(e) =>
+                                        setCurrentMachinery({ ...currentMachinery, monthly_rate: e.target.value })
+                                      }
+                                    />
+                                  </div>
                                 </div>
                               </div>
                             )}

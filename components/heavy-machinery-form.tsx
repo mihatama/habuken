@@ -98,7 +98,9 @@ export function HeavyMachineryForm({ onSuccess }: HeavyMachineryFormProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="default">重機を登録</Button>
+        <Button variant="default" onClick={() => setOpen(true)}>
+          重機を登録
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>

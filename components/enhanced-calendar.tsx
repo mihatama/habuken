@@ -88,16 +88,17 @@ interface Category {
   label: string
 }
 
-interface EnhancedCalendarProps {
+export interface EnhancedCalendarProps {
   events: CalendarEvent[]
-  onEventAdd?: ((event: CalendarEvent) => Promise<any>) | null
-  onEventUpdate?: ((event: CalendarEvent) => Promise<any>) | null
-  onEventDelete?: ((eventId: string | number) => Promise<any>) | null
+  onEventAdd?: ((event: CalendarEvent) => Promise<void>) | null
+  onEventUpdate?: ((event: CalendarEvent) => Promise<void>) | null
+  onEventDelete?: ((eventId: string) => Promise<void>) | null
   isLoading?: boolean
   error?: string | null
-  categories?: Category[]
+  categories?: { value: string; label: string }[]
   onRefresh?: () => void
-  readOnly?: boolean // Add this prop to indicate if the calendar is read-only
+  readOnly?: boolean
+  defaultDate?: Date // Add this line
 }
 
 export function EnhancedCalendar({
@@ -110,9 +111,10 @@ export function EnhancedCalendar({
   categories = [],
   onRefresh,
   readOnly = false, // Default to false for backward compatibility
+  defaultDate,
 }: EnhancedCalendarProps) {
   const [view, setView] = useState<"week" | "month">("week")
-  const [currentDate, setCurrentDate] = useState(new Date())
+  const [currentDate, setCurrentDate] = useState<Date>(defaultDate || new Date())
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isNewEvent, setIsNewEvent] = useState(false)
@@ -366,6 +368,23 @@ export function EnhancedCalendar({
     return moment(date).format("YYYY-MM-DD")
   }
 
+  const handleToday = () => {
+    const today = new Date()
+    setCurrentDate(today)
+  }
+
+  const handlePrevious = () => {
+    const newDate = new Date(currentDate)
+    newDate.setMonth(currentDate.getMonth() - 1)
+    setCurrentDate(newDate)
+  }
+
+  const handleNext = () => {
+    const newDate = new Date(currentDate)
+    newDate.setMonth(currentDate.getMonth() + 1)
+    setCurrentDate(newDate)
+  }
+
   if (error) {
     return (
       <div className="text-center py-12">
@@ -385,13 +404,13 @@ export function EnhancedCalendar({
 
       <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => handleNavigate("PREV")} aria-label="前の期間">
+          <Button variant="outline" size="sm" onClick={handlePrevious} aria-label="前の期間">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleNavigate("TODAY")} aria-label="今日">
+          <Button variant="outline" size="sm" onClick={handleToday} aria-label="今日">
             今日
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleNavigate("NEXT")} aria-label="次の期間">
+          <Button variant="outline" size="sm" onClick={handleNext} aria-label="次の期間">
             <ChevronRight className="h-4 w-4" />
           </Button>
           <div className="text-lg font-medium ml-2">{formatDateHeader(currentDate)}</div>

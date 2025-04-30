@@ -215,8 +215,13 @@ export function StaffList() {
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "-"
-    const date = new Date(dateString)
-    return date.toLocaleDateString("ja-JP")
+    try {
+      const date = new Date(dateString)
+      return isNaN(date.getTime()) ? "-" : date.toLocaleDateString("ja-JP")
+    } catch (error) {
+      console.error("Date formatting error:", error)
+      return "-"
+    }
   }
 
   return (
@@ -426,7 +431,14 @@ export function StaffList() {
                                   <Input
                                     id="edit-hire_date"
                                     type="date"
-                                    value={currentStaff.hire_date ? currentStaff.hire_date.split("T")[0] : ""}
+                                    value={
+                                      currentStaff.hire_date
+                                        ? typeof currentStaff.hire_date === "string" &&
+                                          currentStaff.hire_date.includes("T")
+                                          ? currentStaff.hire_date.split("T")[0]
+                                          : currentStaff.hire_date
+                                        : ""
+                                    }
                                     onChange={(e) => setCurrentStaff({ ...currentStaff, hire_date: e.target.value })}
                                   />
                                 </div>
