@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { getClientSupabase } from "@/lib/supabase-utils"
-import { Loader2, CheckCircle, Users, Truck, Package } from "lucide-react"
+import { Loader2, CheckCircle, Users, Truck, Package, Car } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -294,15 +294,19 @@ export function DealRegistrationForm() {
     <Card className="p-6 max-w-4xl mx-auto">
       <form onSubmit={handleSubmit} className="space-y-6">
         <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid grid-cols-4 mb-4">
+          <TabsList className="grid grid-cols-5 mb-4">
             <TabsTrigger value="basic">基本情報</TabsTrigger>
             <TabsTrigger value="staff" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               スタッフ
             </TabsTrigger>
-            <TabsTrigger value="equipment" className="flex items-center gap-2">
+            <TabsTrigger value="heavy" className="flex items-center gap-2">
               <Truck className="h-4 w-4" />
-              重機・車両
+              重機
+            </TabsTrigger>
+            <TabsTrigger value="vehicles" className="flex items-center gap-2">
+              <Car className="h-4 w-4" />
+              車両
             </TabsTrigger>
             <TabsTrigger value="tools" className="flex items-center gap-2">
               <Package className="h-4 w-4" />
@@ -470,160 +474,150 @@ export function DealRegistrationForm() {
             </ScrollArea>
           </TabsContent>
 
-          {/* 重機・車両タブ */}
-          <TabsContent value="equipment" className="space-y-6">
-            <Tabs defaultValue="heavy" className="w-full">
-              <TabsList className="grid grid-cols-2 mb-4">
-                <TabsTrigger value="heavy">重機</TabsTrigger>
-                <TabsTrigger value="vehicles">車両</TabsTrigger>
-              </TabsList>
+          {/* 重機タブ */}
+          <TabsContent value="heavy" className="space-y-6">
+            <div className="flex items-center space-x-2 mb-4">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="重機を検索（名前、種類など）"
+                value={searchHeavyMachinery}
+                onChange={(e) => setSearchHeavyMachinery(e.target.value)}
+                className="flex-1"
+              />
+            </div>
 
-              <TabsContent value="heavy" className="space-y-4">
-                <div className="flex items-center space-x-2 mb-4">
-                  <Search className="h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="重機を検索（名前、種類など）"
-                    value={searchHeavyMachinery}
-                    onChange={(e) => setSearchHeavyMachinery(e.target.value)}
-                    className="flex-1"
-                  />
+            {/* 選択済み重機表示 */}
+            {formData.selectedHeavyMachinery.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-sm font-medium mb-2">選択済み重機</h4>
+                <div className="flex flex-wrap gap-2">
+                  {getSelectedHeavyMachineryInfo().map((machinery) => (
+                    <Badge key={machinery.id} variant="outline" className="flex items-center gap-1 py-1">
+                      {machinery.name}
+                      <button
+                        type="button"
+                        onClick={() => handleHeavyMachineryChange(machinery.id, false)}
+                        className="ml-1 rounded-full hover:bg-muted p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
                 </div>
+              </div>
+            )}
 
-                {/* 選択済み重機表示 */}
-                {formData.selectedHeavyMachinery.length > 0 && (
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium mb-2">選択済み重機</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {getSelectedHeavyMachineryInfo().map((machinery) => (
-                        <Badge key={machinery.id} variant="outline" className="flex items-center gap-1 py-1">
-                          {machinery.name}
-                          <button
-                            type="button"
-                            onClick={() => handleHeavyMachineryChange(machinery.id, false)}
-                            className="ml-1 rounded-full hover:bg-muted p-0.5"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 重機一覧 */}
-                <ScrollArea className="h-[300px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[50px]"></TableHead>
-                        <TableHead>名前</TableHead>
-                        <TableHead>種類</TableHead>
-                        <TableHead>所有形態</TableHead>
-                        <TableHead>場所</TableHead>
+            {/* 重機一覧 */}
+            <ScrollArea className="h-[300px]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50px]"></TableHead>
+                    <TableHead>名前</TableHead>
+                    <TableHead>種類</TableHead>
+                    <TableHead>所有形態</TableHead>
+                    <TableHead>場所</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredHeavyMachinery.length > 0 ? (
+                    filteredHeavyMachinery.map((machinery) => (
+                      <TableRow key={machinery.id} className="cursor-pointer hover:bg-muted/50">
+                        <TableCell>
+                          <Checkbox
+                            checked={formData.selectedHeavyMachinery.includes(machinery.id)}
+                            onCheckedChange={(checked) => handleHeavyMachineryChange(machinery.id, checked as boolean)}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">{machinery.name}</TableCell>
+                        <TableCell>{machinery.type || "-"}</TableCell>
+                        <TableCell>{machinery.ownership_type || "-"}</TableCell>
+                        <TableCell>{machinery.location || "-"}</TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredHeavyMachinery.length > 0 ? (
-                        filteredHeavyMachinery.map((machinery) => (
-                          <TableRow key={machinery.id} className="cursor-pointer hover:bg-muted/50">
-                            <TableCell>
-                              <Checkbox
-                                checked={formData.selectedHeavyMachinery.includes(machinery.id)}
-                                onCheckedChange={(checked) =>
-                                  handleHeavyMachineryChange(machinery.id, checked as boolean)
-                                }
-                              />
-                            </TableCell>
-                            <TableCell className="font-medium">{machinery.name}</TableCell>
-                            <TableCell>{machinery.type || "-"}</TableCell>
-                            <TableCell>{machinery.ownership_type || "-"}</TableCell>
-                            <TableCell>{machinery.location || "-"}</TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
-                            検索条件に一致する重機が見つかりません
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-              </TabsContent>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                        検索条件に一致する重機が見つかりません
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </TabsContent>
 
-              <TabsContent value="vehicles" className="space-y-4">
-                <div className="flex items-center space-x-2 mb-4">
-                  <Search className="h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="車両を検索（名前、種類など）"
-                    value={searchVehicles}
-                    onChange={(e) => setSearchVehicles(e.target.value)}
-                    className="flex-1"
-                  />
+          {/* 車両タブ */}
+          <TabsContent value="vehicles" className="space-y-6">
+            <div className="flex items-center space-x-2 mb-4">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="車両を検索（名前、種類など）"
+                value={searchVehicles}
+                onChange={(e) => setSearchVehicles(e.target.value)}
+                className="flex-1"
+              />
+            </div>
+
+            {/* 選択済み車両表示 */}
+            {formData.selectedVehicles.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-sm font-medium mb-2">選択済み車両</h4>
+                <div className="flex flex-wrap gap-2">
+                  {getSelectedVehiclesInfo().map((vehicle) => (
+                    <Badge key={vehicle.id} variant="outline" className="flex items-center gap-1 py-1">
+                      {vehicle.name}
+                      <button
+                        type="button"
+                        onClick={() => handleVehicleChange(vehicle.id, false)}
+                        className="ml-1 rounded-full hover:bg-muted p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
                 </div>
+              </div>
+            )}
 
-                {/* 選択済み車両表示 */}
-                {formData.selectedVehicles.length > 0 && (
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium mb-2">選択済み車両</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {getSelectedVehiclesInfo().map((vehicle) => (
-                        <Badge key={vehicle.id} variant="outline" className="flex items-center gap-1 py-1">
-                          {vehicle.name}
-                          <button
-                            type="button"
-                            onClick={() => handleVehicleChange(vehicle.id, false)}
-                            className="ml-1 rounded-full hover:bg-muted p-0.5"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 車両一覧 */}
-                <ScrollArea className="h-[300px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[50px]"></TableHead>
-                        <TableHead>名前</TableHead>
-                        <TableHead>種類</TableHead>
-                        <TableHead>所有形態</TableHead>
-                        <TableHead>場所</TableHead>
+            {/* 車両一覧 */}
+            <ScrollArea className="h-[300px]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50px]"></TableHead>
+                    <TableHead>名前</TableHead>
+                    <TableHead>種類</TableHead>
+                    <TableHead>所有形態</TableHead>
+                    <TableHead>場所</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredVehicles.length > 0 ? (
+                    filteredVehicles.map((vehicle) => (
+                      <TableRow key={vehicle.id} className="cursor-pointer hover:bg-muted/50">
+                        <TableCell>
+                          <Checkbox
+                            checked={formData.selectedVehicles.includes(vehicle.id)}
+                            onCheckedChange={(checked) => handleVehicleChange(vehicle.id, checked as boolean)}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">{vehicle.name}</TableCell>
+                        <TableCell>{vehicle.type || "-"}</TableCell>
+                        <TableCell>{vehicle.ownership_type || "-"}</TableCell>
+                        <TableCell>{vehicle.location || "-"}</TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredVehicles.length > 0 ? (
-                        filteredVehicles.map((vehicle) => (
-                          <TableRow key={vehicle.id} className="cursor-pointer hover:bg-muted/50">
-                            <TableCell>
-                              <Checkbox
-                                checked={formData.selectedVehicles.includes(vehicle.id)}
-                                onCheckedChange={(checked) => handleVehicleChange(vehicle.id, checked as boolean)}
-                              />
-                            </TableCell>
-                            <TableCell className="font-medium">{vehicle.name}</TableCell>
-                            <TableCell>{vehicle.type || "-"}</TableCell>
-                            <TableCell>{vehicle.ownership_type || "-"}</TableCell>
-                            <TableCell>{vehicle.location || "-"}</TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
-                            検索条件に一致する車両が見つかりません
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-              </TabsContent>
-            </Tabs>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                        検索条件に一致する車両が見つかりません
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </ScrollArea>
           </TabsContent>
 
           {/* 備品タブ */}
