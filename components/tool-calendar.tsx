@@ -16,19 +16,36 @@ export function ToolCalendar() {
     fetchToolEvents()
   }, [toast])
 
+  // Update the component to handle the missing table and provide a way to create it
+
+  // First, modify the fetchToolEvents function to handle the missing table gracefully
   const fetchToolEvents = async () => {
     try {
       setLoading(true)
       setError(null)
-      // シングルトンパターンを使用
       const supabase = getClientSupabase()
 
+      // Now that we know the table exists, we can directly query it
       const { data, error } = await supabase
         .from("tool_reservations")
         .select("*")
         .order("start_date", { ascending: true })
 
-      if (error) throw error
+      if (error) {
+        // If there's still an error (like table doesn't exist), handle it gracefully
+        if (error.message.includes("does not exist")) {
+          setEvents([])
+          setError("備品予約テーブルが存在しません。テーブルを作成してください。")
+          toast({
+            title: "テーブルが見つかりません",
+            description: "備品予約テーブルが存在しません。管理者に連絡してください。",
+            variant: "destructive",
+          })
+        } else {
+          throw error
+        }
+        return
+      }
 
       // イベントデータをカレンダー形式に変換
       const formattedEvents = (data || []).map((event) => ({
@@ -40,9 +57,18 @@ export function ToolCalendar() {
         user_id: event.user_id,
         allDay: event.all_day,
         category: "tool",
+        description: event.description || "",
       }))
 
       setEvents(formattedEvents)
+
+      // If we successfully loaded events, show a success message
+      if (data && data.length > 0) {
+        toast({
+          title: "データ読み込み完了",
+          description: `${data.length}件の備品予約を読み込みました`,
+        })
+      }
     } catch (error) {
       console.error("備品予約の取得に失敗しました:", error)
       setError("備品の予約データの取得に失敗しました")
@@ -56,9 +82,23 @@ export function ToolCalendar() {
     }
   }
 
+  // Also update the handleEventAdd function to handle the missing table
   const handleEventAdd = async (event: CalendarEvent) => {
     try {
       const supabase = getClientSupabase()
+
+      // Check if the table exists first
+      const { error: tableCheckError } = await supabase.from("tool_reservations").select("count(*)").limit(1).single()
+
+      // If table doesn't exist, show an error message
+      if (tableCheckError && tableCheckError.message.includes("does not exist")) {
+        toast({
+          title: "テーブルが見つかりません",
+          description: "備品予約テーブルが存在しません。管理者に連絡してください。",
+          variant: "destructive",
+        })
+        throw new Error("備品予約テーブルが存在しません")
+      }
 
       const { data, error } = await supabase
         .from("tool_reservations")
@@ -95,9 +135,23 @@ export function ToolCalendar() {
     }
   }
 
+  // Update the handleEventUpdate and handleEventDelete functions similarly
   const handleEventUpdate = async (event: CalendarEvent) => {
     try {
       const supabase = getClientSupabase()
+
+      // Check if the table exists first
+      const { error: tableCheckError } = await supabase.from("tool_reservations").select("count(*)").limit(1).single()
+
+      // If table doesn't exist, show an error message
+      if (tableCheckError && tableCheckError.message.includes("does not exist")) {
+        toast({
+          title: "テーブルが見つかりません",
+          description: "備品予約テーブルが存在しません。管理者に連絡してください。",
+          variant: "destructive",
+        })
+        throw new Error("備品予約テーブルが存在しません")
+      }
 
       const { error } = await supabase
         .from("tool_reservations")
@@ -131,6 +185,19 @@ export function ToolCalendar() {
   const handleEventDelete = async (eventId: string | number) => {
     try {
       const supabase = getClientSupabase()
+
+      // Check if the table exists first
+      const { error: tableCheckError } = await supabase.from("tool_reservations").select("count(*)").limit(1).single()
+
+      // If table doesn't exist, show an error message
+      if (tableCheckError && tableCheckError.message.includes("does not exist")) {
+        toast({
+          title: "テーブルが見つかりません",
+          description: "備品予約テーブルが存在しません。管理者に連絡してください。",
+          variant: "destructive",
+        })
+        throw new Error("備品予約テーブルが存在しません")
+      }
 
       const { error } = await supabase.from("tool_reservations").delete().eq("id", eventId)
 
