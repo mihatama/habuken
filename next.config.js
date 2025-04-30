@@ -5,7 +5,6 @@ const nextConfig = {
 
   // Enable image optimization (removing unoptimized: true)
   images: {
-    unoptimized: true,
     domains: ["v0.blob.com"], // Add any domains you need for external images
   },
 

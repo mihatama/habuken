@@ -59,13 +59,10 @@
     "vaul": "^0.9.6",
     "zod": "latest",
     "@supabase/supabase-js": "latest",
-    "immer": "latest",
-    "use-sync-external-store": "latest",
     "@tanstack/react-query": "latest",
     "react-big-calendar": "latest",
     "moment": "latest",
     "@supabase/auth-helpers-nextjs": "latest",
-    "zustand": "latest",
     "@tanstack/react-table": "latest",
     "uuid": "latest",
     "@tanstack/react-query-devtools": "latest"

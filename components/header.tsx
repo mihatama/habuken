@@ -43,7 +43,8 @@ export function Header() {
         </div>
         <div className="flex items-center space-x-4">
           {loading ? (
-            <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200"></div>
+            // ローディング中は骨格UIを表示
+            <div className="h-10 w-10 animate-pulse rounded-full bg-gray-200"></div>
           ) : user ? (
             <>
               <UserNav user={user} />
