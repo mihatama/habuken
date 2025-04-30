@@ -26,6 +26,9 @@ const formSchema = z.object({
   staffId: z.string({
     required_error: "スタッフを選択してください",
   }),
+  name: z.string({
+    required_error: "名前を入力してください",
+  }),
   leaveType: z.string({
     required_error: "休暇タイプを選択してください",
   }),
@@ -77,6 +80,7 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
     resolver: zodResolver(formSchema),
     defaultValues: {
       staffId: "",
+      name: "",
       leaveType: "",
       startDate: "",
       endDate: "",
@@ -110,6 +114,7 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
         .from("leave_requests")
         .insert({
           staff_id: values.staffId,
+          name: values.name,
           start_date: values.startDate,
           end_date: values.endDate,
           leave_type: values.leaveType,
@@ -187,6 +192,19 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
                       )}
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>名前</FormLabel>
+                  <FormControl>
+                    <Input placeholder="名前を入力" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
