@@ -9,6 +9,7 @@ interface LeaveRequestData {
   end_date: string
   reason: string
   leave_type?: string
+  leave_duration?: string
 }
 
 // サーバーアクション専用のSupabaseクライアント（サービスロールを使用）
@@ -44,6 +45,7 @@ export async function createLeaveRequestAction(data: LeaveRequestData) {
         end_date: data.end_date,
         reason: data.reason,
         leave_type: data.leave_type,
+        leave_duration: data.leave_duration || "full_day",
         status: "pending",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

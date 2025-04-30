@@ -18,6 +18,7 @@ type LeaveRequest = {
   start_date: string
   end_date: string
   leave_type: string | null
+  leave_duration: string | null
   reason: string
   status: "pending" | "approved" | "rejected"
   created_at: string
@@ -142,6 +143,20 @@ export function LeaveRequestManagement() {
     }
   }
 
+  const getLeaveDurationText = (duration: string | null | undefined) => {
+    if (!duration) return "終日"
+
+    switch (duration) {
+      case "am_only":
+        return "午前のみ"
+      case "pm_only":
+        return "午後のみ"
+      case "full_day":
+      default:
+        return "終日"
+    }
+  }
+
   const filteredRequests =
     activeTab === "all" ? leaveRequests : leaveRequests.filter((request) => request.status === activeTab)
 
@@ -180,6 +195,9 @@ export function LeaveRequestManagement() {
                     </div>
                     <div className="text-sm mb-2">
                       <span className="font-medium">休暇種類:</span> {getLeaveTypeBadge(request.leave_type)}
+                    </div>
+                    <div className="text-sm mb-2">
+                      <span className="font-medium">時間帯:</span> {getLeaveDurationText(request.leave_duration)}
                     </div>
                     <div className="text-sm mb-3">
                       <span className="font-medium">理由:</span> {request.reason}

@@ -27,10 +27,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
       return NextResponse.json({ error: "休暇申請IDが指定されていません" }, { status: 400 })
     }
 
+    console.log(`Approving leave request with ID: ${requestId}`)
+
     // サービスロールを使用したクライアントを作成
     const supabase = getServiceRoleClient()
 
-    // 休暇申請のステータスを承認済みに更新
+    // 休暇申請のステータスを更新
     const { data, error } = await supabase
       .from("leave_requests")
       .update({
@@ -43,10 +45,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
     if (error) {
       console.error("Leave request approval error:", error)
       return NextResponse.json({ error: `休暇申請の承認エラー: ${error.message}` }, { status: 500 })
-    }
-
-    if (!data || data.length === 0) {
-      return NextResponse.json({ error: "指定された休暇申請が見つかりません" }, { status: 404 })
     }
 
     console.log("Leave request approved successfully:", data)

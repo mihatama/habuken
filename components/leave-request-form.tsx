@@ -33,6 +33,9 @@ const formSchema = z
     leaveType: z.string({
       required_error: "休暇タイプを選択してください",
     }),
+    leaveDuration: z.string({
+      required_error: "休暇の時間帯を選択してください",
+    }),
     startDate: z.string({
       required_error: "開始日を入力してください",
     }),
@@ -77,6 +80,7 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
     defaultValues: {
       staffId: "",
       leaveType: "",
+      leaveDuration: "full_day", // Default to full day
       startDate: "",
       endDate: "",
       reason: "",
@@ -156,6 +160,7 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
           end_date: values.endDate,
           reason: values.reason,
           leave_type: values.leaveType,
+          leave_duration: values.leaveDuration,
         }),
       })
 
@@ -274,6 +279,28 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
                       <SelectItem value="sick">病気休暇</SelectItem>
                       <SelectItem value="special">特別休暇</SelectItem>
                       <SelectItem value="other">その他</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="leaveDuration"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>休暇時間帯</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="休暇の時間帯を選択" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="full_day">終日</SelectItem>
+                      <SelectItem value="am_only">午前のみ</SelectItem>
+                      <SelectItem value="pm_only">午後のみ</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
