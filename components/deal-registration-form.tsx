@@ -186,10 +186,10 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
         .from("deals")
         .insert({
           name: data.name,
-          client_name: data.client_name || null, // 空文字列の場合はnullに
+          client_name: data.client_name || "", // nullではなく空文字列を使用
           start_date: data.start_date.toISOString().split("T")[0],
           end_date: data.end_date ? data.end_date.toISOString().split("T")[0] : null,
-          location: data.location || null, // 空文字列の場合はnullに
+          location: data.location || "", // nullではなく空文字列を使用
           status: data.status || "計画中", // 未選択の場合はデフォルト値を使用
           description: data.description || "",
           created_by: user.id,
