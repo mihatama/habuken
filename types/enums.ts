@@ -1,118 +1,37 @@
+/**
+ * 所有形態の列挙型
+ */
 export enum OwnershipType {
-  OwnedByCompany = "owned_by_company",
-  Leased = "leased",
-  Rented = "rented",
+  OwnedByCompany = "自社保有",
+  Leased = "リース",
+  Other = "その他",
 }
 
-export enum ProjectStatus {
-  NotStarted = "not_started",
-  Planning = "planning",
-  InProgress = "in_progress",
-  OnHold = "on_hold",
-  Completed = "completed",
-  Cancelled = "cancelled",
-}
-
-export enum TaskPriority {
-  Low = "low",
-  Medium = "medium",
-  High = "high",
-  Urgent = "urgent",
-}
-
-export enum LeaveRequestStatus {
-  Pending = "pending",
-  Approved = "approved",
-  Rejected = "rejected",
-}
-
-export enum LeaveType {
-  Annual = "annual",
-  Sick = "sick",
-  Special = "special",
-  Other = "other",
-}
-
+/**
+ * リソースの状態の列挙型
+ */
 export enum ResourceStatus {
-  Available = "available",
-  InUse = "in_use",
-  Maintenance = "maintenance",
-  Unavailable = "unavailable",
+  Available = "利用可能",
+  InUse = "利用中",
+  UnderMaintenance = "メンテナンス中",
 }
 
-export enum DealStatus {
-  Negotiation = "negotiation",
-  Contracted = "contracted",
-  InProgress = "in_progress",
-  Completed = "completed",
-  Cancelled = "cancelled",
+/**
+ * プロジェクトの状態の列挙型
+ */
+export enum ProjectStatus {
+  NotStarted = "未着手",
+  Planning = "計画中",
+  InProgress = "進行中",
+  Completed = "完了",
 }
 
-export enum WeatherCondition {
-  Sunny = "sunny",
-  Cloudy = "cloudy",
-  Rainy = "rainy",
-  Snowy = "snowy",
-  Windy = "windy",
-  Stormy = "stormy",
-}
-
-export enum SafetyInspectionResult {
-  Pass = "pass",
-  Fail = "fail",
-  NeedsAttention = "needs_attention",
-}
-
-export enum UserRole {
-  Admin = "admin",
-  Manager = "manager",
-  Staff = "staff",
-  Client = "client",
-}
-
-export enum NotificationType {
-  Info = "info",
-  Warning = "warning",
-  Error = "error",
-  Success = "success",
-}
-
-export enum PaymentStatus {
-  Pending = "pending",
-  Paid = "paid",
-  Overdue = "overdue",
-  Cancelled = "cancelled",
-}
-
-export enum InvoiceStatus {
-  Draft = "draft",
-  Sent = "sent",
-  Paid = "paid",
-  Overdue = "overdue",
-  Cancelled = "cancelled",
-}
-
-export enum DocumentType {
-  Contract = "contract",
-  Invoice = "invoice",
-  Receipt = "receipt",
-  Report = "report",
-  Other = "other",
-}
-
-export enum EquipmentType {
-  HeavyMachinery = "heavy_machinery",
-  Vehicle = "vehicle",
-  Tool = "tool",
-  Other = "other",
-}
-
+/**
+ * イベントタイプの列挙型
+ */
 export enum EventType {
   Project = "project",
   Staff = "staff",
   Tool = "tool",
-  General = "general",
-}
-Tool = "tool",
   General = "general",
 }

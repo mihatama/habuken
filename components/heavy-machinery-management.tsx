@@ -11,7 +11,6 @@ import { Plus, Pencil, Trash2, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { getClientSupabase } from "@/lib/supabase-utils"
-import { OwnershipType } from "@/types/enums"
 
 export function HeavyMachineryManagement() {
   const { toast } = useToast()
@@ -27,7 +26,7 @@ export function HeavyMachineryManagement() {
     name: "",
     type: "",
     location: "",
-    ownership_type: OwnershipType.OwnedByCompany,
+    ownership_type: "owned",
     last_inspection_date: "",
     daily_rate: "",
     weekly_rate: "",
@@ -96,7 +95,7 @@ export function HeavyMachineryManagement() {
         name: "",
         type: "",
         location: "",
-        ownership_type: OwnershipType.OwnedByCompany,
+        ownership_type: "owned",
         last_inspection_date: "",
         daily_rate: "",
         weekly_rate: "",
@@ -215,11 +214,11 @@ export function HeavyMachineryManagement() {
 
   const getOwnershipBadge = (type: string) => {
     switch (type) {
-      case OwnershipType.OwnedByCompany:
+      case "owned":
         return <Badge variant="outline">自社所有</Badge>
-      case OwnershipType.Leased:
+      case "leased":
         return <Badge variant="outline">リース</Badge>
-      case OwnershipType.Rented:
+      case "rented":
         return <Badge variant="outline">レンタル</Badge>
       default:
         return <Badge variant="outline">{type}</Badge>
@@ -281,13 +280,11 @@ export function HeavyMachineryManagement() {
                     id="ownership_type"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     value={newMachinery.ownership_type}
-                    onChange={(e) =>
-                      setNewMachinery({ ...newMachinery, ownership_type: e.target.value as OwnershipType })
-                    }
+                    onChange={(e) => setNewMachinery({ ...newMachinery, ownership_type: e.target.value })}
                   >
-                    <option value={OwnershipType.OwnedByCompany}>自社所有</option>
-                    <option value={OwnershipType.Leased}>リース</option>
-                    <option value={OwnershipType.Rented}>レンタル</option>
+                    <option value="owned">自社所有</option>
+                    <option value="leased">リース</option>
+                    <option value="rented">レンタル</option>
                   </select>
                 </div>
                 <div className="grid gap-2">
@@ -440,15 +437,12 @@ export function HeavyMachineryManagement() {
                                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                     value={currentMachinery.ownership_type}
                                     onChange={(e) =>
-                                      setCurrentMachinery({
-                                        ...currentMachinery,
-                                        ownership_type: e.target.value as OwnershipType,
-                                      })
+                                      setCurrentMachinery({ ...currentMachinery, ownership_type: e.target.value })
                                     }
                                   >
-                                    <option value={OwnershipType.OwnedByCompany}>自社所有</option>
-                                    <option value={OwnershipType.Leased}>リース</option>
-                                    <option value={OwnershipType.Rented}>レンタル</option>
+                                    <option value="owned">自社所有</option>
+                                    <option value="leased">リース</option>
+                                    <option value="rented">レンタル</option>
                                   </select>
                                 </div>
                                 <div className="grid gap-2">
