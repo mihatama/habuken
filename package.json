@@ -60,9 +60,9 @@
     "zod": "latest",
     "@supabase/supabase-js": "latest",
     "@tanstack/react-query": "latest",
+    "@supabase/auth-helpers-nextjs": "latest",
     "react-big-calendar": "latest",
     "moment": "latest",
-    "@supabase/auth-helpers-nextjs": "latest",
     "@tanstack/react-table": "latest",
     "uuid": "latest",
     "@tanstack/react-query-devtools": "latest"
