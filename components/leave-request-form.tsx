@@ -19,6 +19,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { useToast } from "@/components/ui/use-toast"
 import { getClientSupabase } from "@/lib/supabase-utils"
+import { createLeaveRequestAction } from "@/actions/leave-requests"
 
 // フォームのバリデーションスキーマ
 const formSchema = z.object({
@@ -106,43 +107,19 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
 
       console.log("Submitting form with values:", values)
 
-      // Supabaseクライアントを取得
-      const supabase = getClientSupabase()
-
-      // 現在のユーザー情報を取得
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser()
-
-      if (userError) {
-        console.error("User fetch error:", userError)
-        throw new Error("ユーザー情報を取得できませんでした")
-      }
-
-      if (!user) {
-        throw new Error("ユーザー情報を取得できませんでした")
-      }
-
-      console.log("Current user:", user.id)
-
-      // 休暇申請を追加
-      const { error: insertError } = await supabase.from("leave_requests").insert({
+      // サーバーアクションを使用して休暇申請を作成
+      const result = await createLeaveRequestAction({
         staff_id: values.staffId,
         start_date: values.startDate,
         end_date: values.endDate,
         reason: values.reason,
-        status: "pending",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
       })
 
-      if (insertError) {
-        console.error("Insert error:", insertError)
-        throw insertError
+      if (!result.success) {
+        throw new Error(result.error || "休暇申請の送信に失敗しました")
       }
 
-      console.log("Leave request submitted successfully")
+      console.log("Leave request submitted successfully", result.data)
 
       toast({
         title: "申請完了",

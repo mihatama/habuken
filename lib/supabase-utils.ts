@@ -244,6 +244,33 @@ export async function getLeaveRequestsData() {
 }
 
 /**
+ * 休暇申請を作成する関数
+ * @param leaveData 休暇申請データ
+ * @returns 作成された休暇申請データ
+ * @throws {SupabaseError} 休暇申請作成に失敗した場合
+ */
+export async function createLeaveRequest(leaveData: any) {
+  try {
+    const supabase = getClientSupabase()
+
+    // RLSポリシーを満たすために必要なデータを確認
+    const { data, error } = await supabase.from("leave_requests").insert(leaveData).select()
+
+    if (error) {
+      throw new SupabaseError(`休暇申請の作成エラー: ${error.message}`, error)
+    }
+
+    return data
+  } catch (error) {
+    if (error instanceof SupabaseError) {
+      throw error
+    }
+    console.error("[Supabase Mutation Error] 休暇申請作成エラー:", error)
+    throw new SupabaseError("休暇申請の作成に失敗しました", error)
+  }
+}
+
+/**
  * データを挿入する関数
  * @param tableName テーブル名
  * @param data 挿入するデータ
