@@ -196,8 +196,13 @@ export function LeaveRequestManagement() {
                     <div className="text-sm mb-2">
                       <span className="font-medium">休暇種類:</span> {getLeaveTypeBadge(request.leave_type)}
                     </div>
-                    <div className="text-sm mb-2">
-                      <span className="font-medium">時間帯:</span> {getLeaveDurationText(request.leave_duration)}
+                    <div className="text-sm">
+                      <span className="font-medium">時間帯: </span>
+                      {request.leave_duration === "am_only"
+                        ? "午前のみ"
+                        : request.leave_duration === "pm_only"
+                          ? "午後のみ"
+                          : "終日"}
                     </div>
                     <div className="text-sm mb-3">
                       <span className="font-medium">理由:</span> {request.reason}

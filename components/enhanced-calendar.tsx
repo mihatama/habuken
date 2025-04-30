@@ -231,6 +231,9 @@ export function EnhancedCalendar({
   // Custom event styling based on category
   const eventStyleGetter = (event: CalendarEvent) => {
     let backgroundColor = "#3182ce" // Default blue
+    const textColor = "white"
+    let fontStyle = "normal"
+    let opacity = 0.8
 
     switch (event.category) {
       case "staff":
@@ -256,14 +259,26 @@ export function EnhancedCalendar({
         break
     }
 
+    // 半日休暇の場合のスタイル調整
+    if (event.leave_duration === "am_only") {
+      fontStyle = "italic"
+      opacity = 0.7
+      backgroundColor = "#f56565" // 午前休の色を少し明るく
+    } else if (event.leave_duration === "pm_only") {
+      fontStyle = "italic"
+      opacity = 0.7
+      backgroundColor = "#fc8181" // 午後休の色をさらに明るく
+    }
+
     return {
       style: {
         backgroundColor,
         borderRadius: "4px",
-        opacity: 0.8,
-        color: "white",
+        opacity,
+        color: textColor,
         border: "0",
         display: "block",
+        fontStyle,
       },
     }
   }

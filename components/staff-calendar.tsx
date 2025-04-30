@@ -40,15 +40,29 @@ export function StaffCalendar() {
 
       // Map approved leave data to calendar events
       const leaveEvents = approvedLeaves.map((leave: any) => {
+        // 休暇時間帯に基づいてタイトルと時間を調整
+        let title = `${leave.staff_name || "スタッフ"}: 休暇`
+        const start = new Date(leave.start_date)
+        const end = new Date(leave.end_date)
+        const allDay = true
+
+        // 休暇時間帯に応じてタイトルを変更
+        if (leave.leave_duration === "am_only") {
+          title = `${leave.staff_name || "スタッフ"}: 午前休`
+        } else if (leave.leave_duration === "pm_only") {
+          title = `${leave.staff_name || "スタッフ"}: 午後休`
+        }
+
         return {
           id: `leave-${leave.id}`,
-          title: `${leave.staff_name || "スタッフ"}: 休暇`,
-          start: new Date(leave.start_date),
-          end: new Date(leave.end_date),
+          title: title,
+          start: start,
+          end: end,
           staff_id: leave.staff_id,
           description: leave.reason || "",
           category: "holiday",
-          allDay: true,
+          allDay: allDay,
+          leave_duration: leave.leave_duration || "full_day",
         }
       })
 
