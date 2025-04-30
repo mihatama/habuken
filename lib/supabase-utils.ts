@@ -1,6 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/supabase"
-import { cookies } from "next/headers"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 // サーバーコンポーネント用のSupabaseクライアント
@@ -21,16 +20,6 @@ export function getServerSupabase() {
   // これはサーバーアクションが複数のリクエストで共有されないようにするため
   return createClient<Database>(supabaseUrl, supabaseKey, {
     auth: { persistSession: false },
-    cookies: {
-      get(name: string) {
-        try {
-          const cookieStore = cookies()
-          return cookieStore.get(name)?.value
-        } catch (error) {
-          return undefined
-        }
-      },
-    },
   })
 }
 

@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react"
 import type { ReactNode } from "react"
 import type { AuthUser } from "@/types/models/user"
-import { getClientSupabase } from "@/lib/supabase-utils"
+import { getClientSupabase } from "@/lib/supabase-client-browser"
 import type { Session } from "@supabase/supabase-js"
 import { useRouter, usePathname } from "next/navigation"
 
