@@ -39,13 +39,14 @@ interface Category {
 
 interface EnhancedCalendarProps {
   events: CalendarEvent[]
-  onEventAdd?: (event: CalendarEvent) => Promise<any>
-  onEventUpdate?: (event: CalendarEvent) => Promise<any>
-  onEventDelete?: (eventId: string | number) => Promise<any>
+  onEventAdd?: ((event: CalendarEvent) => Promise<any>) | null
+  onEventUpdate?: ((event: CalendarEvent) => Promise<any>) | null
+  onEventDelete?: ((eventId: string | number) => Promise<any>) | null
   isLoading?: boolean
   error?: string | null
   categories?: Category[]
   onRefresh?: () => void
+  readOnly?: boolean // Add this prop to indicate if the calendar is read-only
 }
 
 export function EnhancedCalendar({
@@ -57,6 +58,7 @@ export function EnhancedCalendar({
   error = null,
   categories = [],
   onRefresh,
+  readOnly = false, // Default to false for backward compatibility
 }: EnhancedCalendarProps) {
   const [view, setView] = useState<"week" | "month">("week")
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -99,6 +101,9 @@ export function EnhancedCalendar({
   }, [selectedEvent, categories])
 
   const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
+    // If in read-only mode, don't allow creating new events
+    if (readOnly) return
+
     setSelectedEvent(null)
     setIsNewEvent(true)
     setFormData({
@@ -112,12 +117,21 @@ export function EnhancedCalendar({
   }
 
   const handleSelectEvent = (event: CalendarEvent) => {
+    // If in read-only mode, show event details but don't allow editing
+    if (readOnly) {
+      // You could implement a read-only view of the event here if desired
+      return
+    }
+
     setSelectedEvent(event)
     setIsNewEvent(false)
     setIsDialogOpen(true)
   }
 
   const handleEventResize = async ({ event, start, end }: { event: CalendarEvent; start: Date; end: Date }) => {
+    // Disable in read-only mode
+    if (readOnly) return
+
     if (!onEventUpdate) return
 
     try {
@@ -129,6 +143,9 @@ export function EnhancedCalendar({
   }
 
   const handleEventDrop = async ({ event, start, end }: { event: CalendarEvent; start: Date; end: Date }) => {
+    // Disable in read-only mode
+    if (readOnly) return
+
     if (!onEventUpdate) return
 
     try {
@@ -325,12 +342,13 @@ export function EnhancedCalendar({
           onView={(newView: any) => setView(newView)}
           date={currentDate}
           onNavigate={(date: Date) => setCurrentDate(date)}
-          selectable
+          selectable={!readOnly} // Disable selection in read-only mode
           onSelectSlot={handleSelectSlot}
           onSelectEvent={handleSelectEvent}
           eventPropGetter={eventStyleGetter}
-          resizable
+          resizable={!readOnly} // Disable resizing in read-only mode
           onEventResize={handleEventResize}
+          draggableAccessor={() => !readOnly} // Disable dragging in read-only mode
           onEventDrop={handleEventDrop}
           popup
           tooltipAccessor={(event) => event.description || event.title}
@@ -357,98 +375,101 @@ export function EnhancedCalendar({
         />
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{isNewEvent ? "新しい予定を追加" : "予定を編集"}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit}>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="title">タイトル</Label>
-                <Input id="title" name="title" value={formData.title || ""} onChange={handleInputChange} required />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Only render the dialog if not in read-only mode */}
+      {!readOnly && (
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{isNewEvent ? "新しい予定を追加" : "予定を編集"}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit}>
+              <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="start">開始日時</Label>
-                  <div className="flex items-center">
-                    <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
-                    <Input
-                      id="start"
-                      type="datetime-local"
-                      value={formatDateTimeForInput(formData.start as Date)}
-                      onChange={(e) => handleDateChange(e, "start")}
-                      required
-                    />
+                  <Label htmlFor="title">タイトル</Label>
+                  <Input id="title" name="title" value={formData.title || ""} onChange={handleInputChange} required />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="start">開始日時</Label>
+                    <div className="flex items-center">
+                      <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
+                      <Input
+                        id="start"
+                        type="datetime-local"
+                        value={formatDateTimeForInput(formData.start as Date)}
+                        onChange={(e) => handleDateChange(e, "start")}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="end">終了日時</Label>
+                    <div className="flex items-center">
+                      <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
+                      <Input
+                        id="end"
+                        type="datetime-local"
+                        value={formatDateTimeForInput(formData.end as Date)}
+                        onChange={(e) => handleDateChange(e, "end")}
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid gap-2">
-                  <Label htmlFor="end">終了日時</Label>
-                  <div className="flex items-center">
-                    <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
-                    <Input
-                      id="end"
-                      type="datetime-local"
-                      value={formatDateTimeForInput(formData.end as Date)}
-                      onChange={(e) => handleDateChange(e, "end")}
-                      required
-                    />
+                {categories.length > 0 && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="category">カテゴリ</Label>
+                    <Select value={formData.category || categories[0].value} onValueChange={handleCategoryChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="カテゴリを選択" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category.value} value={category.value}>
+                            {category.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                </div>
-              </div>
-
-              {categories.length > 0 && (
-                <div className="grid gap-2">
-                  <Label htmlFor="category">カテゴリ</Label>
-                  <Select value={formData.category || categories[0].value} onValueChange={handleCategoryChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="カテゴリを選択" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category.value} value={category.value}>
-                          {category.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              <div className="grid gap-2">
-                <Label htmlFor="description">詳細</Label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  value={formData.description || ""}
-                  onChange={handleInputChange}
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            <DialogFooter className="flex justify-between sm:justify-between">
-              <div>
-                {!isNewEvent && onEventDelete && (
-                  <Button type="button" variant="destructive" onClick={handleDelete} disabled={isSubmitting}>
-                    削除
-                  </Button>
                 )}
+
+                <div className="grid gap-2">
+                  <Label htmlFor="description">詳細</Label>
+                  <Textarea
+                    id="description"
+                    name="description"
+                    value={formData.description || ""}
+                    onChange={handleInputChange}
+                    rows={3}
+                  />
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  キャンセル
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? "保存中..." : "保存"}
-                </Button>
-              </div>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+
+              <DialogFooter className="flex justify-between sm:justify-between">
+                <div>
+                  {!isNewEvent && onEventDelete && (
+                    <Button type="button" variant="destructive" onClick={handleDelete} disabled={isSubmitting}>
+                      削除
+                    </Button>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    キャンセル
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? "保存中..." : "保存"}
+                  </Button>
+                </div>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

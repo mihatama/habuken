@@ -6,7 +6,7 @@ import { VacationList } from "@/components/vacation-list"
 
 export const metadata: Metadata = {
   title: "スタッフ管理 | 建設業務管理システム",
-  description: "スタッフの登録、編集、シフト管理を行います",
+  description: "スタッフの登録、編集、休暇管理を行います",
 }
 
 export default function StaffPage() {
@@ -15,7 +15,7 @@ export default function StaffPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">スタッフ管理</h1>
         <p className="text-muted-foreground">
-          スタッフの登録、編集、シフト管理を行います。スタッフの情報更新や休暇申請の確認ができます。
+          スタッフの登録、編集、休暇管理を行います。スタッフの情報更新や休暇申請の確認ができます。
         </p>
       </div>
 
@@ -23,7 +23,7 @@ export default function StaffPage() {
         <Tabs defaultValue="list" className="mb-6">
           <TabsList>
             <TabsTrigger value="list">リスト表示</TabsTrigger>
-            <TabsTrigger value="calendar">カレンダー表示</TabsTrigger>
+            <TabsTrigger value="calendar">休暇カレンダー</TabsTrigger>
             <TabsTrigger value="vacation">年休一覧</TabsTrigger>
           </TabsList>
           <TabsContent value="list" className="mt-4">
