@@ -41,16 +41,49 @@ export function LeaveRequestManagement() {
   async function fetchLeaveRequests() {
     try {
       setIsLoading(true)
-      const { data, error } = await supabase
+      // まず休暇申請データを取得
+      const { data: leaveData, error: leaveError } = await supabase
         .from("leave_requests")
-        .select("*, staff:staff_id(*)")
+        .select("*")
         .order("created_at", { ascending: false })
 
-      if (error) {
-        throw error
+      if (leaveError) {
+        throw leaveError
       }
 
-      setLeaveRequests(data || [])
+      if (!leaveData || leaveData.length === 0) {
+        setLeaveRequests([])
+        return
+      }
+
+      // スタッフIDのリストを作成
+      const staffIds = [...new Set(leaveData.map((request) => request.staff_id).filter(Boolean))]
+
+      // スタッフデータを別途取得
+      const { data: staffData, error: staffError } = await supabase
+        .from("staff")
+        .select("id, full_name")
+        .in("id", staffIds)
+
+      if (staffError) {
+        console.warn("スタッフデータの取得に失敗しましたが、休暇申請データは表示します:", staffError)
+      }
+
+      // スタッフIDをキーとしたマップを作成
+      const staffMap = new Map()
+      staffData?.forEach((staff) => {
+        staffMap.set(staff.id, staff.full_name)
+      })
+
+      // データを結合
+      const combinedData = leaveData.map((request) => ({
+        ...request,
+        staff: {
+          full_name: staffMap.get(request.staff_id) || "不明",
+        },
+      }))
+
+      setLeaveRequests(combinedData)
     } catch (error) {
       console.error("休暇申請の取得に失敗しました:", error)
       toast({
