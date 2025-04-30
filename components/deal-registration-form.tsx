@@ -25,10 +25,6 @@ export function DealRegistrationForm() {
   const [formData, setFormData] = useState({
     dealName: "",
     clientName: "",
-    contactPerson: "",
-    contactEmail: "",
-    contactPhone: "",
-    estimatedValue: "",
     startDate: "",
     endDate: "",
     description: "",
@@ -232,10 +228,6 @@ export function DealRegistrationForm() {
           {
             name: formData.dealName,
             client_name: formData.clientName,
-            contact_person: formData.contactPerson,
-            contact_email: formData.contactEmail,
-            contact_phone: formData.contactPhone,
-            estimated_value: Number.parseFloat(formData.estimatedValue) || 0,
             start_date: formData.startDate,
             end_date: formData.endDate,
             description: formData.description,
@@ -393,53 +385,6 @@ export function DealRegistrationForm() {
                   value={formData.clientName}
                   onChange={handleChange}
                   placeholder="クライアント名を入力"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="contactPerson">担当者名</Label>
-                <Input
-                  id="contactPerson"
-                  name="contactPerson"
-                  value={formData.contactPerson}
-                  onChange={handleChange}
-                  placeholder="担当者名を入力"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="contactEmail">連絡先メール</Label>
-                <Input
-                  id="contactEmail"
-                  name="contactEmail"
-                  type="email"
-                  value={formData.contactEmail}
-                  onChange={handleChange}
-                  placeholder="example@email.com"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="contactPhone">連絡先電話番号</Label>
-                <Input
-                  id="contactPhone"
-                  name="contactPhone"
-                  type="tel"
-                  value={formData.contactPhone}
-                  onChange={handleChange}
-                  placeholder="03-1234-5678"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="estimatedValue">見積金額 (円)</Label>
-                <Input
-                  id="estimatedValue"
-                  name="estimatedValue"
-                  type="number"
-                  value={formData.estimatedValue}
-                  onChange={handleChange}
-                  placeholder="1000000"
                 />
               </div>
 
@@ -885,3 +830,11 @@ export function DealRegistrationForm() {
     </Card>
   )
 }
+// このフォームは既に以下の機能を実装しています：
+// - 案件名の登録
+// - スタッフの紐づけ
+// - 重機の紐づけ
+// - 車両の紐づけ
+// - 備品の紐づけ
+// - 開始日と終了日の登録
+// 修正は必要ありません
