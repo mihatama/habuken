@@ -7,16 +7,12 @@ import "moment/locale/ja"
 import "react-big-calendar/lib/css/react-big-calendar.css"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@supabase/supabase-js"
 import { getCalendarEvents } from "@/actions/calendar-events"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, RefreshCw } from "lucide-react"
+import { AlertCircle, RefreshCw, Briefcase } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 // 日本語ローカライザーの設定
 moment.locale("ja")
@@ -80,6 +76,7 @@ export function CalendarView() {
     staff_id: "",
   })
   const { toast } = useToast()
+  const router = useRouter()
 
   // カレンダーイベントの取得
   const fetchData = async () => {
@@ -238,6 +235,11 @@ export function CalendarView() {
     }
   }
 
+  // 案件登録ページへ遷移
+  const navigateToDealRegistration = () => {
+    router.push("/deals/register")
+  }
+
   // イベントの種類に応じたスタイルを取得
   const eventStyleGetter = (event: CalendarEvent) => {
     let backgroundColor = "#3174ad" // デフォルト色
@@ -328,109 +330,10 @@ export function CalendarView() {
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>カレンダー</CardTitle>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>イベント追加</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>新しいイベント</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="title">タイトル</Label>
-                <Input
-                  id="title"
-                  value={newEvent.title}
-                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
-                  placeholder="イベントタイトル"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="start">開始日時</Label>
-                  <Input
-                    id="start"
-                    type="datetime-local"
-                    value={newEvent.start}
-                    onChange={(e) => setNewEvent({ ...newEvent, start: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="end">終了日時</Label>
-                  <Input
-                    id="end"
-                    type="datetime-local"
-                    value={newEvent.end}
-                    onChange={(e) => setNewEvent({ ...newEvent, end: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="type">イベントタイプ</Label>
-                <Select value={newEvent.type} onValueChange={(value) => setNewEvent({ ...newEvent, type: value })}>
-                  <SelectTrigger id="type">
-                    <SelectValue placeholder="イベントタイプを選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="project">案件</SelectItem>
-                    <SelectItem value="staff">スタッフ</SelectItem>
-                    <SelectItem value="tool">機材</SelectItem>
-                    <SelectItem value="general">一般</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="project">プロジェクト</Label>
-                <Select
-                  value={newEvent.project_id}
-                  onValueChange={(value) => setNewEvent({ ...newEvent, project_id: value })}
-                >
-                  <SelectTrigger id="project">
-                    <SelectValue placeholder="プロジェクトを選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">なし</SelectItem>
-                    {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="staff">担当者</Label>
-                <Select
-                  value={newEvent.staff_id}
-                  onValueChange={(value) => setNewEvent({ ...newEvent, staff_id: value })}
-                >
-                  <SelectTrigger id="staff">
-                    <SelectValue placeholder="担当者を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">なし</SelectItem>
-                    {staff.map((person) => (
-                      <SelectItem key={person.id} value={person.id}>
-                        {person.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="description">詳細</Label>
-                <Textarea
-                  id="description"
-                  value={newEvent.description}
-                  onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
-                  placeholder="イベントの詳細"
-                />
-              </div>
-              <Button onClick={handleAddEvent}>追加</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={navigateToDealRegistration} className="flex items-center gap-2">
+          <Briefcase className="h-4 w-4" />
+          案件登録
+        </Button>
       </CardHeader>
       <CardContent>
         <div className="h-[600px]">
