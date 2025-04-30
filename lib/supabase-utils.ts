@@ -1,8 +1,52 @@
-import {
-  getClientSupabase as getClientSupabaseOriginal,
-  getServerSupabase as getServerSupabaseOriginal,
-} from "./supabase/supabaseClient"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import { createClient } from "@supabase/supabase-js"
+import type { Database } from "@/types/supabase"
+
+// シングルトンパターンでクライアントを管理
+let supabaseClient: ReturnType<typeof createClient> | null = null
+
+export function getClientSupabase() {
+  if (!supabaseClient) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error("Supabase環境変数が設定されていません")
+      throw new Error("Supabase環境変数が設定されていません")
+    }
+
+    console.log("Supabaseクライアントを初期化します")
+    supabaseClient = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    })
+  }
+  return supabaseClient
+}
+
+// サーバーサイド用のSupabaseクライアント
+export async function getServerSupabase() {
+  const { createServerClient } = await import("@supabase/auth-helpers-nextjs")
+  const { cookies } = await import("next/headers")
+
+  const cookieStore = cookies()
+
+  return createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    cookies: {
+      get(name: string) {
+        return cookieStore.get(name)?.value
+      },
+      set(name: string, value: string, options: any) {
+        cookieStore.set({ name, value, ...options })
+      },
+      remove(name: string, options: any) {
+        cookieStore.set({ name, value: "", ...options })
+      },
+    },
+  })
+}
 
 // エラーハンドリング用のカスタムエラークラス
 export class SupabaseError extends Error {
@@ -12,34 +56,6 @@ export class SupabaseError extends Error {
   ) {
     super(message)
     this.name = "SupabaseError"
-  }
-}
-
-/**
- * クライアント側のSupabaseインスタンスを取得する
- * @returns Supabaseクライアントインスタンス
- * @throws {SupabaseError} 環境変数が設定されていない場合やクライアント初期化に失敗した場合
- */
-export function getClientSupabase(): SupabaseClient {
-  try {
-    return getClientSupabaseOriginal()
-  } catch (error) {
-    console.error("[Supabase Client Error]", error)
-    throw new SupabaseError("Failed to initialize Supabase client", error)
-  }
-}
-
-/**
- * サーバー側のSupabaseインスタンスを取得する
- * @returns Supabaseサーバーインスタンス
- * @throws {SupabaseError} 環境変数が設定されていない場合やクライアント初期化に失敗した場合
- */
-export function getServerSupabase(): SupabaseClient {
-  try {
-    return getServerSupabaseOriginal()
-  } catch (error) {
-    console.error("[Supabase Server Error]", error)
-    throw new SupabaseError("Failed to initialize Supabase server client", error)
   }
 }
 

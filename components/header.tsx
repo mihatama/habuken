@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { MobileNav } from "@/components/mobile-nav"
 import { UserNav } from "@/components/user-nav"
 import { useAuth } from "@/contexts/auth-context"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export function Header() {
   const router = useRouter()
@@ -17,34 +18,37 @@ export function Header() {
     <header className="fixed top-0 z-40 w-full border-b bg-background">
       <div className="container flex h-16 items-center justify-between px-4 sm:px-6">
         <div className="flex items-center">
-          <Link href="/dashboard" className="flex items-center space-x-2">
+          <Link href="/" className="flex items-center space-x-2">
             <span className="text-xl font-bold">建設業務管理</span>
           </Link>
           <nav className="hidden md:ml-10 md:flex md:items-center md:space-x-4">
-            <Link href="/dashboard" className="text-sm font-medium transition-colors hover:text-primary">
-              ダッシュボード
-            </Link>
-            <Link href="/master/project" className="text-sm font-medium transition-colors hover:text-primary">
-              案件管理
-            </Link>
-            <Link href="/master/staff" className="text-sm font-medium transition-colors hover:text-primary">
-              スタッフ管理
-            </Link>
-            <Link href="/tools" className="text-sm font-medium transition-colors hover:text-primary">
-              備品管理
-            </Link>
-            <Link href="/reports" className="text-sm font-medium transition-colors hover:text-primary">
-              レポート
-            </Link>
-            <Link href="/settings" className="text-sm font-medium transition-colors hover:text-primary">
-              設定
-            </Link>
+            {!loading && user && (
+              <>
+                <Link href="/dashboard" className="text-sm font-medium transition-colors hover:text-primary">
+                  ダッシュボード
+                </Link>
+                <Link href="/master/project" className="text-sm font-medium transition-colors hover:text-primary">
+                  案件管理
+                </Link>
+                <Link href="/master/staff" className="text-sm font-medium transition-colors hover:text-primary">
+                  スタッフ管理
+                </Link>
+                <Link href="/tools" className="text-sm font-medium transition-colors hover:text-primary">
+                  備品管理
+                </Link>
+                <Link href="/reports" className="text-sm font-medium transition-colors hover:text-primary">
+                  レポート
+                </Link>
+                <Link href="/settings" className="text-sm font-medium transition-colors hover:text-primary">
+                  設定
+                </Link>
+              </>
+            )}
           </nav>
         </div>
         <div className="flex items-center space-x-4">
           {loading ? (
-            // ローディング中は骨格UIを表示
-            <div className="h-10 w-10 animate-pulse rounded-full bg-gray-200"></div>
+            <Skeleton className="h-10 w-10 rounded-full" />
           ) : user ? (
             <>
               <UserNav user={user} />
@@ -71,7 +75,7 @@ export function Header() {
           )}
         </div>
       </div>
-      <MobileNav isOpen={isMobileNavOpen} onClose={() => setIsMobileNavOpen(false)} />
+      {user && <MobileNav isOpen={isMobileNavOpen} onClose={() => setIsMobileNavOpen(false)} />}
     </header>
   )
 }
