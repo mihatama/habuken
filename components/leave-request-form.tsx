@@ -131,10 +131,8 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
         staff_id: values.staffId,
         start_date: values.startDate,
         end_date: values.endDate,
-        leave_type: values.leaveType,
         reason: values.reason,
         status: "pending",
-        created_by: user.id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
