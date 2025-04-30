@@ -26,9 +26,7 @@ const dealFormSchema = z.object({
   name: z.string().min(1, {
     message: "案件名を入力してください",
   }),
-  client_name: z.string().min(1, {
-    message: "クライアント名を入力してください",
-  }),
+  client_name: z.string().optional(), // クライアント名を任意に変更
   start_date: z.date({
     required_error: "開始予定日を選択してください",
   }),
@@ -37,12 +35,8 @@ const dealFormSchema = z.object({
       required_error: "終了予定日を選択してください",
     })
     .optional(),
-  location: z.string().min(1, {
-    message: "場所を入力してください",
-  }),
-  status: z.string({
-    required_error: "ステータスを選択してください",
-  }),
+  location: z.string().optional(), // 場所を任意に変更
+  status: z.string().optional(), // ステータスを任意に変更
   description: z.string().default(""),
 })
 
@@ -68,7 +62,7 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
   const defaultValues: Partial<DealFormValues> = {
     name: "",
     client_name: "",
-    status: "計画中",
+    status: "計画中", // デフォルト値は残しておく
     description: "",
     location: "",
   }
@@ -120,6 +114,54 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
     }
   }
 
+  // Helper function to handle resource assignments with error handling
+  const handleResourceAssignment = async (
+    supabase: any,
+    tableName: string,
+    resources: any[],
+    dealId: string,
+    resourceIdField: string,
+    includeStartEndDates = true,
+  ) => {
+    if (resources.length === 0) return
+
+    try {
+      const assignments = resources.map((resource) => {
+        // Base assignment with just the IDs
+        const assignment: Record<string, any> = {
+          deal_id: dealId,
+          [resourceIdField]: resource.id,
+        }
+
+        // Only include dates if specified
+        if (includeStartEndDates) {
+          assignment.start_date = resource.startDate
+          assignment.end_date = resource.endDate
+        }
+
+        return assignment
+      })
+
+      const { error } = await supabase.from(tableName).insert(assignments)
+
+      if (error) {
+        console.error(`${tableName} assignment error:`, error)
+        toast({
+          title: "警告",
+          description: `${tableName}の割り当てに問題がありましたが、案件は登録されました。`,
+          variant: "warning",
+        })
+      }
+    } catch (error) {
+      console.error(`Failed to assign ${tableName}:`, error)
+      toast({
+        title: "警告",
+        description: `${tableName}の割り当てに失敗しましたが、案件は登録されました。`,
+        variant: "warning",
+      })
+    }
+  }
+
   async function onSubmit(data: DealFormValues) {
     setIsSubmitting(true)
     try {
@@ -144,11 +186,11 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
         .from("deals")
         .insert({
           name: data.name,
-          client_name: data.client_name,
+          client_name: data.client_name || null, // 空文字列の場合はnullに
           start_date: data.start_date.toISOString().split("T")[0],
           end_date: data.end_date ? data.end_date.toISOString().split("T")[0] : null,
-          location: data.location,
-          status: data.status,
+          location: data.location || null, // 空文字列の場合はnullに
+          status: data.status || "計画中", // 未選択の場合はデフォルト値を使用
           description: data.description || "",
           created_by: user.id,
         })
@@ -159,104 +201,18 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
         throw error
       }
 
+      // リソースの割り当て - 各リソースタイプごとに処理
       // スタッフの割り当て
-      if (selectedStaff.length > 0) {
-        try {
-          const staffAssignments = selectedStaff.map((staff) => ({
-            deal_id: deal.id,
-            staff_id: staff.id,
-            start_date: staff.startDate,
-            end_date: staff.endDate,
-          }))
-
-          const { error: staffError } = await supabase.from("deal_staff").insert(staffAssignments)
-
-          if (staffError) {
-            console.error("Staff assignment error:", staffError)
-            throw staffError
-          }
-        } catch (staffError) {
-          console.error("Failed to assign staff:", staffError)
-          throw staffError
-        }
-      }
+      await handleResourceAssignment(supabase, "deal_staff", selectedStaff, deal.id, "staff_id", true)
 
       // 重機の割り当て
-      if (selectedMachinery.length > 0) {
-        try {
-          const machineryAssignments = selectedMachinery.map((machinery) => ({
-            deal_id: deal.id,
-            machinery_id: machinery.id,
-            start_date: machinery.startDate,
-            end_date: machinery.endDate,
-          }))
+      await handleResourceAssignment(supabase, "deal_machinery", selectedMachinery, deal.id, "machinery_id", true)
 
-          const { error: machineryError } = await supabase.from("deal_machinery").insert(machineryAssignments)
-
-          if (machineryError) {
-            console.error("Machinery assignment error:", machineryError)
-            throw machineryError
-          }
-        } catch (machineryError) {
-          console.error("Failed to assign machinery:", machineryError)
-          throw machineryError
-        }
-      }
-
-      // 車両の割り当て
-      if (selectedVehicles.length > 0) {
-        try {
-          // Simplify vehicle assignments by only using start_date
-          const vehicleAssignments = selectedVehicles.map((vehicle) => ({
-            deal_id: deal.id,
-            vehicle_id: vehicle.id,
-            start_date: vehicle.startDate,
-            // Omit end_date since it's causing issues
-          }))
-
-          const { error: vehicleError } = await supabase.from("deal_vehicles").insert(vehicleAssignments)
-
-          if (vehicleError) {
-            console.error("Vehicle assignment error:", vehicleError)
-            // Don't throw, just log and continue
-            toast({
-              title: "警告",
-              description: "車両の割り当てに一部問題がありましたが、案件は登録されました。",
-              variant: "warning",
-            })
-          }
-        } catch (vehicleError) {
-          console.error("Failed to assign vehicles:", vehicleError)
-          // Continue with other operations instead of throwing
-          toast({
-            title: "警告",
-            description: "車両の割り当てに失敗しましたが、案件は登録されました。",
-            variant: "warning",
-          })
-        }
-      }
+      // 車両の割り当て - 日付フィールドを含めない
+      await handleResourceAssignment(supabase, "deal_vehicles", selectedVehicles, deal.id, "vehicle_id", false)
 
       // 備品の割り当て
-      if (selectedTools.length > 0) {
-        try {
-          const toolAssignments = selectedTools.map((tool) => ({
-            deal_id: deal.id,
-            tool_id: tool.id,
-            start_date: tool.startDate,
-            end_date: tool.endDate,
-          }))
-
-          const { error: toolError } = await supabase.from("deal_tools").insert(toolAssignments)
-
-          if (toolError) {
-            console.error("Tool assignment error:", toolError)
-            throw toolError
-          }
-        } catch (toolError) {
-          console.error("Failed to assign tools:", toolError)
-          throw toolError
-        }
-      }
+      await handleResourceAssignment(supabase, "deal_tools", selectedTools, deal.id, "tool_id", true)
 
       toast({
         title: "案件登録完了",
@@ -323,7 +279,7 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
                   name="client_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>クライアント名 *</FormLabel>
+                      <FormLabel>クライアント名</FormLabel>
                       <FormControl>
                         <Input placeholder="例: 株式会社○○" {...field} />
                       </FormControl>
@@ -422,7 +378,7 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
                   name="location"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>場所 *</FormLabel>
+                      <FormLabel>場所</FormLabel>
                       <FormControl>
                         <Input placeholder="例: 東京都新宿区○○" {...field} />
                       </FormControl>
@@ -436,7 +392,7 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
                   name="status"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>ステータス *</FormLabel>
+                      <FormLabel>ステータス</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
@@ -501,6 +457,11 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
                 startDate={watchStartDate ? format(watchStartDate, "yyyy-MM-dd") : ""}
                 endDate={watchEndDate ? format(watchEndDate, "yyyy-MM-dd") : null}
               />
+              <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-md">
+                <p className="text-amber-800 text-sm">
+                  注意: 車両の割り当てでは日付情報は保存されません。必要に応じて案件の詳細に日付情報を記載してください。
+                </p>
+              </div>
             </TabsContent>
 
             <TabsContent value="tools" className="pt-4">
