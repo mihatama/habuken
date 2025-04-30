@@ -1,31 +1,29 @@
-import { Suspense } from "react"
+import { getServerSupabase } from "@/lib/supabase-utils"
 import { DealDetails } from "@/components/deal-details"
-import { Loader2 } from "lucide-react"
+import { DealPeriodManagement } from "@/components/deal-period-management"
 import { notFound } from "next/navigation"
 
-// Helper function to validate UUID format
-function isValidUUID(uuid: string) {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-  return uuidRegex.test(uuid)
+interface DealPageProps {
+  params: {
+    id: string
+  }
 }
 
-export default function DealDetailsPage({ params }: { params: { id: string } }) {
-  // If the ID is not a valid UUID, show the not found page
-  if (!isValidUUID(params.id)) {
+export default async function DealPage({ params }: DealPageProps) {
+  const { id } = params
+  const supabase = getServerSupabase()
+
+  // 案件データの取得
+  const { data: deal, error } = await supabase.from("deals").select("*").eq("id", id).single()
+
+  if (error || !deal) {
     notFound()
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <Suspense
-        fallback={
-          <div className="flex justify-center items-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin" />
-          </div>
-        }
-      >
-        <DealDetails id={params.id} />
-      </Suspense>
+    <div className="container py-6 space-y-6">
+      <DealDetails deal={deal} />
+      <DealPeriodManagement dealId={id} />
     </div>
   )
 }

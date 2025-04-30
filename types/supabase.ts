@@ -126,10 +126,10 @@ export interface Database {
           description: string | null
           created_at: string
           updated_at: string
-          created_by: string // 作成者IDを追加
-          updated_by: string | null // 更新者IDを追加
-          project_id: string | null // プロジェクトIDを追加
-          organization_id: string | null // 組織IDを追加
+          created_by: string
+          updated_by: string | null
+          project_id: string | null
+          organization_id: string | null
         }
         Insert: {
           id?: string
@@ -139,7 +139,7 @@ export interface Database {
           description?: string | null
           created_at?: string
           updated_at?: string
-          created_by: string // 作成者IDを必須に
+          created_by: string
           updated_by?: string | null
           project_id?: string | null
           organization_id?: string | null
@@ -246,6 +246,7 @@ export interface Database {
           submitted_by: string
           created_at: string
           updated_at: string
+          deal_id: string | null
         }
         Insert: {
           id?: string
@@ -258,6 +259,7 @@ export interface Database {
           submitted_by: string
           created_at?: string
           updated_at?: string
+          deal_id?: string | null
         }
         Update: {
           id?: string
@@ -270,6 +272,7 @@ export interface Database {
           submitted_by?: string
           created_at?: string
           updated_at?: string
+          deal_id?: string | null
         }
       }
       safety_inspections: {
@@ -333,6 +336,192 @@ export interface Database {
           updated_at?: string
         }
       }
+      deals: {
+        Row: {
+          id: string
+          name: string
+          client_name: string | null
+          start_date: string
+          end_date: string | null
+          description: string | null
+          location: string | null
+          status: string
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          client_name?: string | null
+          start_date: string
+          end_date?: string | null
+          description?: string | null
+          location?: string | null
+          status?: string
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          client_name?: string | null
+          start_date?: string
+          end_date?: string | null
+          description?: string | null
+          location?: string | null
+          status?: string
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      deal_staff: {
+        Row: {
+          id: string
+          deal_id: string
+          staff_id: string
+          start_date: string | null
+          end_date: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          deal_id: string
+          staff_id: string
+          start_date?: string | null
+          end_date?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          deal_id?: string
+          staff_id?: string
+          start_date?: string | null
+          end_date?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      deal_machinery: {
+        Row: {
+          id: string
+          deal_id: string
+          machinery_id: string
+          start_date: string | null
+          end_date: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          deal_id: string
+          machinery_id: string
+          start_date?: string | null
+          end_date?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          deal_id?: string
+          machinery_id?: string
+          start_date?: string | null
+          end_date?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      deal_vehicles: {
+        Row: {
+          id: string
+          deal_id: string
+          vehicle_id: string
+          start_date: string | null
+          end_date: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          deal_id: string
+          vehicle_id: string
+          start_date?: string | null
+          end_date?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          deal_id?: string
+          vehicle_id?: string
+          start_date?: string | null
+          end_date?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      deal_tools: {
+        Row: {
+          id: string
+          deal_id: string
+          tool_id: string
+          start_date: string | null
+          end_date: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          deal_id: string
+          tool_id: string
+          start_date?: string | null
+          end_date?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          deal_id?: string
+          tool_id?: string
+          start_date?: string | null
+          end_date?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      deal_periods: {
+        Row: {
+          id: string
+          deal_id: string
+          start_date: string
+          end_date: string | null
+          description: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          deal_id: string
+          start_date: string
+          end_date?: string | null
+          description?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          deal_id?: string
+          start_date?: string
+          end_date?: string | null
+          description?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -347,3 +536,9 @@ export interface Database {
 }
 
 export type Staff = Database["public"]["Tables"]["staff"]["Row"]
+export type Deal = Database["public"]["Tables"]["deals"]["Row"]
+export type DealStaff = Database["public"]["Tables"]["deal_staff"]["Row"]
+export type DealMachinery = Database["public"]["Tables"]["deal_machinery"]["Row"]
+export type DealVehicle = Database["public"]["Tables"]["deal_vehicles"]["Row"]
+export type DealTool = Database["public"]["Tables"]["deal_tools"]["Row"]
+export type DealPeriod = Database["public"]["Tables"]["deal_periods"]["Row"]
