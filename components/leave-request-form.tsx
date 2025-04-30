@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -23,6 +23,9 @@ import { getClientSupabase } from "@/lib/supabase-utils"
 
 // フォームのバリデーションスキーマ
 const formSchema = z.object({
+  staffId: z.string({
+    required_error: "スタッフを選択してください",
+  }),
   leaveType: z.string({
     required_error: "休暇タイプを選択してください",
   }),
@@ -47,10 +50,33 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
   const { toast } = useToast()
   const addLeaveRequest = useAddLeaveRequest()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [staffList, setStaffList] = useState<Array<{ id: string; full_name: string }> | null>(null)
+
+  useEffect(() => {
+    const fetchStaff = async () => {
+      try {
+        const supabase = getClientSupabase()
+        const { data, error } = await supabase.from("staff").select("id, full_name").order("full_name")
+
+        if (error) throw error
+        setStaffList(data)
+      } catch (error) {
+        console.error("スタッフデータ取得エラー:", error)
+        toast({
+          title: "エラー",
+          description: "スタッフデータの取得に失敗しました",
+          variant: "destructive",
+        })
+      }
+    }
+
+    fetchStaff()
+  }, [toast])
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      staffId: "",
       leaveType: "",
       startDate: "",
       endDate: "",
@@ -80,13 +106,22 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
       }
 
       // 休暇申請を追加
-      await addLeaveRequest.mutateAsync({
-        userId: user.id,
-        leaveType: values.leaveType,
-        startDate: values.startDate,
-        endDate: values.endDate,
-        reason: values.reason,
-      })
+      const { data, error } = await supabase
+        .from("leave_requests")
+        .insert({
+          staff_id: values.staffId,
+          start_date: values.startDate,
+          end_date: values.endDate,
+          leave_type: values.leaveType,
+          reason: values.reason,
+          status: "pending",
+          created_by: user.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+
+      if (error) throw error
 
       toast({
         title: "申請完了",
@@ -126,6 +161,36 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="staffId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>スタッフ名</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="スタッフを選択" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {staffList ? (
+                        staffList.map((staff) => (
+                          <SelectItem key={staff.id} value={staff.id}>
+                            {staff.full_name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="loading" disabled>
+                          読み込み中...
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="leaveType"
