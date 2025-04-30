@@ -5,6 +5,7 @@ import type { ReactNode } from "react"
 import type { AuthUser } from "@/types/models/user"
 import { getClientSupabase } from "@/lib/supabase-utils"
 import type { Session } from "@supabase/supabase-js"
+import { useRouter, usePathname } from "next/navigation"
 
 // 認証コンテキスト型
 type AuthContextType = {
@@ -22,11 +23,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const supabase = getClientSupabase()
+  const router = useRouter()
+  const pathname = usePathname()
 
   // デバッグ用のログ
   useEffect(() => {
     console.log("認証状態:", { user, loading })
   }, [user, loading])
+
+  // 認証状態に基づいてリダイレクト
+  useEffect(() => {
+    if (!loading) {
+      // ログイン済みでログインページにいる場合はダッシュボードにリダイレクト
+      if (user && (pathname === "/login" || pathname === "/signup")) {
+        console.log("認証済みユーザーがログインページにいます。ダッシュボードにリダイレクトします。")
+        router.push("/dashboard")
+      }
+
+      // 未ログインで保護されたページにいる場合はログインページにリダイレクト
+      const protectedPaths = ["/dashboard", "/master", "/reports", "/tools", "/settings", "/profile", "/leave"]
+      const isProtectedPath = protectedPaths.some((path) => pathname?.startsWith(path))
+
+      if (!user && isProtectedPath) {
+        console.log("未認証ユーザーが保護されたページにいます。ログインページにリダイレクトします。")
+        router.push(`/login?redirect=${pathname}`)
+      }
+    }
+  }, [user, loading, pathname, router])
 
   // セッションからユーザー情報を設定する関数
   const setUserFromSession = (session: Session | null) => {
@@ -106,6 +129,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       console.log("ログイン成功:", data)
       setUserFromSession(data.session)
+
+      // ログイン成功後、明示的にダッシュボードにリダイレクト
+      router.push("/dashboard")
+
       return { success: true }
     } catch (error: any) {
       console.error("サインインエラー:", error)
@@ -127,6 +154,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("ログアウト成功")
       setUser(null)
       setSession(null)
+
+      // ログアウト後、明示的にログインページにリダイレクト
+      router.push("/login")
     } catch (error) {
       console.error("サインアウトエラー:", error)
     } finally {

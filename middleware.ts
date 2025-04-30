@@ -38,7 +38,23 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", req.url))
   }
 
-  return res
+  // Cookieを設定してセッション情報を保持
+  const response = NextResponse.next()
+  if (session) {
+    response.cookies.set("authenticated", "true", {
+      path: "/",
+      httpOnly: false,
+      sameSite: "lax",
+    })
+  } else {
+    response.cookies.set("authenticated", "false", {
+      path: "/",
+      httpOnly: false,
+      sameSite: "lax",
+    })
+  }
+
+  return response
 }
 
 export const config = {

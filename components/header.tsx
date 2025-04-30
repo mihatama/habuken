@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { MobileNav } from "@/components/mobile-nav"
@@ -25,7 +24,14 @@ export function Header() {
   const handleNavigation = (path: string) => {
     try {
       console.log(`${path} へ遷移します`)
-      router.push(path)
+      // 現在のパスと同じ場合は何もしない
+      if (pathname === path) {
+        console.log("既に同じページにいます")
+        return
+      }
+
+      // 強制的にページをリロード
+      window.location.href = path
     } catch (error) {
       console.error("ナビゲーションエラー:", error)
     }
@@ -35,48 +41,79 @@ export function Header() {
     <header className="fixed top-0 z-40 w-full border-b bg-background">
       <div className="container flex h-16 items-center justify-between px-4 sm:px-6">
         <div className="flex items-center">
-          <Link href="/" className="flex items-center space-x-2" onClick={() => console.log("Logo clicked")}>
+          <a
+            href="/"
+            className="flex items-center space-x-2"
+            onClick={(e) => {
+              e.preventDefault()
+              handleNavigation("/")
+            }}
+          >
             <span className="text-xl font-bold">建設業務管理</span>
-          </Link>
+          </a>
           <nav className="hidden md:ml-10 md:flex md:items-center md:space-x-4">
             {!loading && user && (
               <>
-                <button
-                  onClick={() => handleNavigation("/dashboard")}
+                <a
+                  href="/dashboard"
                   className="text-sm font-medium transition-colors hover:text-primary"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleNavigation("/dashboard")
+                  }}
                 >
                   ダッシュボード
-                </button>
-                <button
-                  onClick={() => handleNavigation("/master/project")}
+                </a>
+                <a
+                  href="/master/project"
                   className="text-sm font-medium transition-colors hover:text-primary"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleNavigation("/master/project")
+                  }}
                 >
                   案件管理
-                </button>
-                <button
-                  onClick={() => handleNavigation("/master/staff")}
+                </a>
+                <a
+                  href="/master/staff"
                   className="text-sm font-medium transition-colors hover:text-primary"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleNavigation("/master/staff")
+                  }}
                 >
                   スタッフ管理
-                </button>
-                <button
-                  onClick={() => handleNavigation("/tools")}
+                </a>
+                <a
+                  href="/tools"
                   className="text-sm font-medium transition-colors hover:text-primary"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleNavigation("/tools")
+                  }}
                 >
                   備品管理
-                </button>
-                <button
-                  onClick={() => handleNavigation("/reports")}
+                </a>
+                <a
+                  href="/reports"
                   className="text-sm font-medium transition-colors hover:text-primary"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleNavigation("/reports")
+                  }}
                 >
                   レポート
-                </button>
-                <button
-                  onClick={() => handleNavigation("/settings")}
+                </a>
+                <a
+                  href="/settings"
                   className="text-sm font-medium transition-colors hover:text-primary"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleNavigation("/settings")
+                  }}
                 >
                   設定
-                </button>
+                </a>
               </>
             )}
           </nav>
@@ -106,7 +143,7 @@ export function Header() {
               </Button>
             </>
           ) : (
-            <Button onClick={() => router.push("/login")}>ログイン</Button>
+            <Button onClick={() => handleNavigation("/login")}>ログイン</Button>
           )}
         </div>
       </div>
