@@ -26,6 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const {
           data: { session },
         } = await supabase.auth.getSession()
+
         if (session) {
           const userData: AuthUser = {
             id: session.user.id,
@@ -37,41 +38,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           setUser(userData)
         } else {
-          // 開発環境でのみモックユーザーを使用
-          if (process.env.NODE_ENV === "development") {
-            const mockUser: AuthUser = {
-              id: "1",
-              email: "yamada@example.com",
-              user_metadata: {
-                full_name: "山田太郎",
-                role: "admin",
-              },
-            }
-            setUser(mockUser)
-          } else {
-            // 本番環境ではユーザーをnullに設定
-            setUser(null)
-          }
+          setMockUserIfDevelopment()
         }
       } catch (error) {
         console.error("セッション確認エラー:", error)
-        // 開発環境でのみモックユーザーを使用
-        if (process.env.NODE_ENV === "development") {
-          const mockUser: AuthUser = {
-            id: "1",
-            email: "yamada@example.com",
-            user_metadata: {
-              full_name: "山田太郎",
-              role: "admin",
-            },
-          }
-          setUser(mockUser)
-        } else {
-          // 本番環境ではユーザーをnullに設定
-          setUser(null)
-        }
+        setMockUserIfDevelopment()
       } finally {
         setLoading(false)
+      }
+    }
+
+    // 開発環境の場合にモックユーザーを設定する関数
+    const setMockUserIfDevelopment = () => {
+      if (process.env.NODE_ENV === "development") {
+        const mockUser: AuthUser = {
+          id: "1",
+          email: "yamada@example.com",
+          user_metadata: {
+            full_name: "山田太郎",
+            role: "admin",
+          },
+        }
+        setUser(mockUser)
+      } else {
+        setUser(null)
       }
     }
 
@@ -92,21 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         setUser(userData)
       } else {
-        // 開発環境でのみモックユーザーを使用
-        if (process.env.NODE_ENV === "development") {
-          const mockUser: AuthUser = {
-            id: "1",
-            email: "yamada@example.com",
-            user_metadata: {
-              full_name: "山田太郎",
-              role: "admin",
-            },
-          }
-          setUser(mockUser)
-        } else {
-          // 本番環境ではユーザーをnullに設定
-          setUser(null)
-        }
+        setMockUserIfDevelopment()
       }
       setLoading(false)
     })
@@ -119,24 +95,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // サインアウト関数
   const signOut = async () => {
     try {
+      setLoading(true)
       await supabase.auth.signOut()
       clearUser()
-      // 開発環境でのみモックユーザーを使用
+
+      // 開発環境でのみモックユーザーを使用（ログアウト後すぐに設定しない）
       if (process.env.NODE_ENV === "development") {
-        setTimeout(() => {
-          const mockUser: AuthUser = {
-            id: "1",
-            email: "yamada@example.com",
-            user_metadata: {
-              full_name: "山田太郎",
-              role: "admin",
-            },
-          }
-          setUser(mockUser)
-        }, 1000)
+        // モックユーザーを設定する前に少し待機
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        const mockUser: AuthUser = {
+          id: "1",
+          email: "yamada@example.com",
+          user_metadata: {
+            full_name: "山田太郎",
+            role: "admin",
+          },
+        }
+        setUser(mockUser)
       }
     } catch (error) {
       console.error("サインアウトエラー:", error)
+    } finally {
+      setLoading(false)
     }
   }
 
