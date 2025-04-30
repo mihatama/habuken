@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { getClientSupabase } from "@/lib/supabase-utils"
-import { Loader2, CheckCircle, Calendar, Users, Truck, Package } from "lucide-react"
+import { Loader2, CheckCircle, Users, Truck, Package } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -34,7 +34,6 @@ export function DealRegistrationForm() {
     selectedHeavyMachinery: [] as string[],
     selectedVehicles: [] as string[],
     selectedTools: [] as string[],
-    periods: [{ startDate: "", endDate: "", description: "" }],
   })
 
   // リソースデータ
@@ -86,31 +85,6 @@ export function DealRegistrationForm() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  // 期間の追加
-  const addPeriod = () => {
-    setFormData((prev) => ({
-      ...prev,
-      periods: [...prev.periods, { startDate: "", endDate: "", description: "" }],
-    }))
-  }
-
-  // 期間の削除
-  const removePeriod = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      periods: prev.periods.filter((_, i) => i !== index),
-    }))
-  }
-
-  // 期間の更新
-  const updatePeriod = (index: number, field: string, value: string) => {
-    setFormData((prev) => {
-      const newPeriods = [...prev.periods]
-      newPeriods[index] = { ...newPeriods[index], [field]: value }
-      return { ...prev, periods: newPeriods }
-    })
   }
 
   // スタッフの選択状態を変更する関数
@@ -227,12 +201,12 @@ export function DealRegistrationForm() {
         .insert([
           {
             name: formData.dealName,
-            client_name: formData.clientName,
+            client_name: formData.clientName || null,
             start_date: formData.startDate,
             end_date: formData.endDate,
             description: formData.description,
             location: formData.location,
-            status: formData.status,
+            status: formData.status || "pending",
             created_by: user.id,
           },
         ])
@@ -245,23 +219,6 @@ export function DealRegistrationForm() {
       }
 
       const dealId = data[0].id
-
-      // 期間の登録
-      if (formData.periods.length > 0) {
-        const periodsToInsert = formData.periods
-          .filter((period) => period.startDate) // 開始日が入力されている期間のみ
-          .map((period) => ({
-            deal_id: dealId,
-            start_date: period.startDate,
-            end_date: period.endDate || null,
-            description: period.description || null,
-          }))
-
-        if (periodsToInsert.length > 0) {
-          const { error: periodsError } = await supabase.from("deal_periods").insert(periodsToInsert)
-          if (periodsError) throw periodsError
-        }
-      }
 
       // スタッフの割り当て
       if (formData.selectedStaff.length > 0) {
@@ -337,12 +294,8 @@ export function DealRegistrationForm() {
     <Card className="p-6 max-w-4xl mx-auto">
       <form onSubmit={handleSubmit} className="space-y-6">
         <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid grid-cols-5 mb-4">
+          <TabsList className="grid grid-cols-4 mb-4">
             <TabsTrigger value="basic">基本情報</TabsTrigger>
-            <TabsTrigger value="periods" className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              期間
-            </TabsTrigger>
             <TabsTrigger value="staff" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               スタッフ
@@ -375,13 +328,10 @@ export function DealRegistrationForm() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="clientName">
-                  クライアント名 <span className="text-red-500">*</span>
-                </Label>
+                <Label htmlFor="clientName">クライアント名</Label>
                 <Input
                   id="clientName"
                   name="clientName"
-                  required
                   value={formData.clientName}
                   onChange={handleChange}
                   placeholder="クライアント名を入力"
@@ -419,13 +369,10 @@ export function DealRegistrationForm() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="status">
-                  ステータス <span className="text-red-500">*</span>
-                </Label>
+                <Label htmlFor="status">ステータス</Label>
                 <select
                   id="status"
                   name="status"
-                  required
                   value={formData.status}
                   onChange={handleChange}
                   className="w-full p-2 border rounded-md"
@@ -449,62 +396,6 @@ export function DealRegistrationForm() {
                 onChange={handleChange}
                 placeholder="案件の詳細情報を入力してください..."
               />
-            </div>
-          </TabsContent>
-
-          {/* 期間タブ */}
-          <TabsContent value="periods" className="space-y-6">
-            <div className="space-y-4">
-              {formData.periods.map((period, index) => (
-                <div key={index} className="border p-4 rounded-md space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h3 className="font-medium">期間 {index + 1}</h3>
-                    {index > 0 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removePeriod(index)}
-                        className="text-red-500"
-                      >
-                        削除
-                      </Button>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor={`period-start-${index}`}>開始日</Label>
-                      <Input
-                        id={`period-start-${index}`}
-                        type="date"
-                        value={period.startDate}
-                        onChange={(e) => updatePeriod(index, "startDate", e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor={`period-end-${index}`}>終了日</Label>
-                      <Input
-                        id={`period-end-${index}`}
-                        type="date"
-                        value={period.endDate}
-                        onChange={(e) => updatePeriod(index, "endDate", e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor={`period-desc-${index}`}>説明</Label>
-                    <Textarea
-                      id={`period-desc-${index}`}
-                      value={period.description}
-                      onChange={(e) => updatePeriod(index, "description", e.target.value)}
-                      placeholder="この期間の作業内容や目標など"
-                    />
-                  </div>
-                </div>
-              ))}
-              <Button type="button" variant="outline" onClick={addPeriod}>
-                期間を追加
-              </Button>
             </div>
           </TabsContent>
 
