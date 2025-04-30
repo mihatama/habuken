@@ -24,7 +24,7 @@ export default function StaffPage() {
           <TabsList>
             <TabsTrigger value="list">リスト表示</TabsTrigger>
             <TabsTrigger value="calendar">休暇カレンダー</TabsTrigger>
-            <TabsTrigger value="vacation">年休一覧</TabsTrigger>
+            <TabsTrigger value="vacation">休暇一覧</TabsTrigger>
           </TabsList>
           <TabsContent value="list" className="mt-4">
             <StaffList />

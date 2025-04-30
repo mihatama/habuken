@@ -3,18 +3,13 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Loader2, RefreshCw } from "lucide-react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useToast } from "@/hooks/use-toast"
 
 export function VacationList() {
   const { toast } = useToast()
-  const supabase = createClientComponentClient()
-
   const [vacations, setVacations] = useState<any[]>([])
-  const [staffMembers, setStaffMembers] = useState<Record<string, any>>({})
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -27,41 +22,24 @@ export function VacationList() {
       setIsLoading(true)
       setError(null)
 
-      // 1. スタッフデータを取得
-      const { data: staffData, error: staffError } = await supabase.from("staff").select("id, full_name")
-
-      if (staffError) {
-        console.error("スタッフデータ取得エラー:", staffError)
-        throw staffError
-      }
-
-      // スタッフデータをIDをキーとしたオブジェクトに変換
-      const staffLookup: Record<string, any> = {}
-      staffData?.forEach((staff) => {
-        staffLookup[staff.id] = staff
+      // APIエンドポイントを使用してデータを取得
+      const response = await fetch("/api/leave-requests", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
       })
-      setStaffMembers(staffLookup)
 
-      // 2. 休暇データを取得（スタッフとの結合なし）
-      const { data: leaveData, error: leaveError } = await supabase
-        .from("leave_requests")
-        .select("id, staff_id, start_date, end_date, reason, status")
-        .order("start_date", { ascending: false })
-
-      if (leaveError) {
-        console.error("休暇データ取得エラー:", leaveError)
-        throw leaveError
+      if (!response.ok) {
+        throw new Error("休暇データの取得に失敗しました")
       }
 
-      // 取得したデータにスタッフ情報を追加
-      const enrichedData =
-        leaveData?.map((leave) => ({
-          ...leave,
-          staff: staffLookup[leave.staff_id] || { full_name: "不明" },
-        })) || []
+      const data = await response.json()
 
-      console.log("取得した休暇データ:", enrichedData)
-      setVacations(enrichedData)
+      // 承認済みのデータのみをフィルタリング
+      const approvedVacations = data.data.filter((vacation: any) => vacation.status === "approved")
+      console.log("承認済み休暇データ:", approvedVacations)
+      setVacations(approvedVacations)
     } catch (error: any) {
       console.error("休暇データの取得に失敗しました:", error)
       setError(error.message || "休暇データの取得に失敗しました")
@@ -75,19 +53,6 @@ export function VacationList() {
     }
   }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "approved":
-        return <Badge className="bg-green-500 hover:bg-green-600">承認済</Badge>
-      case "pending":
-        return <Badge className="bg-yellow-500 hover:bg-yellow-600">審査中</Badge>
-      case "rejected":
-        return <Badge className="bg-red-500 hover:bg-red-600">却下</Badge>
-      default:
-        return <Badge>{status}</Badge>
-    }
-  }
-
   const formatDate = (dateString: string) => {
     if (!dateString) return "-"
     const date = new Date(dateString)
@@ -97,7 +62,7 @@ export function VacationList() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>休暇一覧</CardTitle>
+        <CardTitle>スタッフ休暇一覧</CardTitle>
         <Button variant="outline" size="icon" onClick={fetchVacations} disabled={isLoading}>
           <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
         </Button>
@@ -122,25 +87,23 @@ export function VacationList() {
                 <TableHead>スタッフ名</TableHead>
                 <TableHead>開始日</TableHead>
                 <TableHead>終了日</TableHead>
-                <TableHead>理由</TableHead>
-                <TableHead>ステータス</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {vacations.length > 0 ? (
                 vacations.map((vacation) => (
                   <TableRow key={vacation.id}>
-                    <TableCell className="font-medium">{vacation.staff?.full_name || "不明"}</TableCell>
+                    <TableCell className="font-medium">
+                      {vacation.staff_name || vacation.staff?.name || "不明"}
+                    </TableCell>
                     <TableCell>{formatDate(vacation.start_date)}</TableCell>
                     <TableCell>{formatDate(vacation.end_date)}</TableCell>
-                    <TableCell>{vacation.reason || "-"}</TableCell>
-                    <TableCell>{getStatusBadge(vacation.status)}</TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
-                    休暇データがありません
+                  <TableCell colSpan={3} className="text-center py-4 text-muted-foreground">
+                    承認済み休暇データがありません
                   </TableCell>
                 </TableRow>
               )}
