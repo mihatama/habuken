@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
 import { DashboardLayout } from "../../components/dashboard-layout"
 import { LeaveRequestManagement } from "../../components/leave-request-management"
-import { LeaveCalendar } from "../../components/leave-calendar"
 
 export const metadata: Metadata = {
   title: "休暇申請 | 建設業務管理システム",
@@ -17,7 +16,6 @@ export default function LeavePage() {
     >
       <div className="flex flex-col space-y-6">
         <LeaveRequestManagement />
-        <LeaveCalendar />
       </div>
     </DashboardLayout>
   )

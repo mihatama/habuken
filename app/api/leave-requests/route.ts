@@ -29,11 +29,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "必須フィールドが不足しています" }, { status: 400 })
     }
 
-    // 半日休暇が選択されている場合は、半日タイプ（AM/PM）が必須
-    if (data.is_half_day === true && !data.half_day_type) {
-      return NextResponse.json({ error: "半日休暇の場合は、AM/PMを選択してください" }, { status: 400 })
-    }
-
     // サービスロールを使用したクライアントを作成
     const supabase = getServiceRoleClient()
 
@@ -46,8 +41,6 @@ export async function POST(request: Request) {
         end_date: data.end_date,
         reason: data.reason,
         leave_type: data.leave_type,
-        is_half_day: data.is_half_day || false,
-        half_day_type: data.half_day_type,
         status: "pending",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -84,9 +77,7 @@ export async function GET() {
         leave_type,
         reason,
         status,
-        created_at,
-        is_half_day,
-        half_day_type
+        created_at
       `)
       .order("created_at", { ascending: false })
 

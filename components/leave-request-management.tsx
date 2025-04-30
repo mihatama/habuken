@@ -21,8 +21,6 @@ type LeaveRequest = {
   reason: string
   status: "pending" | "approved" | "rejected"
   created_at: string
-  is_half_day?: boolean
-  half_day_type?: "AM" | "PM"
 }
 
 export function LeaveRequestManagement() {
@@ -177,12 +175,8 @@ export function LeaveRequestManagement() {
                       {getStatusBadge(request.status)}
                     </div>
                     <div className="text-sm text-gray-500 mb-2">
-                      {format(new Date(request.start_date), "yyyy年MM月dd日", { locale: ja })}
-                      {request.start_date !== request.end_date &&
-                        ` 〜 ${format(new Date(request.end_date), "yyyy年MM月dd日", { locale: ja })}`}
-                      {request.is_half_day &&
-                        request.half_day_type &&
-                        ` (${request.half_day_type === "AM" ? "午前" : "午後"})`}
+                      {format(new Date(request.start_date), "yyyy年MM月dd日", { locale: ja })} 〜{" "}
+                      {format(new Date(request.end_date), "yyyy年MM月dd日", { locale: ja })}
                     </div>
                     <div className="text-sm mb-2">
                       <span className="font-medium">休暇種類:</span> {getLeaveTypeBadge(request.leave_type)}
