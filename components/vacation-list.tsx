@@ -14,6 +14,7 @@ export function VacationList() {
   const supabase = createClientComponentClient()
 
   const [vacations, setVacations] = useState<any[]>([])
+  const [staffMembers, setStaffMembers] = useState<Record<string, any>>({})
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -26,27 +27,41 @@ export function VacationList() {
       setIsLoading(true)
       setError(null)
 
-      console.log("休暇データを取得中...")
-      const { data, error } = await supabase
-        .from("leave_requests")
-        .select(`
-          id,
-          staff_id,
-          start_date,
-          end_date,
-          reason,
-          status,
-          staff:staff_id (full_name)
-        `)
-        .order("start_date", { ascending: false })
+      // 1. スタッフデータを取得
+      const { data: staffData, error: staffError } = await supabase.from("staff").select("id, full_name")
 
-      if (error) {
-        console.error("休暇データ取得エラー:", error)
-        throw error
+      if (staffError) {
+        console.error("スタッフデータ取得エラー:", staffError)
+        throw staffError
       }
 
-      console.log("取得した休暇データ:", data)
-      setVacations(data || [])
+      // スタッフデータをIDをキーとしたオブジェクトに変換
+      const staffLookup: Record<string, any> = {}
+      staffData?.forEach((staff) => {
+        staffLookup[staff.id] = staff
+      })
+      setStaffMembers(staffLookup)
+
+      // 2. 休暇データを取得（スタッフとの結合なし）
+      const { data: leaveData, error: leaveError } = await supabase
+        .from("leave_requests")
+        .select("id, staff_id, start_date, end_date, reason, status")
+        .order("start_date", { ascending: false })
+
+      if (leaveError) {
+        console.error("休暇データ取得エラー:", leaveError)
+        throw leaveError
+      }
+
+      // 取得したデータにスタッフ情報を追加
+      const enrichedData =
+        leaveData?.map((leave) => ({
+          ...leave,
+          staff: staffLookup[leave.staff_id] || { full_name: "不明" },
+        })) || []
+
+      console.log("取得した休暇データ:", enrichedData)
+      setVacations(enrichedData)
     } catch (error: any) {
       console.error("休暇データの取得に失敗しました:", error)
       setError(error.message || "休暇データの取得に失敗しました")

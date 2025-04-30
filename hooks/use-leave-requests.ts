@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { getLeaveRequests, updateLeaveRequest } from "../lib/data-utils"
+import { updateLeaveRequest } from "../lib/data-utils"
 import { getClientSupabase } from "../lib/supabase-utils"
 import { v4 as uuidv4 } from "uuid"
 
@@ -7,7 +7,48 @@ import { v4 as uuidv4 } from "uuid"
 export function useLeaveRequests() {
   return useQuery({
     queryKey: ["leaveRequests"],
-    queryFn: () => getLeaveRequests(),
+    queryFn: async () => {
+      try {
+        // 1. スタッフデータを取得
+        const supabase = getClientSupabase()
+        const { data: staffData, error: staffError } = await supabase.from("staff").select("id, full_name")
+
+        if (staffError) {
+          console.error("スタッフデータ取得エラー:", staffError)
+          throw staffError
+        }
+
+        // スタッフデータをIDをキーとしたオブジェクトに変換
+        const staffLookup: Record<string, any> = {}
+        staffData?.forEach((staff) => {
+          staffLookup[staff.id] = staff
+        })
+
+        // 2. 休暇データを取得（スタッフとの結合なし）
+        const { data: leaveData, error: leaveError } = await supabase
+          .from("leave_requests")
+          .select(
+            "id, staff_id, start_date, end_date, reason, status, leave_type, reject_reason, created_at, updated_at",
+          )
+          .order("start_date", { ascending: false })
+
+        if (leaveError) {
+          console.error("休暇データ取得エラー:", leaveError)
+          throw leaveError
+        }
+
+        // 取得したデータにスタッフ情報を追加
+        return (
+          leaveData?.map((leave) => ({
+            ...leave,
+            staff: staffLookup[leave.staff_id] || { full_name: "不明" },
+          })) || []
+        )
+      } catch (error) {
+        console.error("休暇申請データの取得に失敗しました:", error)
+        throw error
+      }
+    },
   })
 }
 
