@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/contexts/auth-context"
@@ -16,29 +16,43 @@ export default function LoginPage() {
   const [email, setEmail] = useState("info@mihatama.com") // デフォルト値を設定
   const [password, setPassword] = useState("gensuke") // デフォルト値を設定
   const [error, setError] = useState<string | null>(null)
-  const { signIn, loading } = useAuth()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const { signIn, loading, user } = useAuth()
   const router = useRouter()
+
+  // ユーザーが既にログインしている場合はダッシュボードにリダイレクト
+  useEffect(() => {
+    if (user) {
+      console.log("ユーザーは既にログインしています。ダッシュボードにリダイレクトします。")
+      router.push("/dashboard")
+    }
+  }, [user, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setIsSubmitting(true)
 
     if (!email || !password) {
       setError("メールアドレスとパスワードを入力してください")
+      setIsSubmitting(false)
       return
     }
 
     try {
+      console.log("ログイン処理を開始します")
       const result = await signIn(email, password)
       if (result.success) {
         console.log("ログイン成功、リダイレクトします")
-        // Let the auth context handle the redirect
+        // 認証コンテキストがリダイレクトを処理します
       } else {
         setError(result.error || "ログインに失敗しました")
+        setIsSubmitting(false)
       }
     } catch (err: any) {
       console.error("ログイン処理エラー:", err)
       setError(err.message || "予期せぬエラーが発生しました")
+      setIsSubmitting(false)
     }
   }
 
@@ -65,6 +79,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
                 required
+                disabled={isSubmitting || loading}
               />
             </div>
             <div className="space-y-2">
@@ -80,10 +95,11 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={isSubmitting || loading}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "ログイン中..." : "ログイン"}
+            <Button type="submit" className="w-full" disabled={isSubmitting || loading}>
+              {isSubmitting || loading ? "ログイン中..." : "ログイン"}
             </Button>
           </form>
         </CardContent>

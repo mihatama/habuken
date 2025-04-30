@@ -25,42 +25,42 @@ export async function middleware(req: NextRequest) {
 
   console.log("認証要件:", { path, isAuthRequired, hasSession: !!session })
 
+  // 認証が必要なパスで、セッションがない場合
   if (isAuthRequired && !session) {
     console.log("未認証アクセス、リダイレクト:", path)
-    // Prevent redirect loop
-    if (path !== "/login") {
-      const redirectUrl = new URL("/login", req.url)
-      redirectUrl.searchParams.set("redirect", path)
-      return NextResponse.redirect(redirectUrl)
-    }
+    const redirectUrl = new URL("/login", req.url)
+    redirectUrl.searchParams.set("redirect", path)
+    return NextResponse.redirect(redirectUrl)
   }
 
   // ログイン済みでログインページやサインアップページにアクセスしようとしている場合はダッシュボードにリダイレクト
   if (session && (path === "/login" || path === "/signup")) {
     console.log("認証済みユーザーのログインページアクセス、リダイレクト")
-    // Prevent redirect loop
-    if (path !== "/dashboard") {
-      return NextResponse.redirect(new URL("/dashboard", req.url))
-    }
+    return NextResponse.redirect(new URL("/dashboard", req.url))
+  }
+
+  // 認証済みでルートパスにアクセスした場合はダッシュボードにリダイレクト
+  if (session && path === "/") {
+    console.log("認証済みユーザーのルートパスアクセス、リダイレクト")
+    return NextResponse.redirect(new URL("/dashboard", req.url))
   }
 
   // Cookieを設定してセッション情報を保持
-  const response = NextResponse.next()
   if (session) {
-    response.cookies.set("authenticated", "true", {
+    res.cookies.set("authenticated", "true", {
       path: "/",
       httpOnly: false,
       sameSite: "lax",
     })
   } else {
-    response.cookies.set("authenticated", "false", {
+    res.cookies.set("authenticated", "false", {
       path: "/",
       httpOnly: false,
       sameSite: "lax",
     })
   }
 
-  return response
+  return res
 }
 
 export const config = {

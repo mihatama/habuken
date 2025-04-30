@@ -8,8 +8,8 @@ import { Header } from "@/components/header"
 import { getClientSupabase } from "@/lib/supabase-utils"
 
 interface DashboardLayoutProps {
-  children: React.ReactNode
-  title: string
+  children?: React.ReactNode
+  title?: string
   description?: string
   isAdmin?: boolean
 }
@@ -75,10 +75,12 @@ export function DashboardLayout({ children, title, description, isAdmin = false 
       <Header user={user} />
       <main className="flex-1 p-6 pt-16">
         <div className="mx-auto max-w-7xl">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
-            {description && <p className="mt-2 text-muted-foreground">{description}</p>}
-          </div>
+          {title && (
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
+              {description && <p className="mt-2 text-muted-foreground">{description}</p>}
+            </div>
+          )}
           {children}
         </div>
       </main>

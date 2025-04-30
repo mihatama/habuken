@@ -22,25 +22,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isRedirecting, setIsRedirecting] = useState(false)
   const supabase = getClientSupabase()
   const router = useRouter()
   const pathname = usePathname()
 
   // デバッグ用のログ
   useEffect(() => {
-    console.log("認証状態:", { user, loading })
-  }, [user, loading])
+    console.log("認証状態:", { user, loading, pathname })
+  }, [user, loading, pathname])
 
   // 認証状態に基づいてリダイレクト
   useEffect(() => {
-    if (!loading) {
+    if (!loading && !isRedirecting) {
       // ログイン済みでログインページにいる場合はダッシュボードにリダイレクト
-      if (user && (pathname === "/login" || pathname === "/signup")) {
+      if (user && (pathname === "/login" || pathname === "/signup" || pathname === "/")) {
         console.log("認証済みユーザーがログインページにいます。ダッシュボードにリダイレクトします。")
+        setIsRedirecting(true)
         router.push("/dashboard")
       }
     }
-  }, [user, loading, pathname, router])
+  }, [user, loading, pathname, router, isRedirecting])
 
   // セッションからユーザー情報を設定する関数
   const setUserFromSession = (session: Session | null) => {
@@ -95,6 +97,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("認証状態変更イベント:", event)
       setUserFromSession(session)
+
+      // ログイン成功時にリダイレクトフラグをリセット
+      if (event === "SIGNED_IN") {
+        setIsRedirecting(false)
+      }
     })
 
     return () => {
@@ -122,6 +129,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserFromSession(data.session)
 
       // ログイン成功後、明示的にダッシュボードにリダイレクト
+      console.log("ダッシュボードへリダイレクトします")
+      setIsRedirecting(true)
       router.push("/dashboard")
 
       return { success: true }
