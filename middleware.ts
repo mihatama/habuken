@@ -27,15 +27,21 @@ export async function middleware(req: NextRequest) {
 
   if (isAuthRequired && !session) {
     console.log("未認証アクセス、リダイレクト:", path)
-    const redirectUrl = new URL("/login", req.url)
-    redirectUrl.searchParams.set("redirect", path)
-    return NextResponse.redirect(redirectUrl)
+    // Prevent redirect loop
+    if (path !== "/login") {
+      const redirectUrl = new URL("/login", req.url)
+      redirectUrl.searchParams.set("redirect", path)
+      return NextResponse.redirect(redirectUrl)
+    }
   }
 
   // ログイン済みでログインページやサインアップページにアクセスしようとしている場合はダッシュボードにリダイレクト
   if (session && (path === "/login" || path === "/signup")) {
     console.log("認証済みユーザーのログインページアクセス、リダイレクト")
-    return NextResponse.redirect(new URL("/dashboard", req.url))
+    // Prevent redirect loop
+    if (path !== "/dashboard") {
+      return NextResponse.redirect(new URL("/dashboard", req.url))
+    }
   }
 
   // Cookieを設定してセッション情報を保持

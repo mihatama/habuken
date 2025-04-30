@@ -32,7 +32,7 @@ export default function LoginPage() {
       const result = await signIn(email, password)
       if (result.success) {
         console.log("ログイン成功、リダイレクトします")
-        router.push("/dashboard")
+        // Let the auth context handle the redirect
       } else {
         setError(result.error || "ログインに失敗しました")
       }

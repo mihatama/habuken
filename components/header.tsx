@@ -32,8 +32,8 @@ export function Header() {
         return
       }
 
-      // 強制的にページをリロード
-      window.location.href = path
+      // Next.jsのルーターを使用
+      router.push(path)
     } catch (error) {
       console.error("ナビゲーションエラー:", error)
     }
@@ -48,7 +48,7 @@ export function Header() {
             className="flex items-center mr-6"
             onClick={(e) => {
               e.preventDefault()
-              handleNavigation("/")
+              router.push("/")
             }}
           >
             <span className="text-xl font-bold">現助</span>
@@ -63,7 +63,7 @@ export function Header() {
                 className="flex flex-col items-center text-sm font-medium transition-colors hover:text-primary"
                 onClick={(e) => {
                   e.preventDefault()
-                  handleNavigation("/dashboard")
+                  router.push("/dashboard")
                 }}
               >
                 <Calendar className="h-5 w-5 mb-1" />
@@ -74,7 +74,7 @@ export function Header() {
                 className="flex flex-col items-center text-sm font-medium transition-colors hover:text-primary"
                 onClick={(e) => {
                   e.preventDefault()
-                  handleNavigation("/master/project")
+                  router.push("/master/project")
                 }}
               >
                 <Briefcase className="h-5 w-5 mb-1" />
@@ -85,7 +85,7 @@ export function Header() {
                 className="flex flex-col items-center text-sm font-medium transition-colors hover:text-primary"
                 onClick={(e) => {
                   e.preventDefault()
-                  handleNavigation("/master/staff")
+                  router.push("/master/staff")
                 }}
               >
                 <Users className="h-5 w-5 mb-1" />
@@ -96,7 +96,7 @@ export function Header() {
                 className="flex flex-col items-center text-sm font-medium transition-colors hover:text-primary"
                 onClick={(e) => {
                   e.preventDefault()
-                  handleNavigation("/master/heavy")
+                  router.push("/master/heavy")
                 }}
               >
                 <Truck className="h-5 w-5 mb-1" />
@@ -107,7 +107,7 @@ export function Header() {
                 className="flex flex-col items-center text-sm font-medium transition-colors hover:text-primary"
                 onClick={(e) => {
                   e.preventDefault()
-                  handleNavigation("/master/vehicle")
+                  router.push("/master/vehicle")
                 }}
               >
                 <Car className="h-5 w-5 mb-1" />
@@ -118,7 +118,7 @@ export function Header() {
                 className="flex flex-col items-center text-sm font-medium transition-colors hover:text-primary"
                 onClick={(e) => {
                   e.preventDefault()
-                  handleNavigation("/tools")
+                  router.push("/tools")
                 }}
               >
                 <Key className="h-5 w-5 mb-1" />
@@ -129,7 +129,7 @@ export function Header() {
                 className="flex flex-col items-center text-sm font-medium transition-colors hover:text-primary"
                 onClick={(e) => {
                   e.preventDefault()
-                  handleNavigation("/leave")
+                  router.push("/leave")
                 }}
               >
                 <ClipboardList className="h-5 w-5 mb-1" />
@@ -140,7 +140,7 @@ export function Header() {
                 className="flex flex-col items-center text-sm font-medium transition-colors hover:text-primary"
                 onClick={(e) => {
                   e.preventDefault()
-                  handleNavigation("/reports")
+                  router.push("/reports")
                 }}
               >
                 <FileText className="h-5 w-5 mb-1" />
@@ -151,7 +151,7 @@ export function Header() {
                 className="flex flex-col items-center text-sm font-medium transition-colors hover:text-primary"
                 onClick={(e) => {
                   e.preventDefault()
-                  handleNavigation("/settings")
+                  router.push("/settings")
                 }}
               >
                 <Settings className="h-5 w-5 mb-1" />
