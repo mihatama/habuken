@@ -70,11 +70,11 @@ export function Header() {
                 <span>ダッシュボード</span>
               </Link>
               <Link
-                href="/master/project"
+                href="/deals/register"
                 className="flex flex-col items-center text-sm font-medium transition-colors hover:text-primary"
                 onClick={(e) => {
                   e.preventDefault()
-                  router.push("/master/project")
+                  router.push("/deals/register")
                 }}
               >
                 <Briefcase className="h-5 w-5 mb-1" />
