@@ -30,6 +30,14 @@ export function DealsList() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [dealToDelete, setDealToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+
+  const filteredDeals = deals.filter(
+    (deal) =>
+      deal.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (deal.client_name && deal.client_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (deal.location && deal.location.toLowerCase().includes(searchQuery.toLowerCase())),
+  )
 
   useEffect(() => {
     fetchDeals()
@@ -149,7 +157,7 @@ export function DealsList() {
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {deals.map((deal) => (
+        {filteredDeals.map((deal) => (
           <Card key={deal.id} className="overflow-hidden">
             <div className="p-6">
               <div className="flex justify-between items-start mb-4">
