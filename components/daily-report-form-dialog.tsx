@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ImageIcon, Camera, Plus, X } from "lucide-react"
+import { ImageIcon, Camera, Plus, X, Loader2 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { getClientSupabase } from "@/lib/supabase-utils"
 
@@ -80,24 +80,24 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
         const getCurrentUser = async () => {
           try {
             const {
-              data: { session },
-              error: sessionError,
-            } = await client.auth.getSession()
+              data: { user },
+              error: userError,
+            } = await client.auth.getUser()
 
-            if (sessionError) {
-              console.error("セッション取得エラー:", sessionError)
+            if (userError) {
+              console.error("ユーザー取得エラー:", userError)
               return
             }
 
-            if (session?.user) {
-              console.log("現在のユーザー:", session.user)
-              setCurrentUser(session.user)
+            if (user) {
+              console.log("現在のユーザー:", user)
+              setCurrentUser(user)
 
               // ユーザーIDが取得できたら、自動的にフォームにセット
               const { data: staffData, error: staffError } = await client
                 .from("staff")
                 .select("id")
-                .eq("user_id", session.user.id)
+                .eq("user_id", user.id)
                 .single()
 
               if (staffData && !staffError) {
@@ -266,6 +266,25 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
 
         console.log("取得したスタッフデータ:", staffData)
         setStaff(staffData || [])
+
+        // スタッフデータ取得後に追加するコード
+        // 以下のコードを「setStaff(staffData || [])」の直後に追加
+
+        // 現在選択されているスタッフIDが有効かどうか確認
+        if (formData.userId) {
+          const staffExists = staffData?.some((s) => s.id === formData.userId)
+          if (!staffExists) {
+            console.warn("選択されているスタッフIDが存在しません:", formData.userId)
+            // 無効なスタッフIDをリセット
+            setFormData((prev) => ({ ...prev, userId: "" }))
+
+            // 最初のスタッフを自動選択（オプション）
+            if (staffData && staffData.length > 0) {
+              console.log("最初のスタッフを自動選択します:", staffData[0].id)
+              setFormData((prev) => ({ ...prev, userId: staffData[0].id }))
+            }
+          }
+        }
       } catch (err: any) {
         console.error("データ取得中にエラーが発生しました:", err)
         setError(err.message || "データの取得に失敗しました")
@@ -447,15 +466,18 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
       setIsSubmitting(true)
       console.log("日報データを追加中...")
 
-      // 現在のユーザーIDを確認
-      if (!currentUser?.id) {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-        if (!session?.user?.id) {
-          throw new Error("ユーザー認証情報が取得できません。再ログインしてください。")
-        }
-        setCurrentUser(session.user)
+      // ユーザー情報を取得 - 案件登録と同じパターン
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        toast({
+          title: "エラー",
+          description: "ユーザー情報が取得できませんでした。再ログインしてください。",
+          variant: "destructive",
+        })
+        return
       }
 
       // 写真のアップロード処理
@@ -473,100 +495,116 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
         }
       }
 
-      // 選択されたスタッフのユーザーIDを取得
-      const { data: staffData, error: staffError } = await supabase
-        .from("staff")
-        .select("user_id")
-        .eq("id", formData.userId)
-        .single()
-
-      if (staffError) {
-        console.error("スタッフのユーザーID取得エラー:", staffError)
-        throw new Error("スタッフ情報の取得に失敗しました")
+      // 選択した案件名を取得
+      let projectName = null
+      if (formData.projectId !== "custom" && formData.projectId !== "" && formData.projectId !== "placeholder") {
+        const selectedDeal = deals.find((deal) => deal.id === formData.projectId)
+        if (selectedDeal) {
+          projectName = selectedDeal.name
+        }
+      } else if (formData.projectId === "custom") {
+        projectName = customProject
       }
 
-      // RLSポリシーを満たすために必要なフィールドを追加
+      // 選択したスタッフIDからスタッフ情報を取得
+      const selectedStaff = staff.find((s) => s.id === formData.userId)
+      if (!selectedStaff) {
+        toast({
+          title: "エラー",
+          description: "選択したスタッフ情報が見つかりません。別のスタッフを選択してください。",
+          variant: "destructive",
+        })
+        setIsSubmitting(false)
+        return
+      }
+
+      // テーブル構造に合わせてデータを準備
       const reportData = {
-        project_id: formData.projectId !== "custom" ? formData.projectId : null,
-        custom_project_name: formData.projectId === "custom" ? customProject : null,
-        submitted_by: formData.userId,
+        // project_idは常にnullに設定（外部キー制約エラーを回避するため）
+        project_id: null,
+        // deal_idは案件選択時のみ設定
+        deal_id:
+          formData.projectId !== "custom" && formData.projectId !== "" && formData.projectId !== "placeholder"
+            ? formData.projectId
+            : null,
+        // カスタムプロジェクト名
+        custom_project_name: projectName,
+        // スタッフID（APIに渡す）
+        staff_id: formData.userId,
+        // 日付と時間
         report_date: formData.workDate,
+        start_time: formData.startTime,
+        end_time: formData.endTime,
+        // 天候と作業内容
         weather: formData.weather,
         work_description: formData.workContentText,
         speech_recognition_raw: formData.speechRecognitionRaw,
+        // 写真URL
         photo_urls: uploadedPhotoUrls,
-        start_time: formData.startTime,
-        end_time: formData.endTime,
+        // ステータスと作成者
         status: "pending",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        // RLSポリシーのために必要なフィールド
-        user_id: staffData.user_id, // スタッフに関連付けられたユーザーID
+        created_by: user.id,
       }
 
       console.log("挿入するデータ:", reportData)
 
-      // 日報データを追加
-      const { data, error } = await supabase.from("daily_reports").insert(reportData).select()
+      // APIルートを使用して日報データを追加
+      console.log("APIルートを使用して日報データを追加します...")
 
-      if (error) {
-        console.error("日報作成エラー詳細:", error)
+      try {
+        const response = await fetch("/api/daily-reports", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(reportData),
+        })
 
-        // RLSエラーの詳細なハンドリング
-        if (error.message.includes("row-level security")) {
-          // サーバーアクションを使用して管理者権限で挿入を試みる
-          console.log("RLSエラーが発生しました。サーバーアクションを使用して挿入を試みます...")
-
-          // APIルートを使用して挿入を試みる
-          const response = await fetch("/api/daily-reports", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(reportData),
-          })
-
-          if (!response.ok) {
-            const errorData = await response.json()
-            throw new Error(`APIエラー: ${errorData.message || response.statusText}`)
-          }
-
-          const result = await response.json()
-          console.log("APIを使用した日報データの追加に成功しました:", result)
-        } else {
-          throw error
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(`APIエラー: ${errorData.error || response.statusText}`)
         }
-      } else {
-        console.log("日報データの追加に成功しました:", data)
-      }
 
-      toast({
-        title: "成功",
-        description: "作業日報を追加しました",
-      })
+        const result = await response.json()
+        console.log("APIを使用した日報データの追加に成功しました:", result)
 
-      // フォームをリセット
-      setFormData({
-        projectId: "",
-        userId: "",
-        workDate: new Date().toISOString().split("T")[0],
-        weather: "sunny",
-        workContentText: "",
-        speechRecognitionRaw: "",
-        photos: [],
-        startTime: "",
-        endTime: "",
-      })
-      setCustomProject("")
-      setPhotoFiles([])
-      setShowCustomInput(false)
+        // 成功処理
+        toast({
+          title: "成功",
+          description: "作業日報を追加しました",
+        })
 
-      // ダイアログを閉じる
-      onOpenChange(false)
+        // フォームをリセット
+        resetForm()
 
-      // 成功コールバックを呼び出す
-      if (onSuccess) {
-        onSuccess()
+        // ダイアログを閉じる
+        onOpenChange(false)
+
+        // 成功コールバックを呼び出す
+        if (onSuccess) {
+          onSuccess()
+        }
+      } catch (apiError: any) {
+        console.error("API経由の挿入エラー:", apiError)
+
+        let errorMessage = "日報の作成に失敗しました"
+
+        try {
+          // APIからのエラーレスポンスを解析
+          const errorData = (await apiError.json?.()) || {}
+
+          if (errorData.error) {
+            errorMessage = errorData.error
+          }
+        } catch (parseError) {
+          console.error("エラーレスポンスの解析に失敗:", parseError)
+        }
+
+        toast({
+          title: "エラー",
+          description: errorMessage,
+          variant: "destructive",
+        })
       }
     } catch (error: any) {
       console.error("日報作成エラー:", error)
@@ -578,6 +616,24 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // フォームリセット関数
+  const resetForm = () => {
+    setFormData({
+      projectId: "",
+      userId: "",
+      workDate: new Date().toISOString().split("T")[0],
+      weather: "sunny",
+      workContentText: "",
+      speechRecognitionRaw: "",
+      photos: [],
+      startTime: "",
+      endTime: "",
+    })
+    setCustomProject("")
+    setPhotoFiles([])
+    setShowCustomInput(false)
   }
 
   // エラーがある場合はエラーメッセージを表示
@@ -791,7 +847,13 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
         )}
         <DialogFooter>
           <Button onClick={handleSubmit} disabled={isSubmitting || loading}>
-            {isSubmitting ? "保存中..." : "保存"}
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 保存中...
+              </>
+            ) : (
+              "保存"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
