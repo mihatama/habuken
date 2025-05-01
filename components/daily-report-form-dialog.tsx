@@ -78,57 +78,100 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
         // バケットの存在を確認するだけ（作成は試みない）
         const checkBucket = async () => {
           try {
-            console.log(`${STORAGE_BUCKET_NAME}バケットを確認中...`)
+            console.log(`${STORAGE_BUCKET_NAME}バケットを直接アクセスして確認中...`)
 
-            // バケットの存在を確認
-            const { data: buckets, error } = await client.storage.listBuckets()
+            // バケット一覧を取得せず、直接バケットにアクセスを試みる
+            try {
+              // バケットのルートフォルダにアクセスを試みる
+              const { data, error: accessError } = await client.storage.from(STORAGE_BUCKET_NAME).list("", { limit: 1 })
 
-            if (error) {
-              console.error("バケット一覧取得エラー:", error)
+              if (accessError) {
+                console.warn("バケットアクセスエラー:", accessError)
+                console.warn("エラーコード:", accessError.code)
+                console.warn("エラーメッセージ:", accessError.message)
+
+                // バケットが存在しないエラーの場合
+                if (accessError.message.includes("does not exist") || accessError.code === "404") {
+                  console.log(`${STORAGE_BUCKET_NAME}バケットが存在しません`)
+                  toast({
+                    title: "情報",
+                    description: "写真保存用のストレージが設定されていません。写真機能は利用できません。",
+                    variant: "default",
+                  })
+                  setBucketExists(false)
+                  return
+                }
+
+                // その他のアクセスエラーの場合
+                toast({
+                  title: "警告",
+                  description: `ストレージへのアクセス権限に問題があります: ${accessError.message}`,
+                  variant: "warning",
+                })
+                setBucketExists(false)
+                return
+              }
+
+              // バケットにアクセスできた場合
+              console.log(`${STORAGE_BUCKET_NAME}バケットにアクセスできました:`, data)
+              setBucketExists(true)
+
+              // 次に特定のフォルダへのアクセスを確認
+              try {
+                console.log(`${STORAGE_FOLDER_NAME}フォルダのアクセス権限を確認中...`)
+                const { data: folderData, error: folderError } = await client.storage
+                  .from(STORAGE_BUCKET_NAME)
+                  .list(STORAGE_FOLDER_NAME, { limit: 1 })
+
+                if (folderError) {
+                  console.warn("フォルダアクセスエラー:", folderError)
+
+                  // フォルダが存在しない場合は作成を試みる
+                  if (folderError.message.includes("not found") || folderError.code === "404") {
+                    console.log(`${STORAGE_FOLDER_NAME}フォルダが存在しません。作成を試みます。`)
+
+                    try {
+                      // 空のファイルを作成してフォルダを作成
+                      const emptyBlob = new Blob([""], { type: "text/plain" })
+                      const placeholderFile = new File([emptyBlob], ".placeholder", { type: "text/plain" })
+
+                      const { error: uploadError } = await client.storage
+                        .from(STORAGE_BUCKET_NAME)
+                        .upload(`${STORAGE_FOLDER_NAME}/.placeholder`, placeholderFile)
+
+                      if (uploadError) {
+                        console.warn("フォルダ作成エラー:", uploadError)
+                      } else {
+                        console.log(`${STORAGE_FOLDER_NAME}フォルダを作成しました`)
+                      }
+                    } catch (createErr) {
+                      console.warn("フォルダ作成エラー:", createErr)
+                    }
+                  } else {
+                    // その他のフォルダアクセスエラー
+                    toast({
+                      title: "警告",
+                      description: `フォルダへのアクセス権限に問題があります: ${folderError.message}`,
+                      variant: "warning",
+                    })
+                  }
+                } else {
+                  console.log(`${STORAGE_FOLDER_NAME}フォルダにアクセスできました:`, folderData)
+                }
+              } catch (folderErr) {
+                console.warn("フォルダアクセス確認エラー:", folderErr)
+              }
+            } catch (err) {
+              console.error("バケットアクセスエラー:", err)
               toast({
                 title: "警告",
                 description: "ストレージへのアクセスに問題があります。写真機能が制限されます。",
                 variant: "warning",
               })
               setBucketExists(false)
-              return
-            }
-
-            // バケットが存在するか確認
-            const exists = buckets?.some((bucket) => bucket.name === STORAGE_BUCKET_NAME)
-
-            if (exists) {
-              console.log(`${STORAGE_BUCKET_NAME}バケットが存在します`)
-              setBucketExists(true)
-
-              // バケットへのアクセス権限を確認
-              try {
-                const { data, error: accessError } = await client.storage
-                  .from(STORAGE_BUCKET_NAME)
-                  .list(STORAGE_FOLDER_NAME, { limit: 1 })
-
-                if (accessError) {
-                  console.warn("バケットアクセス権限エラー:", accessError)
-                  toast({
-                    title: "警告",
-                    description: "ストレージへのアクセス権限に問題があります。写真機能が制限されます。",
-                    variant: "warning",
-                  })
-                }
-              } catch (accessErr) {
-                console.warn("バケットアクセス確認エラー:", accessErr)
-              }
-            } else {
-              console.log(`${STORAGE_BUCKET_NAME}バケットが見つかりません`)
-              toast({
-                title: "情報",
-                description: "写真保存用のストレージが設定されていません。写真機能は利用できません。",
-                variant: "default",
-              })
-              setBucketExists(false)
             }
           } catch (err) {
-            console.error("バケット確認エラー:", err)
+            console.error("バケット確認処理エラー:", err)
             setBucketExists(false)
           }
         }

@@ -28,7 +28,35 @@ let clientSupabase: ReturnType<typeof createClientComponentClient<Database>> | n
 
 export function getClientSupabase() {
   if (!clientSupabase) {
-    clientSupabase = createClientComponentClient<Database>()
+    try {
+      console.log("Supabaseクライアントを初期化しています...")
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+      console.log("Supabase URL:", supabaseUrl ? "設定済み" : "未設定")
+      console.log("Supabase Anon Key:", supabaseAnonKey ? "設定済み" : "未設定")
+
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error("Supabase環境変数が設定されていません")
+      }
+
+      clientSupabase = createClientComponentClient<Database>({
+        supabaseUrl,
+        supabaseKey: supabaseAnonKey,
+        options: {
+          auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true,
+          },
+        },
+      })
+
+      console.log("Supabaseクライアントの初期化に成功しました")
+    } catch (error) {
+      console.error("Supabaseクライアント初期化エラー:", error)
+      throw error
+    }
   }
   return clientSupabase
 }
