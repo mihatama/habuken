@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ImageIcon, Camera, Plus, X } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { insertClientData, getClientSupabase } from "@/lib/supabase-utils"
+import { getClientSupabase } from "@/lib/supabase-utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface DailyReportFormProps {
@@ -40,6 +40,7 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
   const [staff, setStaff] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [supabase, setSupabase] = useState<any>(null)
 
   const [formData, setFormData] = useState({
     projectId: "",
@@ -51,11 +52,42 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
     photos: [] as string[],
   })
 
+  // Supabaseクライアントの初期化
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        console.log("Supabaseクライアントを初期化中...")
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+        if (!supabaseUrl || !supabaseAnonKey) {
+          console.error("Supabase環境変数が設定されていません")
+          throw new Error("システム設定に問題があります")
+        }
+
+        const client = getClientSupabase()
+        setSupabase(client)
+        console.log("Supabaseクライアントの初期化に成功しました")
+      } catch (err) {
+        console.error("Supabaseクライアントの初期化に失敗しました:", err)
+        setError("システム設定に問題があります。管理者にお問い合わせください。")
+        toast({
+          title: "エラー",
+          description: "システム設定に問題があります。管理者にお問い合わせください。",
+          variant: "destructive",
+        })
+      }
+    }
+  }, [toast])
+
+  // データの取得
   useEffect(() => {
     async function fetchData() {
+      if (!supabase || !open) return // supabaseクライアントがない場合または開いていない場合は何もしない
+
       try {
         setLoading(true)
-        const supabase = getClientSupabase()
+        console.log("データの取得を開始します...")
 
         // 案件データを取得
         console.log("案件データを取得中...")
@@ -100,7 +132,7 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
     }
 
     fetchData()
-  }, [toast])
+  }, [supabase, open, toast])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -146,6 +178,15 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
   }
 
   const handleSubmit = async () => {
+    if (!supabase) {
+      toast({
+        title: "エラー",
+        description: "システムに接続できません。ページを再読み込みしてください。",
+        variant: "destructive",
+      })
+      return
+    }
+
     // 案件選択の検証
     let projectIdentifier = formData.projectId
 
@@ -180,21 +221,28 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
 
     try {
       setIsSubmitting(true)
+      console.log("日報データを追加中...")
 
       // 日報データを追加
-      await insertClientData("daily_reports", {
-        project_id: selectedTab === "existing" ? formData.projectId : null,
-        custom_project_name: selectedTab === "custom" ? customProject : null,
-        staff_id: formData.userId,
-        work_date: formData.workDate,
-        weather: formData.weather,
-        work_content: formData.workContentText,
-        speech_recognition_raw: formData.speechRecognitionRaw,
-        photos: formData.photos,
-        status: "pending",
-        created_at: new Date().toISOString(),
-      })
+      const { data, error } = await supabase
+        .from("daily_reports")
+        .insert({
+          project_id: selectedTab === "existing" ? formData.projectId : null,
+          custom_project_name: selectedTab === "custom" ? customProject : null,
+          staff_id: formData.userId,
+          work_date: formData.workDate,
+          weather: formData.weather,
+          work_content: formData.workContentText,
+          speech_recognition_raw: formData.speechRecognitionRaw,
+          photos: formData.photos,
+          status: "pending",
+          created_at: new Date().toISOString(),
+        })
+        .select()
 
+      if (error) throw error
+
+      console.log("日報データの追加に成功しました:", data)
       toast({
         title: "成功",
         description: "作業日報を追加しました",
@@ -221,16 +269,36 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
       if (onSuccess) {
         onSuccess()
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("日報作成エラー:", error)
       toast({
         title: "エラー",
-        description: "日報の作成に失敗しました",
+        description: "日報の作成に失敗しました: " + (error.message || "不明なエラー"),
         variant: "destructive",
       })
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // エラーがある場合はエラーメッセージを表示
+  if (error) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>エラー</DialogTitle>
+          </DialogHeader>
+          <div className="py-6 text-center text-red-500">
+            <p>{error}</p>
+            <p className="mt-4">ページを再読み込みしてもう一度お試しください。</p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => window.location.reload()}>ページを再読み込み</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )
   }
 
   return (
@@ -240,160 +308,169 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
           <DialogTitle>作業日報の作成</DialogTitle>
           <DialogDescription>作業日報の詳細情報を入力してください。*は必須項目です。</DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label>案件名 *</Label>
-            <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="existing">既存の案件から選択</TabsTrigger>
-                <TabsTrigger value="custom">手入力</TabsTrigger>
-              </TabsList>
-              <TabsContent value="existing" className="pt-2">
-                <Select
-                  value={formData.projectId}
-                  onValueChange={(value) => setFormData({ ...formData, projectId: value })}
-                >
-                  <SelectTrigger id="projectId">
-                    <SelectValue placeholder="案件を選択" />
+        {loading ? (
+          <div className="py-8 text-center">
+            <p>データを読み込み中...</p>
+          </div>
+        ) : (
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>案件名 *</Label>
+              <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="existing">既存の案件から選択</TabsTrigger>
+                  <TabsTrigger value="custom">手入力</TabsTrigger>
+                </TabsList>
+                <TabsContent value="existing" className="pt-2">
+                  <Select
+                    value={formData.projectId}
+                    onValueChange={(value) => setFormData({ ...formData, projectId: value })}
+                  >
+                    <SelectTrigger id="projectId">
+                      <SelectValue placeholder="案件を選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="placeholder" disabled>
+                        案件を選択してください
+                      </SelectItem>
+                      {deals.map((deal: any) => (
+                        <SelectItem key={`deal-${deal.id}`} value={deal.id}>
+                          {deal.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </TabsContent>
+                <TabsContent value="custom" className="pt-2">
+                  <Input
+                    placeholder="案件名を入力"
+                    value={customProject}
+                    onChange={(e) => setCustomProject(e.target.value)}
+                  />
+                </TabsContent>
+              </Tabs>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="userId">登録者 *</Label>
+                <Select value={formData.userId} onValueChange={(value) => setFormData({ ...formData, userId: value })}>
+                  <SelectTrigger id="userId">
+                    <SelectValue placeholder="登録者を選択" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="placeholder" disabled>
-                      案件を選択してください
+                      登録者を選択してください
                     </SelectItem>
-                    {deals.map((deal: any) => (
-                      <SelectItem key={`deal-${deal.id}`} value={deal.id}>
-                        {deal.name}
+                    {staff.map((s: any) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.full_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </TabsContent>
-              <TabsContent value="custom" className="pt-2">
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="workDate">作業日 *</Label>
                 <Input
-                  placeholder="案件名を入力"
-                  value={customProject}
-                  onChange={(e) => setCustomProject(e.target.value)}
+                  id="workDate"
+                  type="date"
+                  value={formData.workDate}
+                  onChange={(e) => setFormData({ ...formData, workDate: e.target.value })}
                 />
-              </TabsContent>
-            </Tabs>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="userId">登録者 *</Label>
-              <Select value={formData.userId} onValueChange={(value) => setFormData({ ...formData, userId: value })}>
-                <SelectTrigger id="userId">
-                  <SelectValue placeholder="登録者を選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="placeholder" disabled>
-                    登録者を選択してください
-                  </SelectItem>
-                  {staff.map((s: any) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="weather">天候</Label>
+                <Select
+                  value={formData.weather}
+                  onValueChange={(value) => setFormData({ ...formData, weather: value })}
+                >
+                  <SelectTrigger id="weather">
+                    <SelectValue placeholder="天候を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sunny">晴れ</SelectItem>
+                    <SelectItem value="cloudy">曇り</SelectItem>
+                    <SelectItem value="rainy">雨</SelectItem>
+                    <SelectItem value="snowy">雪</SelectItem>
+                    <SelectItem value="windy">強風</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="workDate">作業日 *</Label>
-              <Input
-                id="workDate"
-                type="date"
-                value={formData.workDate}
-                onChange={(e) => setFormData({ ...formData, workDate: e.target.value })}
+              <div className="flex items-center justify-between">
+                <Label htmlFor="workContentText">作業内容 *</Label>
+              </div>
+              <Textarea
+                id="workContentText"
+                value={formData.workContentText}
+                onChange={(e) => setFormData({ ...formData, workContentText: e.target.value })}
+                placeholder="作業内容を入力してください"
+                className="min-h-[150px]"
               />
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="weather">天候</Label>
-              <Select value={formData.weather} onValueChange={(value) => setFormData({ ...formData, weather: value })}>
-                <SelectTrigger id="weather">
-                  <SelectValue placeholder="天候を選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sunny">晴れ</SelectItem>
-                  <SelectItem value="cloudy">曇り</SelectItem>
-                  <SelectItem value="rainy">雨</SelectItem>
-                  <SelectItem value="snowy">雪</SelectItem>
-                  <SelectItem value="windy">強風</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>写真添付</Label>
+              <div className="flex flex-wrap gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleCameraCapture}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-1"
+                >
+                  <Plus size={16} /> 写真を選択
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="flex items-center gap-1"
+                >
+                  <Camera size={16} /> カメラで撮影
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {photoFiles.map((file, index) => (
+                  <Badge key={index} variant="outline" className="flex items-center gap-1 p-1">
+                    <ImageIcon className="h-3 w-3 mr-1" />
+                    <span className="max-w-[150px] truncate">{file.name}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 w-5 p-0 ml-1"
+                      onClick={() => removePhoto(index)}
+                    >
+                      <X size={12} />
+                    </Button>
+                  </Badge>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="grid gap-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="workContentText">作業内容 *</Label>
-            </div>
-            <Textarea
-              id="workContentText"
-              value={formData.workContentText}
-              onChange={(e) => setFormData({ ...formData, workContentText: e.target.value })}
-              placeholder="作業内容を入力してください"
-              className="min-h-[150px]"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label>写真添付</Label>
-            <div className="flex flex-wrap gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={handleFileChange}
-              />
-              <input
-                ref={cameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={handleCameraCapture}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-1"
-              >
-                <Plus size={16} /> 写真を選択
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => cameraInputRef.current?.click()}
-                className="flex items-center gap-1"
-              >
-                <Camera size={16} /> カメラで撮影
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {photoFiles.map((file, index) => (
-                <Badge key={index} variant="outline" className="flex items-center gap-1 p-1">
-                  <ImageIcon className="h-3 w-3 mr-1" />
-                  <span className="max-w-[150px] truncate">{file.name}</span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-5 w-5 p-0 ml-1"
-                    onClick={() => removePhoto(index)}
-                  >
-                    <X size={12} />
-                  </Button>
-                </Badge>
-              ))}
-            </div>
-          </div>
-        </div>
+        )}
         <DialogFooter>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
+          <Button onClick={handleSubmit} disabled={isSubmitting || loading}>
             {isSubmitting ? "保存中..." : "保存"}
           </Button>
         </DialogFooter>

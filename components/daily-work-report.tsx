@@ -25,10 +25,33 @@ export function DailyWorkReport() {
   const [activeTab, setActiveTab] = useState("all")
   const [loading, setLoading] = useState(true)
 
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  // Supabaseクライアントの初期化を遅延させる
+  const [supabase, setSupabase] = useState<any>(null)
+
+  useEffect(() => {
+    // コンポーネントがマウントされた後にSupabaseクライアントを初期化
+    if (typeof window !== "undefined") {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+      if (supabaseUrl && supabaseAnonKey) {
+        const client = createClient(supabaseUrl, supabaseAnonKey)
+        setSupabase(client)
+      } else {
+        console.error("Supabase環境変数が設定されていません")
+        toast({
+          title: "エラー",
+          description: "システム設定に問題があります。管理者にお問い合わせください。",
+          variant: "destructive",
+        })
+      }
+    }
+  }, [])
 
   // データの取得
   const fetchData = async () => {
+    if (!supabase) return // supabaseクライアントがない場合は何もしない
+
     setLoading(true)
     try {
       // 作業日報データを取得 (修正: getDailyReportsData を使用)
@@ -55,8 +78,24 @@ export function DailyWorkReport() {
   }
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    if (supabase) {
+      fetchData()
+    }
+  }, [supabase])
+
+  const handleOpenAddDialog = () => {
+    try {
+      console.log("ダイアログを開こうとしています...")
+      setIsAddDialogOpen(true)
+    } catch (error) {
+      console.error("ダイアログを開く際にエラーが発生しました:", error)
+      toast({
+        title: "エラー",
+        description: "操作を完了できませんでした。もう一度お試しください。",
+        variant: "destructive",
+      })
+    }
+  }
 
   const filteredReports = reports.filter(
     (report) =>
@@ -69,6 +108,8 @@ export function DailyWorkReport() {
   )
 
   const handleApproveReport = async (reportId: string) => {
+    if (!supabase) return // supabaseクライアントがない場合は何もしない
+
     try {
       const { error } = await supabase
         .from("daily_reports")
@@ -95,6 +136,8 @@ export function DailyWorkReport() {
   }
 
   const handleRejectReport = async (reportId: string) => {
+    if (!supabase) return // supabaseクライアントがない場合は何もしない
+
     try {
       const { error } = await supabase
         .from("daily_reports")
@@ -157,11 +200,13 @@ export function DailyWorkReport() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-[250px]"
           />
-          <Button onClick={() => setIsAddDialogOpen(true)}>
+          <Button onClick={handleOpenAddDialog}>
             <Plus className="mr-2 h-4 w-4" />
             新規作成
           </Button>
-          <DailyReportFormDialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} onSuccess={fetchData} />
+          {isAddDialogOpen && (
+            <DailyReportFormDialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} onSuccess={fetchData} />
+          )}
         </div>
       </CardHeader>
       <CardContent>
