@@ -23,7 +23,7 @@ import { getClientSupabase } from "@/lib/supabase-utils"
 
 // バケット名を定数として定義
 const STORAGE_BUCKET_NAME = "dailyreports"
-const STORAGE_FOLDER_NAME = "daily_report_photos"
+const STORAGE_FOLDER_NAME = "private/daily_report_photos"
 
 interface DailyReportFormProps {
   open: boolean
