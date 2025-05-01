@@ -251,6 +251,7 @@ export function EnhancedCalendar({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (readOnly) return
     if (!formData.title || !formData.start || !formData.end) return
 
     setIsSubmitting(true)
@@ -279,6 +280,7 @@ export function EnhancedCalendar({
   }
 
   const handleDelete = async () => {
+    if (readOnly) return
     if (!selectedEvent || !onEventDelete) return
 
     setIsSubmitting(true)

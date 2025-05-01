@@ -208,8 +208,8 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
       // 重機の割り当て
       await handleResourceAssignment(supabase, "deal_machinery", selectedMachinery, deal.id, "machinery_id", true)
 
-      // 車両の割り当て - 日付フィールドを含めない
-      await handleResourceAssignment(supabase, "deal_vehicles", selectedVehicles, deal.id, "vehicle_id", false)
+      // 車両の割り当て - 日付フィールドを含める
+      await handleResourceAssignment(supabase, "deal_vehicles", selectedVehicles, deal.id, "vehicle_id", true)
 
       // 備品の割り当て
       await handleResourceAssignment(supabase, "deal_tools", selectedTools, deal.id, "tool_id", true)
@@ -457,11 +457,6 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
                 startDate={watchStartDate ? format(watchStartDate, "yyyy-MM-dd") : ""}
                 endDate={watchEndDate ? format(watchEndDate, "yyyy-MM-dd") : null}
               />
-              <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-md">
-                <p className="text-amber-800 text-sm">
-                  注意: 車両の割り当てでは日付情報は保存されません。必要に応じて案件の詳細に日付情報を記載してください。
-                </p>
-              </div>
             </TabsContent>
 
             <TabsContent value="tools" className="pt-4">
