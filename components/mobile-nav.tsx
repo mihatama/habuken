@@ -41,7 +41,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
           <Button
             variant="ghost"
             className="flex w-full justify-start gap-2"
-            onClick={() => handleNavigation("/deals/register")}
+            onClick={() => handleNavigation("/master/project")}
           >
             <Briefcase className="h-5 w-5" />
             <span>案件</span>

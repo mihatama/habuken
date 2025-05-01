@@ -37,7 +37,6 @@ export function CalendarView() {
     setError(null)
 
     try {
-      console.log("Fetching calendar events from Supabase...")
       // getCalendarEvents関数を使用してイベントを取得
       const now = new Date()
       const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -51,8 +50,6 @@ export function CalendarView() {
       if (!result.success) {
         throw new Error(result.error || "イベントの取得に失敗しました")
       }
-
-      console.log(`Successfully fetched ${result.data?.length || 0} calendar events from database`)
 
       // 日付文字列をDateオブジェクトに変換
       const formattedEvents = result.data.map((event: any) => ({

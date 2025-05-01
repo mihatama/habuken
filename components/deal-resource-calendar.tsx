@@ -1,202 +1,355 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent } from "@/components/ui/card"
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Label } from "@/components/ui/label"
-import { EnhancedCalendar } from "@/components/enhanced-calendar"
-import { Users, Truck, Car, Key } from "lucide-react"
+import { getClientSupabase } from "@/lib/supabase-utils"
+import { Loader2, AlertCircle, Users, Truck, Car, Package } from "lucide-react"
+import { EnhancedCalendar, type CalendarEvent } from "@/components/enhanced-calendar"
+import { toast } from "@/components/ui/use-toast"
 
-// サンプルイベントデータ
-const sampleEvents = [
-  {
-    id: "1",
-    title: "東京オフィスビル改修工事",
-    start: new Date(2023, 5, 1),
-    end: new Date(2023, 7, 31),
-    resourceType: "deal",
-    resourceId: "1",
-    color: "#3b82f6",
-  },
-  {
-    id: "2",
-    title: "大阪マンション新築工事",
-    start: new Date(2023, 6, 15),
-    end: new Date(2024, 0, 20),
-    resourceType: "deal",
-    resourceId: "2",
-    color: "#10b981",
-  },
-  {
-    id: "3",
-    title: "名古屋商業施設リノベーション",
-    start: new Date(2023, 4, 10),
-    end: new Date(2023, 8, 30),
-    resourceType: "deal",
-    resourceId: "3",
-    color: "#f59e0b",
-  },
-  // スタッフのイベント
-  {
-    id: "s1",
-    title: "山田太郎",
-    start: new Date(2023, 5, 1),
-    end: new Date(2023, 5, 15),
-    resourceType: "staff",
-    resourceId: "s1",
-    dealId: "1",
-    color: "#60a5fa",
-  },
-  {
-    id: "s2",
-    title: "佐藤次郎",
-    start: new Date(2023, 5, 10),
-    end: new Date(2023, 6, 10),
-    resourceType: "staff",
-    resourceId: "s2",
-    dealId: "1",
-    color: "#60a5fa",
-  },
-  // 重機のイベント
-  {
-    id: "h1",
-    title: "バックホウ #1",
-    start: new Date(2023, 5, 5),
-    end: new Date(2023, 6, 5),
-    resourceType: "heavy",
-    resourceId: "h1",
-    dealId: "1",
-    color: "#f97316",
-  },
-  // 車両のイベント
-  {
-    id: "v1",
-    title: "トラック #1",
-    start: new Date(2023, 5, 1),
-    end: new Date(2023, 7, 31),
-    resourceType: "vehicle",
-    resourceId: "v1",
-    dealId: "1",
-    color: "#84cc16",
-  },
-  // 備品のイベント
-  {
-    id: "t1",
-    title: "電動ドリル #3",
-    start: new Date(2023, 5, 1),
-    end: new Date(2023, 5, 20),
-    resourceType: "tool",
-    resourceId: "t1",
-    dealId: "1",
-    color: "#8b5cf6",
-  },
-]
-
-// リソースタイプのオプション
-const resourceTypeOptions = [
-  { value: "all", label: "すべて" },
-  { value: "staff", label: "スタッフ", icon: Users },
-  { value: "heavy", label: "重機", icon: Truck },
-  { value: "vehicle", label: "車両", icon: Car },
-  { value: "tool", label: "備品", icon: Key },
-]
-
-// サンプルリソースデータ
-const sampleResources = {
-  staff: [
-    { id: "s1", name: "山田太郎" },
-    { id: "s2", name: "佐藤次郎" },
-    { id: "s3", name: "鈴木三郎" },
-  ],
-  heavy: [
-    { id: "h1", name: "バックホウ #1" },
-    { id: "h2", name: "クレーン #1" },
-  ],
-  vehicle: [
-    { id: "v1", name: "トラック #1" },
-    { id: "v2", name: "軽トラック #1" },
-  ],
-  tool: [
-    { id: "t1", name: "電動ドリル #3" },
-    { id: "t2", name: "安全ヘルメット #10" },
-  ],
-}
+type ResourceType = "all" | "staff" | "machinery" | "vehicles" | "tools"
 
 export function DealResourceCalendar() {
-  const [resourceType, setResourceType] = useState("all")
-  const [selectedResource, setSelectedResource] = useState("")
-
-  // フィルタリングされたイベントを取得
-  const filteredEvents = sampleEvents.filter((event) => {
-    if (resourceType === "all") return true
-    if (event.resourceType === resourceType) {
-      if (selectedResource === "" || selectedResource === "all") return true
-      return event.resourceId === selectedResource
-    }
-    return false
+  const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [resourceType, setResourceType] = useState<ResourceType>("all")
+  const [resourceFilter, setResourceFilter] = useState<string>("all")
+  const [resources, setResources] = useState<{
+    staff: any[]
+    machinery: any[]
+    vehicles: any[]
+    tools: any[]
+  }>({
+    staff: [],
+    machinery: [],
+    vehicles: [],
+    tools: [],
   })
 
-  // 選択されたリソースタイプに基づいてリソースオプションを取得
-  const getResourceOptions = () => {
-    if (resourceType === "all" || resourceType === "") return []
-    return sampleResources[resourceType as keyof typeof sampleResources] || []
+  useEffect(() => {
+    fetchDealsAndResources()
+  }, [])
+
+  useEffect(() => {
+    filterEvents()
+  }, [resourceType, resourceFilter])
+
+  async function fetchDealsAndResources() {
+    try {
+      setLoading(true)
+      const supabase = getClientSupabase()
+
+      // 案件データを取得
+      const { data: dealsData, error: dealsError } = await supabase.from("deals").select("*")
+
+      if (dealsError) throw dealsError
+
+      // リソースデータを取得
+      const { data: staffData } = await supabase.from("staff").select("*")
+      const { data: machineryData } = await supabase.from("heavy_machinery").select("*")
+      const { data: vehiclesData } = await supabase.from("vehicles").select("*")
+      const { data: toolsData } = await supabase.from("tools").select("*")
+
+      setResources({
+        staff: staffData || [],
+        machinery: machineryData || [],
+        vehicles: vehiclesData || [],
+        tools: toolsData || [],
+      })
+
+      // 案件のイベントを作成
+      const dealEvents: CalendarEvent[] =
+        dealsData?.map((deal) => ({
+          id: `deal-${deal.id}`,
+          title: deal.name,
+          start: new Date(deal.start_date),
+          end: deal.end_date ? new Date(deal.end_date) : new Date(deal.start_date),
+          description: deal.description || "",
+          category: "deal",
+          dealId: deal.id,
+          resourceType: "deal",
+        })) || []
+
+      // 各リソースの割り当てイベントを取得
+      const resourceEvents = await fetchResourceEvents(supabase, dealsData || [])
+
+      // すべてのイベントを結合
+      setEvents([...dealEvents, ...resourceEvents])
+    } catch (err: any) {
+      console.error("データ取得エラー:", err)
+      setError("データの取得中にエラーが発生しました。")
+      toast({
+        title: "エラー",
+        description: "カレンダーデータの取得に失敗しました",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const resourceOptions = getResourceOptions()
+  async function fetchResourceEvents(supabase: any, deals: any[]) {
+    const resourceEvents: CalendarEvent[] = []
+
+    // スタッフの割り当てイベント
+    const { data: staffAssignments } = await supabase
+      .from("deal_staff")
+      .select("*, staff:staff_id(id, full_name), deal:deal_id(name)")
+      .not("start_date", "is", null)
+
+    if (staffAssignments) {
+      for (const assignment of staffAssignments) {
+        if (assignment.start_date) {
+          resourceEvents.push({
+            id: `staff-${assignment.id}`,
+            title: `${assignment.staff?.full_name} - ${assignment.deal?.name}`,
+            start: new Date(assignment.start_date),
+            end: assignment.end_date ? new Date(assignment.end_date) : new Date(assignment.start_date),
+            description: `スタッフ: ${assignment.staff?.full_name}`,
+            category: "staff",
+            dealId: assignment.deal_id,
+            resourceId: assignment.staff_id,
+            resourceType: "staff",
+          })
+        }
+      }
+    }
+
+    // 重機の割り当てイベント
+    const { data: machineryAssignments } = await supabase
+      .from("deal_machinery")
+      .select("*, machinery:machinery_id(id, name), deal:deal_id(name)")
+      .not("start_date", "is", null)
+
+    if (machineryAssignments) {
+      for (const assignment of machineryAssignments) {
+        if (assignment.start_date) {
+          resourceEvents.push({
+            id: `machinery-${assignment.id}`,
+            title: `${assignment.machinery?.name} - ${assignment.deal?.name}`,
+            start: new Date(assignment.start_date),
+            end: assignment.end_date ? new Date(assignment.end_date) : new Date(assignment.start_date),
+            description: `重機: ${assignment.machinery?.name}`,
+            category: "machinery",
+            dealId: assignment.deal_id,
+            resourceId: assignment.machinery_id,
+            resourceType: "machinery",
+          })
+        }
+      }
+    }
+
+    // 車両の割り当てイベント
+    const { data: vehicleAssignments } = await supabase
+      .from("deal_vehicles")
+      .select("*, vehicle:vehicle_id(id, name), deal:deal_id(name)")
+      .not("start_date", "is", null)
+
+    if (vehicleAssignments) {
+      for (const assignment of vehicleAssignments) {
+        if (assignment.start_date) {
+          resourceEvents.push({
+            id: `vehicle-${assignment.id}`,
+            title: `${assignment.vehicle?.name} - ${assignment.deal?.name}`,
+            start: new Date(assignment.start_date),
+            end: assignment.end_date ? new Date(assignment.end_date) : new Date(assignment.start_date),
+            description: `車両: ${assignment.vehicle?.name}`,
+            category: "vehicle",
+            dealId: assignment.deal_id,
+            resourceId: assignment.vehicle_id,
+            resourceType: "vehicles",
+          })
+        }
+      }
+    }
+
+    // 備品の割り当てイベント
+    const { data: toolAssignments } = await supabase
+      .from("deal_tools")
+      .select("*, tool:tool_id(id, name), deal:deal_id(name)")
+      .not("start_date", "is", null)
+
+    if (toolAssignments) {
+      for (const assignment of toolAssignments) {
+        if (assignment.start_date) {
+          resourceEvents.push({
+            id: `tool-${assignment.id}`,
+            title: `${assignment.tool?.name} - ${assignment.deal?.name}`,
+            start: new Date(assignment.start_date),
+            end: assignment.end_date ? new Date(assignment.end_date) : new Date(assignment.start_date),
+            description: `備品: ${assignment.tool?.name}`,
+            category: "tool",
+            dealId: assignment.deal_id,
+            resourceId: assignment.tool_id,
+            resourceType: "tools",
+          })
+        }
+      }
+    }
+
+    return resourceEvents
+  }
+
+  function filterEvents() {
+    if (resourceType === "all" && resourceFilter === "all") {
+      fetchDealsAndResources()
+      return
+    }
+
+    fetchDealsAndResources().then(() => {
+      setEvents((prev) => {
+        return prev.filter((event) => {
+          if (resourceType !== "all" && event.resourceType !== resourceType) {
+            return false
+          }
+
+          if (resourceFilter !== "all" && event.resourceId !== resourceFilter) {
+            return false
+          }
+
+          return true
+        })
+      })
+    })
+  }
+
+  function getResourceOptions() {
+    switch (resourceType) {
+      case "staff":
+        return resources.staff.map((item) => ({
+          value: item.id,
+          label: item.full_name,
+        }))
+      case "machinery":
+        return resources.machinery.map((item) => ({
+          value: item.id,
+          label: item.name,
+        }))
+      case "vehicles":
+        return resources.vehicles.map((item) => ({
+          value: item.id,
+          label: item.name,
+        }))
+      case "tools":
+        return resources.tools.map((item) => ({
+          value: item.id,
+          label: item.name,
+        }))
+      default:
+        return []
+    }
+  }
+
+  const categories = [
+    { value: "deal", label: "案件" },
+    { value: "staff", label: "スタッフ" },
+    { value: "machinery", label: "重機" },
+    { value: "vehicle", label: "車両" },
+    { value: "tool", label: "備品" },
+  ]
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card className="p-6">
+        <div className="flex flex-col items-center justify-center py-8 text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+          <h3 className="text-xl font-semibold mb-2">データ取得エラー</h3>
+          <p className="text-muted-foreground">{error}</p>
+          <Button onClick={() => fetchDealsAndResources()} className="mt-4">
+            再読み込み
+          </Button>
+        </div>
+      </Card>
+    )
+  }
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardContent className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="resource-type">リソースタイプ</Label>
-              <Select value={resourceType} onValueChange={setResourceType}>
-                <SelectTrigger id="resource-type" className="w-full">
-                  <SelectValue placeholder="リソースタイプを選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  {resourceTypeOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      <div className="flex items-center">
-                        {option.icon && <option.icon className="h-4 w-4 mr-2" />}
-                        {option.label}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+    <Card className="w-full">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>リソースカレンダー</CardTitle>
+        <div className="flex items-center gap-2">
+          <Select
+            value={resourceType}
+            onValueChange={(value) => {
+              setResourceType(value as ResourceType)
+              setResourceFilter("all")
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="リソースタイプ" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="flex items-center gap-2">
+                すべてのリソース
+              </SelectItem>
+              <SelectItem value="staff" className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-blue-500" />
+                スタッフ
+              </SelectItem>
+              <SelectItem value="machinery" className="flex items-center gap-2">
+                <Truck className="h-4 w-4 text-amber-500" />
+                重機
+              </SelectItem>
+              <SelectItem value="vehicles" className="flex items-center gap-2">
+                <Car className="h-4 w-4 text-green-500" />
+                車両
+              </SelectItem>
+              <SelectItem value="tools" className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-purple-500" />
+                備品
+              </SelectItem>
+            </SelectContent>
+          </Select>
 
-            {resourceType !== "all" && resourceOptions.length > 0 && (
-              <div>
-                <Label htmlFor="resource">リソース</Label>
-                <Select value={selectedResource} onValueChange={setSelectedResource}>
-                  <SelectTrigger id="resource" className="w-full">
-                    <SelectValue placeholder="リソースを選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">すべて</SelectItem>
-                    {resourceOptions.map((resource) => (
-                      <SelectItem key={resource.id} value={resource.id}>
-                        {resource.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+          {resourceType !== "all" && (
+            <Select value={resourceFilter} onValueChange={setResourceFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="リソース選択" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">すべて</SelectItem>
+                {getResourceOptions().map((option: any) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
-      <EnhancedCalendar
-        events={filteredEvents}
-        readOnly={true}
-        onEventClick={(event) => {
-          console.log("イベントがクリックされました:", event)
-        }}
-      />
-    </div>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setResourceType("all")
+              setResourceFilter("all")
+              fetchDealsAndResources()
+            }}
+          >
+            リセット
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <EnhancedCalendar
+          events={events}
+          isLoading={loading}
+          error={error}
+          categories={categories}
+          onRefresh={fetchDealsAndResources}
+          readOnly={true}
+        />
+      </CardContent>
+    </Card>
   )
 }

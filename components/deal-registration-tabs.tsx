@@ -5,27 +5,31 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DealRegistrationForm } from "@/components/deal-registration-form"
 import { EnhancedDealsList } from "@/components/enhanced-deals-list"
 import { DealResourceCalendar } from "@/components/deal-resource-calendar"
-import { FileText, List, Calendar } from "lucide-react"
+import { CalendarDays, ClipboardList, PenSquare } from "lucide-react"
 
 export function DealRegistrationTabs() {
-  const [activeTab, setActiveTab] = useState("list")
+  const [activeTab, setActiveTab] = useState("register")
 
   return (
-    <Tabs defaultValue="list" value={activeTab} onValueChange={setActiveTab} className="w-full">
-      <TabsList className="grid w-full grid-cols-3 mb-8">
+    <Tabs defaultValue="register" value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <TabsList className="grid grid-cols-3 mb-8">
+        <TabsTrigger value="register" className="flex items-center gap-2">
+          <PenSquare className="h-4 w-4" />
+          案件登録
+        </TabsTrigger>
         <TabsTrigger value="list" className="flex items-center gap-2">
-          <List className="h-4 w-4" />
-          <span>案件リスト</span>
+          <ClipboardList className="h-4 w-4" />
+          案件リスト
         </TabsTrigger>
         <TabsTrigger value="calendar" className="flex items-center gap-2">
-          <Calendar className="h-4 w-4" />
-          <span>カレンダー</span>
-        </TabsTrigger>
-        <TabsTrigger value="register" className="flex items-center gap-2">
-          <FileText className="h-4 w-4" />
-          <span>案件登録</span>
+          <CalendarDays className="h-4 w-4" />
+          カレンダー
         </TabsTrigger>
       </TabsList>
+
+      <TabsContent value="register" className="mt-0">
+        <DealRegistrationForm />
+      </TabsContent>
 
       <TabsContent value="list" className="mt-0">
         <EnhancedDealsList />
@@ -33,10 +37,6 @@ export function DealRegistrationTabs() {
 
       <TabsContent value="calendar" className="mt-0">
         <DealResourceCalendar />
-      </TabsContent>
-
-      <TabsContent value="register" className="mt-0">
-        <DealRegistrationForm />
       </TabsContent>
     </Tabs>
   )
