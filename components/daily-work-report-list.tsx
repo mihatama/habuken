@@ -1,18 +1,15 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Input } from "@/components/ui/input"
 import { DailyReportFormDialog } from "./daily-report-form-dialog"
 import { getClientSupabase } from "@/lib/supabase-utils"
 import { useToast } from "@/components/ui/use-toast"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
-import { ImageIcon, FileText, Calendar, Clock, CloudSun } from "lucide-react"
+import { ImageIcon, FileText, Calendar, Clock, CloudSun, Search } from "lucide-react"
 
 export function DailyWorkReportList() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -21,7 +18,9 @@ export function DailyWorkReportList() {
   const [error, setError] = useState<string | null>(null)
   const [staffMap, setStaffMap] = useState<Record<string, string>>({})
   const [dealsMap, setDealsMap] = useState<Record<string, string>>({})
+  const [searchTerm, setSearchTerm] = useState("")
   const { toast } = useToast()
+  const [activeTab, setActiveTab] = useState("all") // "all", "pending", "approved"
 
   const fetchReports = async () => {
     try {
@@ -36,6 +35,10 @@ export function DailyWorkReportList() {
 
       if (reportsError) throw reportsError
 
+      // デバッグ用ログを追加
+      console.log("取得した日報データの件数:", reportsData?.length || 0)
+      console.log("最新の日報データ:", reportsData?.[0])
+
       // スタッフデータを取得
       const { data: staffData, error: staffError } = await supabase.from("staff").select("id, full_name")
 
@@ -46,10 +49,23 @@ export function DailyWorkReportList() {
 
       if (dealsError) throw dealsError
 
+      // ユーザーデータを取得
+      const { data: userData, error: userError } = await supabase.from("users").select("id, email, full_name")
+
+      if (userError) {
+        console.warn("ユーザーデータの取得に失敗しました:", userError)
+        // ユーザーデータの取得に失敗しても処理を続行
+      }
+
       // スタッフIDと名前のマッピングを作成
       const staffMapping: Record<string, string> = {}
       staffData?.forEach((staff) => {
         staffMapping[staff.id] = staff.full_name
+      })
+
+      // ユーザーIDと名前のマッピングを作成
+      userData?.forEach((user) => {
+        staffMapping[user.id] = user.full_name || user.email
       })
 
       // 案件IDと名前のマッピングを作成
@@ -58,6 +74,7 @@ export function DailyWorkReportList() {
         dealsMapping[deal.id] = deal.name
       })
 
+      console.log("取得した日報データ:", reportsData)
       setReports(reportsData || [])
       setStaffMap(staffMapping)
       setDealsMap(dealsMapping)
@@ -112,29 +129,46 @@ export function DailyWorkReportList() {
     }
   }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "pending":
-        return (
-          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-            確認待ち
-          </Badge>
-        )
-      case "approved":
-        return (
-          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-            承認済み
-          </Badge>
-        )
-      case "rejected":
-        return (
-          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-            差し戻し
-          </Badge>
-        )
-      default:
-        return <Badge variant="outline">{status}</Badge>
+  // 検索フィルター
+  const filteredReports = reports.filter((report) => {
+    // まずタブによるフィルタリング
+    if (activeTab === "pending" && report.status !== "pending") return false
+    if (activeTab === "approved" && report.status !== "approved") return false
+
+    // 次に検索語によるフィルタリング
+    const projectName = getProjectName(report, dealsMap)
+    const reporterName = getReporterName(report, staffMap)
+    const workDescription = report.work_description || report.work_content || ""
+
+    const searchLower = searchTerm.toLowerCase()
+    return (
+      projectName.toLowerCase().includes(searchLower) ||
+      reporterName.toLowerCase().includes(searchLower) ||
+      workDescription.toLowerCase().includes(searchLower)
+    )
+  })
+
+  // 案件名の取得ヘルパー関数
+  const getProjectName = (report: any, dealsMap: Record<string, string>) => {
+    if (report.deal_id && dealsMap[report.deal_id]) {
+      return dealsMap[report.deal_id]
     }
+    if (report.project_id && dealsMap[report.project_id]) {
+      return dealsMap[report.project_id]
+    }
+    if (report.custom_project_name) {
+      return report.custom_project_name
+    }
+    return "不明な案件"
+  }
+
+  // 報告者名の取得ヘルパー関数
+  const getReporterName = (report: any, staffMap: Record<string, string>) => {
+    const reporterId = report.submitted_by || report.created_by
+    if (reporterId && staffMap[reporterId]) {
+      return staffMap[reporterId]
+    }
+    return "不明なスタッフ"
   }
 
   if (error) {
@@ -161,90 +195,73 @@ export function DailyWorkReportList() {
             <CardTitle>作業日報一覧</CardTitle>
             <CardDescription>現場の作業日報を確認・管理できます</CardDescription>
           </div>
-          <Button onClick={() => setIsDialogOpen(true)}>新規作成</Button>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="検索..."
+                className="pl-8 w-[200px] md:w-[300px]"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Button onClick={() => setIsDialogOpen(true)}>新規作成</Button>
+          </div>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="all">
-            <TabsList className="mb-4">
-              <TabsTrigger value="all">すべて</TabsTrigger>
-              <TabsTrigger value="pending">確認待ち</TabsTrigger>
-              <TabsTrigger value="approved">承認済み</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="all">
-              {loading ? (
-                <div className="text-center py-8">読み込み中...</div>
-              ) : reports.length === 0 ? (
-                <div className="text-center py-8">日報データがありません</div>
-              ) : (
-                <div className="space-y-4">
-                  {reports.map((report) => (
-                    <ReportCard
-                      key={report.id}
-                      report={report}
-                      staffMap={staffMap}
-                      dealsMap={dealsMap}
-                      getWeatherIcon={getWeatherIcon}
-                      getWeatherText={getWeatherText}
-                      getStatusBadge={getStatusBadge}
-                    />
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="pending">
-              {loading ? (
-                <div className="text-center py-8">読み込み中...</div>
-              ) : reports.filter((r) => r.status === "pending").length === 0 ? (
-                <div className="text-center py-8">確認待ちの日報はありません</div>
-              ) : (
-                <div className="space-y-4">
-                  {reports
-                    .filter((report) => report.status === "pending")
-                    .map((report) => (
-                      <ReportCard
-                        key={report.id}
-                        report={report}
-                        staffMap={staffMap}
-                        dealsMap={dealsMap}
-                        getWeatherIcon={getWeatherIcon}
-                        getWeatherText={getWeatherText}
-                        getStatusBadge={getStatusBadge}
-                      />
-                    ))}
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="approved">
-              {loading ? (
-                <div className="text-center py-8">読み込み中...</div>
-              ) : reports.filter((r) => r.status === "approved").length === 0 ? (
-                <div className="text-center py-8">承認済みの日報はありません</div>
-              ) : (
-                <div className="space-y-4">
-                  {reports
-                    .filter((report) => report.status === "approved")
-                    .map((report) => (
-                      <ReportCard
-                        key={report.id}
-                        report={report}
-                        staffMap={staffMap}
-                        dealsMap={dealsMap}
-                        getWeatherIcon={getWeatherIcon}
-                        getWeatherText={getWeatherText}
-                        getStatusBadge={getStatusBadge}
-                      />
-                    ))}
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
+          <div className="flex space-x-2 mb-4">
+            <Button variant={activeTab === "all" ? "default" : "outline"} size="sm" onClick={() => setActiveTab("all")}>
+              すべて
+            </Button>
+            <Button
+              variant={activeTab === "pending" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab("pending")}
+            >
+              承認待ち
+            </Button>
+            <Button
+              variant={activeTab === "approved" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab("approved")}
+            >
+              承認済
+            </Button>
+          </div>
+          {loading ? (
+            <div className="text-center py-8">読み込み中...</div>
+          ) : filteredReports.length === 0 ? (
+            <div className="text-center py-8">
+              {searchTerm ? "検索条件に一致する日報はありません" : "日報データがありません"}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredReports.map((report) => (
+                <ReportCard
+                  key={report.id}
+                  report={report}
+                  staffMap={staffMap}
+                  dealsMap={dealsMap}
+                  getWeatherIcon={getWeatherIcon}
+                  getWeatherText={getWeatherText}
+                  getProjectName={getProjectName}
+                  getReporterName={getReporterName}
+                />
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      <DailyReportFormDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} onSuccess={fetchReports} />
+      <DailyReportFormDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        onSuccess={() => {
+          console.log("日報追加成功後のデータ再取得を実行します")
+          fetchReports()
+        }}
+      />
     </>
   )
 }
@@ -255,10 +272,19 @@ interface ReportCardProps {
   dealsMap: Record<string, string>
   getWeatherIcon: (weather: string) => string
   getWeatherText: (weather: string) => string
-  getStatusBadge: (status: string) => React.ReactNode
+  getProjectName: (report: any, dealsMap: Record<string, string>) => string
+  getReporterName: (report: any, staffMap: Record<string, string>) => string
 }
 
-function ReportCard({ report, staffMap, dealsMap, getWeatherIcon, getWeatherText, getStatusBadge }: ReportCardProps) {
+function ReportCard({
+  report,
+  staffMap,
+  dealsMap,
+  getWeatherIcon,
+  getWeatherText,
+  getProjectName,
+  getReporterName,
+}: ReportCardProps) {
   const [showPhotos, setShowPhotos] = useState(false)
 
   const formatDate = (dateString: string) => {
@@ -269,21 +295,15 @@ function ReportCard({ report, staffMap, dealsMap, getWeatherIcon, getWeatherText
     }
   }
 
-  const projectName = report.project_id
-    ? dealsMap[report.project_id] || "不明な案件"
-    : report.custom_project_name || "その他"
-
-  const staffName = staffMap[report.submitted_by] || "不明なスタッフ"
-
   return (
     <Card>
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle className="text-lg">{projectName}</CardTitle>
-            <CardDescription className="flex items-center gap-1 mt-1">
+            <CardTitle className="text-lg">{getProjectName(report, dealsMap)}</CardTitle>
+            <CardDescription className="flex items-center gap-1 mt-1 flex-wrap">
               <Calendar className="h-3.5 w-3.5" />
-              {formatDate(report.report_date)}
+              {formatDate(report.report_date || report.work_date)}
               <span className="mx-1">|</span>
               <CloudSun className="h-3.5 w-3.5" />
               {getWeatherIcon(report.weather)} {getWeatherText(report.weather)}
@@ -296,14 +316,13 @@ function ReportCard({ report, staffMap, dealsMap, getWeatherIcon, getWeatherText
               )}
             </CardDescription>
           </div>
-          {getStatusBadge(report.status)}
         </div>
       </CardHeader>
       <CardContent className="pb-2">
         <div className="text-sm text-muted-foreground mb-2">
-          <span className="font-medium">報告者:</span> {staffName}
+          <span className="font-medium">報告者:</span> {getReporterName(report, staffMap)}
         </div>
-        <div className="text-sm whitespace-pre-wrap">{report.work_description}</div>
+        <div className="text-sm whitespace-pre-wrap">{report.work_description || report.work_content}</div>
 
         {report.photo_urls && report.photo_urls.length > 0 && (
           <div className="mt-3">
@@ -315,6 +334,7 @@ function ReportCard({ report, staffMap, dealsMap, getWeatherIcon, getWeatherText
             >
               <ImageIcon className="h-3.5 w-3.5" />
               写真 ({report.photo_urls.length}枚)
+              {showPhotos ? " 非表示" : " 表示"}
             </Button>
 
             {showPhotos && (
