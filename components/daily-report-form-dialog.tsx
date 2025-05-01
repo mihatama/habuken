@@ -19,8 +19,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ImageIcon, Camera, Plus, X } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { useQuery } from "@tanstack/react-query"
-import { fetchClientData, insertClientData, getClientSupabase } from "@/lib/supabase-utils"
+import { insertClientData, getClientSupabase } from "@/lib/supabase-utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface DailyReportFormProps {
@@ -38,7 +37,9 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const [deals, setDeals] = useState<any[]>([])
+  const [staff, setStaff] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
     projectId: "",
@@ -50,67 +51,56 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
     photos: [] as string[],
   })
 
-  // 案件データを取得（dealsテーブルのみから）
-  // const { data: deals = [] } = useQuery({
-  //   queryKey: ["deals"],
-  //   queryFn: async () => {
-  //     try {
-  //       console.log("案件データの取得を開始します")
-
-  //       // シンプルな形式で試してみる
-  //       const { data, error } = await fetchClientData("deals")
-
-  //       console.log("取得結果:", { data, error })
-
-  //       if (error) {
-  //         console.error("案件データの取得エラー:", error)
-  //         throw error
-  //       }
-
-  //       return data || []
-  //     } catch (error) {
-  //       console.error("案件データの取得に失敗しました:", error)
-  //       return []
-  //     }
-  //   },
-  // })
-
   useEffect(() => {
-    async function fetchDeals() {
+    async function fetchData() {
       try {
         setLoading(true)
         const supabase = getClientSupabase()
 
-        const { data, error } = await supabase.from("deals").select("*").order("created_at", { ascending: false })
+        // 案件データを取得
+        console.log("案件データを取得中...")
+        const { data: dealsData, error: dealsError } = await supabase
+          .from("deals")
+          .select("*")
+          .order("created_at", { ascending: false })
 
-        if (error) {
-          console.error("案件データの取得エラー:", error)
-          return
+        if (dealsError) {
+          console.error("案件データの取得エラー:", dealsError)
+          throw dealsError
         }
 
-        console.log("取得した案件データ:", data)
-        setDeals(data || [])
-      } catch (err) {
-        console.error("案件データの取得中に例外が発生しました:", err)
+        console.log("取得した案件データ:", dealsData)
+        setDeals(dealsData || [])
+
+        // スタッフデータを取得
+        console.log("スタッフデータを取得中...")
+        const { data: staffData, error: staffError } = await supabase
+          .from("staff")
+          .select("*")
+          .order("full_name", { ascending: true })
+
+        if (staffError) {
+          console.error("スタッフ取得エラー:", staffError)
+          throw staffError
+        }
+
+        console.log("取得したスタッフデータ:", staffData)
+        setStaff(staffData || [])
+      } catch (err: any) {
+        console.error("データ取得中にエラーが発生しました:", err)
+        setError(err.message || "データの取得に失敗しました")
+        toast({
+          title: "エラー",
+          description: "データの取得に失敗しました: " + (err.message || "不明なエラー"),
+          variant: "destructive",
+        })
       } finally {
         setLoading(false)
       }
     }
 
-    fetchDeals()
-  }, [])
-
-  // データが取得できたかコンソールに出力
-  console.log("取得した案件データ:", deals)
-
-  // スタッフデータを取得
-  const { data: staff = [] } = useQuery({
-    queryKey: ["staff"],
-    queryFn: async () => {
-      const { data } = await fetchClientData("staff")
-      return data || []
-    },
-  })
+    fetchData()
+  }, [toast])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
