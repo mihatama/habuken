@@ -39,6 +39,7 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [supabase, setSupabase] = useState<any>(null)
+  const [showCustomInput, setShowCustomInput] = useState(false)
 
   const [formData, setFormData] = useState({
     projectId: "",
@@ -137,44 +138,33 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const newFiles = Array.from(e.target.files)
-      setPhotoFiles([...photoFiles, ...newFiles])
-
-      // ファイル名を保存
-      const fileNames = newFiles.map((file) => file.name)
-      setFormData({
-        ...formData,
-        photos: [...formData.photos, ...fileNames],
-      })
+      setPhotoFiles((prevFiles) => [...prevFiles, ...newFiles])
     }
   }
 
   const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const newFiles = Array.from(e.target.files)
-      setPhotoFiles([...photoFiles, ...newFiles])
-
-      // 撮影した写真のファイル名を生成して保存
-      const fileNames = newFiles.map(
-        (file, index) => `camera_capture_${Date.now()}_${index}.${file.type.split("/")[1]}`,
-      )
-      setFormData({
-        ...formData,
-        photos: [...formData.photos, ...fileNames],
-      })
+      setPhotoFiles((prevFiles) => [...prevFiles, ...newFiles])
     }
   }
 
   const removePhoto = (index: number) => {
-    const updatedFiles = [...photoFiles]
-    updatedFiles.splice(index, 1)
-    setPhotoFiles(updatedFiles)
-
-    const updatedPhotoNames = [...formData.photos]
-    updatedPhotoNames.splice(index, 1)
-    setFormData({
-      ...formData,
-      photos: updatedPhotoNames,
+    setPhotoFiles((prevFiles) => {
+      const updatedFiles = [...prevFiles]
+      updatedFiles.splice(index, 1)
+      return updatedFiles
     })
+  }
+
+  const handleProjectChange = (value: string) => {
+    setFormData({ ...formData, projectId: value })
+    setShowCustomInput(value === "custom")
+    if (value === "custom") {
+      setTimeout(() => document.getElementById("customProject")?.focus(), 100)
+    } else {
+      setCustomProject("")
+    }
   }
 
   const handleSubmit = async () => {
@@ -188,8 +178,6 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
     }
 
     // 案件選択の検証
-    let projectIdentifier = formData.projectId
-
     if (formData.projectId === "custom") {
       if (!customProject.trim()) {
         toast({
@@ -199,7 +187,6 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
         })
         return
       }
-      projectIdentifier = customProject
     } else if (formData.projectId === "" || formData.projectId === "placeholder") {
       toast({
         title: "入力エラー",
@@ -228,6 +215,31 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
       setIsSubmitting(true)
       console.log("日報データを追加中...")
 
+      // 写真のアップロード処理
+      const uploadedPhotoUrls: string[] = []
+
+      if (photoFiles.length > 0) {
+        for (const file of photoFiles) {
+          const fileExt = file.name.split(".").pop()
+          const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`
+          const filePath = `daily_report_photos/${fileName}`
+
+          const { error: uploadError, data } = await supabase.storage.from("daily_reports").upload(filePath, file)
+
+          if (uploadError) {
+            console.error("写真のアップロードエラー:", uploadError)
+            throw uploadError
+          }
+
+          // 公開URLを取得
+          const { data: urlData } = supabase.storage.from("daily_reports").getPublicUrl(filePath)
+
+          if (urlData?.publicUrl) {
+            uploadedPhotoUrls.push(urlData.publicUrl)
+          }
+        }
+      }
+
       // 日報データを追加
       const { data, error } = await supabase
         .from("daily_reports")
@@ -239,7 +251,7 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
           weather: formData.weather,
           work_content: formData.workContentText,
           speech_recognition_raw: formData.speechRecognitionRaw,
-          photos: formData.photos,
+          photo_urls: uploadedPhotoUrls,
           start_time: formData.startTime,
           end_time: formData.endTime,
           status: "pending",
@@ -269,6 +281,7 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
       })
       setCustomProject("")
       setPhotoFiles([])
+      setShowCustomInput(false)
 
       // ダイアログを閉じる
       onOpenChange(false)
@@ -324,45 +337,31 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label>案件名 *</Label>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <Select
-                    value={formData.projectId}
-                    onValueChange={(value) => {
-                      if (value === "custom") {
-                        // Focus on the custom input when "その他" is selected
-                        setTimeout(() => document.getElementById("customProject")?.focus(), 100)
-                      } else {
-                        setFormData({ ...formData, projectId: value })
-                        setCustomProject("")
-                      }
-                    }}
-                  >
-                    <SelectTrigger id="projectId">
-                      <SelectValue placeholder="案件を選択" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="placeholder" disabled>
-                        案件を選択してください
+              <div className="space-y-2">
+                <Select value={formData.projectId} onValueChange={handleProjectChange}>
+                  <SelectTrigger id="projectId">
+                    <SelectValue placeholder="案件を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="placeholder" disabled>
+                      案件を選択してください
+                    </SelectItem>
+                    {deals.map((deal: any) => (
+                      <SelectItem key={`deal-${deal.id}`} value={deal.id}>
+                        {deal.name}
                       </SelectItem>
-                      {deals.map((deal: any) => (
-                        <SelectItem key={`deal-${deal.id}`} value={deal.id}>
-                          {deal.name}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="custom">その他（手入力）</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {formData.projectId === "custom" && (
-                  <div className="flex-1">
-                    <Input
-                      id="customProject"
-                      placeholder="案件名を入力"
-                      value={customProject}
-                      onChange={(e) => setCustomProject(e.target.value)}
-                    />
-                  </div>
+                    ))}
+                    <SelectItem value="custom">その他（手入力）</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {showCustomInput && (
+                  <Input
+                    id="customProject"
+                    placeholder="案件名を入力"
+                    value={customProject}
+                    onChange={(e) => setCustomProject(e.target.value)}
+                  />
                 )}
               </div>
             </div>
