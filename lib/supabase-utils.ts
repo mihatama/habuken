@@ -420,6 +420,17 @@ export async function createHeavyMachinery(machineryData: any) {
  * @throws {SupabaseError} スタッフ作成に失敗した場合
  */
 export async function createStaff(staffData: any) {
+  // staffDataからhire_dateを削除（存在する場合）
+  if (staffData.hire_date) {
+    delete staffData.hire_date
+  }
+
+  // employee_idをcontact_numberに変換（APIの互換性のため）
+  if (staffData.employee_id && !staffData.contact_number) {
+    staffData.contact_number = staffData.employee_id
+    delete staffData.employee_id
+  }
+
   return insertClientData("staff", staffData)
 }
 

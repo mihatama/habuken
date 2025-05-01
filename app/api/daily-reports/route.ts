@@ -32,28 +32,15 @@ export async function POST(request: Request) {
       reportData.deal_id = null
     }
 
-    // 現在のユーザー情報を取得
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
-
-    if (userError) {
-      console.error("API: ユーザー情報の取得に失敗しました:", userError)
-      return NextResponse.json({ error: "ユーザー情報の取得に失敗しました。再ログインしてください。" }, { status: 401 })
+    // クライアントから送信されたユーザーIDを使用
+    if (reportData.user_id) {
+      reportData.submitted_by = reportData.user_id
+      reportData.created_by = reportData.user_id
+      console.log("API: クライアントから送信されたユーザーIDを使用します:", reportData.user_id)
+    } else {
+      console.error("API: ユーザーIDが指定されていません")
+      return NextResponse.json({ error: "ユーザーIDが指定されていません。再ログインしてください。" }, { status: 400 })
     }
-
-    if (!user) {
-      console.error("API: ユーザーが認証されていません")
-      return NextResponse.json({ error: "認証されていません。ログインしてください。" }, { status: 401 })
-    }
-
-    // 現在のユーザーIDをsubmitted_byとして使用
-    reportData.submitted_by = user.id
-    console.log("API: 現在のユーザーIDをsubmitted_byに設定しました:", user.id)
-
-    // created_byも設定
-    reportData.created_by = user.id
 
     // custom_project_nameの処理
     if (!reportData.custom_project_name && reportData.deal_id) {

@@ -1,11 +1,13 @@
 "use client"
 
+import { DialogTrigger } from "@/components/ui/dialog"
+
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Plus, Pencil, Trash2, Loader2, RefreshCw } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -26,9 +28,9 @@ export function StaffList() {
   const [newStaff, setNewStaff] = useState({
     full_name: "",
     position: "",
-    email: "",
+    department: "",
     phone: "",
-    hire_date: "",
+    email: "",
     status: "active",
   })
 
@@ -90,9 +92,9 @@ export function StaffList() {
       setNewStaff({
         full_name: "",
         position: "",
-        email: "",
+        department: "",
         phone: "",
-        hire_date: "",
+        email: "",
         status: "active",
       })
 
@@ -131,9 +133,9 @@ export function StaffList() {
         .update({
           full_name: currentStaff.full_name,
           position: currentStaff.position,
+          department: currentStaff.department,
           email: currentStaff.email,
           phone: currentStaff.phone,
-          hire_date: currentStaff.hire_date,
           status: currentStaff.status,
         })
         .eq("id", currentStaff.id)
@@ -238,87 +240,86 @@ export function StaffList() {
           <Button variant="outline" size="icon" onClick={fetchStaff} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
           </Button>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                新規スタッフ
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>新規スタッフの追加</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">
-                    名前 <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="name"
-                    value={newStaff.full_name}
-                    onChange={(e) => setNewStaff({ ...newStaff, full_name: e.target.value })}
-                  />
+          <>
+            <Button onClick={() => setIsAddDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              新規スタッフ
+            </Button>
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>新規スタッフの追加</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">
+                      名前 <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="name"
+                      value={newStaff.full_name}
+                      onChange={(e) => setNewStaff({ ...newStaff, full_name: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="position">役職</Label>
+                    <Input
+                      id="position"
+                      value={newStaff.position}
+                      onChange={(e) => setNewStaff({ ...newStaff, position: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="department">部署</Label>
+                    <Input
+                      id="department"
+                      value={newStaff.department}
+                      onChange={(e) => setNewStaff({ ...newStaff, department: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="email">メールアドレス</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={newStaff.email}
+                      onChange={(e) => setNewStaff({ ...newStaff, email: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="phone">電話番号</Label>
+                    <Input
+                      id="phone"
+                      value={newStaff.phone}
+                      onChange={(e) => setNewStaff({ ...newStaff, phone: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="status">ステータス</Label>
+                    <select
+                      id="status"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={newStaff.status}
+                      onChange={(e) => setNewStaff({ ...newStaff, status: e.target.value })}
+                    >
+                      <option value="active">在籍中</option>
+                      <option value="inactive">休職中</option>
+                      <option value="terminated">退職</option>
+                    </select>
+                  </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="position">役職</Label>
-                  <Input
-                    id="position"
-                    value={newStaff.position}
-                    onChange={(e) => setNewStaff({ ...newStaff, position: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="email">メールアドレス</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newStaff.email}
-                    onChange={(e) => setNewStaff({ ...newStaff, email: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="phone">電話番号</Label>
-                  <Input
-                    id="phone"
-                    value={newStaff.phone}
-                    onChange={(e) => setNewStaff({ ...newStaff, phone: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="hire_date">入社日</Label>
-                  <Input
-                    id="hire_date"
-                    type="date"
-                    value={newStaff.hire_date}
-                    onChange={(e) => setNewStaff({ ...newStaff, hire_date: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="status">ステータス</Label>
-                  <select
-                    id="status"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={newStaff.status}
-                    onChange={(e) => setNewStaff({ ...newStaff, status: e.target.value })}
-                  >
-                    <option value="active">在籍中</option>
-                    <option value="inactive">休職中</option>
-                    <option value="terminated">退職</option>
-                  </select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={isLoading}>
-                  キャンセル
-                </Button>
-                <Button type="submit" onClick={addStaff} disabled={isLoading}>
-                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  追加
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={isLoading}>
+                    キャンセル
+                  </Button>
+                  <Button type="button" onClick={addStaff} disabled={isLoading}>
+                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    追加
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </>
         </div>
       </CardHeader>
       <CardContent>
@@ -340,8 +341,8 @@ export function StaffList() {
               <TableRow>
                 <TableHead>名前</TableHead>
                 <TableHead>役職</TableHead>
+                <TableHead>部署</TableHead>
                 <TableHead>連絡先</TableHead>
-                <TableHead>入社日</TableHead>
                 <TableHead>ステータス</TableHead>
                 <TableHead className="text-right">操作</TableHead>
               </TableRow>
@@ -352,6 +353,7 @@ export function StaffList() {
                   <TableRow key={staff.id}>
                     <TableCell className="font-medium">{staff.full_name}</TableCell>
                     <TableCell>{staff.position || "-"}</TableCell>
+                    <TableCell>{staff.department || "-"}</TableCell>
                     <TableCell>
                       {staff.email ? (
                         <div>
@@ -364,7 +366,6 @@ export function StaffList() {
                         "-"
                       )}
                     </TableCell>
-                    <TableCell>{formatDate(staff.hire_date)}</TableCell>
                     <TableCell>{getStatusBadge(staff.status)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
@@ -410,6 +411,14 @@ export function StaffList() {
                                   />
                                 </div>
                                 <div className="grid gap-2">
+                                  <Label htmlFor="edit-department">部署</Label>
+                                  <Input
+                                    id="edit-department"
+                                    value={currentStaff.department || ""}
+                                    onChange={(e) => setCurrentStaff({ ...currentStaff, department: e.target.value })}
+                                  />
+                                </div>
+                                <div className="grid gap-2">
                                   <Label htmlFor="edit-email">メールアドレス</Label>
                                   <Input
                                     id="edit-email"
@@ -424,22 +433,6 @@ export function StaffList() {
                                     id="edit-phone"
                                     value={currentStaff.phone || ""}
                                     onChange={(e) => setCurrentStaff({ ...currentStaff, phone: e.target.value })}
-                                  />
-                                </div>
-                                <div className="grid gap-2">
-                                  <Label htmlFor="edit-hire_date">入社日</Label>
-                                  <Input
-                                    id="edit-hire_date"
-                                    type="date"
-                                    value={
-                                      currentStaff.hire_date
-                                        ? typeof currentStaff.hire_date === "string" &&
-                                          currentStaff.hire_date.includes("T")
-                                          ? currentStaff.hire_date.split("T")[0]
-                                          : currentStaff.hire_date
-                                        : ""
-                                    }
-                                    onChange={(e) => setCurrentStaff({ ...currentStaff, hire_date: e.target.value })}
                                   />
                                 </div>
                                 <div className="grid gap-2">
@@ -461,7 +454,7 @@ export function StaffList() {
                               <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isLoading}>
                                 キャンセル
                               </Button>
-                              <Button type="submit" onClick={updateStaff} disabled={isLoading}>
+                              <Button type="button" onClick={updateStaff} disabled={isLoading}>
                                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                                 保存
                               </Button>
