@@ -4,7 +4,14 @@ import type React from "react"
 
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -45,10 +52,29 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
   const { data: deals = [] } = useQuery({
     queryKey: ["deals"],
     queryFn: async () => {
-      const { data } = await fetchClientData("deals")
-      return data || []
+      try {
+        console.log("案件データの取得を開始します")
+
+        // シンプルな形式で試してみる
+        const { data, error } = await fetchClientData("deals")
+
+        console.log("取得結果:", { data, error })
+
+        if (error) {
+          console.error("案件データの取得エラー:", error)
+          throw error
+        }
+
+        return data || []
+      } catch (error) {
+        console.error("案件データの取得に失敗しました:", error)
+        return []
+      }
     },
   })
+
+  // データが取得できたかコンソールに出力
+  console.log("取得した案件データ:", deals)
 
   // スタッフデータを取得
   const { data: staff = [] } = useQuery({
@@ -195,6 +221,7 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>作業日報の作成</DialogTitle>
+          <DialogDescription>作業日報の詳細情報を入力してください。*は必須項目です。</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
