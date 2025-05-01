@@ -8,15 +8,11 @@ import { DealResourceCalendar } from "@/components/deal-resource-calendar"
 import { FileText, List, Calendar } from "lucide-react"
 
 export function DealRegistrationTabs() {
-  const [activeTab, setActiveTab] = useState("register")
+  const [activeTab, setActiveTab] = useState("list")
 
   return (
-    <Tabs defaultValue="register" value={activeTab} onValueChange={setActiveTab} className="w-full">
+    <Tabs defaultValue="list" value={activeTab} onValueChange={setActiveTab} className="w-full">
       <TabsList className="grid w-full grid-cols-3 mb-8">
-        <TabsTrigger value="register" className="flex items-center gap-2">
-          <FileText className="h-4 w-4" />
-          <span>案件登録</span>
-        </TabsTrigger>
         <TabsTrigger value="list" className="flex items-center gap-2">
           <List className="h-4 w-4" />
           <span>案件リスト</span>
@@ -25,11 +21,11 @@ export function DealRegistrationTabs() {
           <Calendar className="h-4 w-4" />
           <span>カレンダー</span>
         </TabsTrigger>
+        <TabsTrigger value="register" className="flex items-center gap-2">
+          <FileText className="h-4 w-4" />
+          <span>案件登録</span>
+        </TabsTrigger>
       </TabsList>
-
-      <TabsContent value="register" className="mt-0">
-        <DealRegistrationForm />
-      </TabsContent>
 
       <TabsContent value="list" className="mt-0">
         <EnhancedDealsList />
@@ -37,6 +33,10 @@ export function DealRegistrationTabs() {
 
       <TabsContent value="calendar" className="mt-0">
         <DealResourceCalendar />
+      </TabsContent>
+
+      <TabsContent value="register" className="mt-0">
+        <DealRegistrationForm />
       </TabsContent>
     </Tabs>
   )
