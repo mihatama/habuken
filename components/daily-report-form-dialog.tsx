@@ -17,9 +17,10 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ImageIcon, Camera, Plus, X, Loader2 } from "lucide-react"
+import { ImageIcon, Camera, Plus, X, Loader2, Mic, MicOff } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { getClientSupabase } from "@/lib/supabase-utils"
+import { useSpeechRecognition } from "@/hooks/use-speech-recognition"
 
 // バケット名を定数として定義
 const STORAGE_BUCKET_NAME = "dailyreports"
@@ -58,6 +59,28 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
     startTime: "",
     endTime: "",
   })
+
+  const { isRecording, activeId, startRecording, stopRecording } = useSpeechRecognition()
+
+  // 音声認識の結果を処理する関数
+  const handleSpeechResult = (text: string) => {
+    // 既存のテキストに追記する形で更新
+    setFormData((prev) => ({
+      ...prev,
+      workContentText: prev.workContentText ? `${prev.workContentText} ${text}` : text,
+      speechRecognitionRaw: prev.speechRecognitionRaw ? `${prev.speechRecognitionRaw} ${text}` : text,
+    }))
+  }
+
+  // 音声入力の開始/停止を切り替える関数
+  const toggleSpeechRecognition = () => {
+    if (isRecording) {
+      stopRecording()
+    } else {
+      // 1 は任意のID。複数の入力フィールドがある場合に区別するために使用
+      startRecording(1, handleSpeechResult)
+    }
+  }
 
   // Supabaseクライアントの初期化
   useEffect(() => {
@@ -640,6 +663,17 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
     setShowCustomInput(false)
   }
 
+  // 音声認識の互換性チェック
+  const [speechSupported, setSpeechSupported] = useState(true)
+
+  useEffect(() => {
+    // ブラウザが音声認識をサポートしているか確認
+    const isSpeechRecognitionSupported =
+      typeof window !== "undefined" && ("webkitSpeechRecognition" in window || "SpeechRecognition" in window)
+
+    setSpeechSupported(isSpeechRecognitionSupported)
+  }, [])
+
   // エラーがある場合はエラーメッセージを表示
   if (error) {
     return (
@@ -775,6 +809,23 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
             <div className="grid gap-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="workContentText">作業内容 *</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={isRecording ? "destructive" : "outline"}
+                  onClick={toggleSpeechRecognition}
+                  className={`flex items-center gap-1 ${isRecording ? "animate-pulse" : ""}`}
+                >
+                  {isRecording ? (
+                    <>
+                      <MicOff size={16} /> 録音停止
+                    </>
+                  ) : (
+                    <>
+                      <Mic size={16} /> 音声入力
+                    </>
+                  )}
+                </Button>
               </div>
               <Textarea
                 id="workContentText"
@@ -783,6 +834,16 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
                 placeholder="作業内容を入力してください"
                 className="min-h-[150px]"
               />
+              {isRecording && (
+                <div className="text-sm text-green-600 animate-pulse">
+                  音声を認識中... マイクに向かって話してください
+                </div>
+              )}
+              {!speechSupported && (
+                <div className="text-sm text-amber-500">
+                  お使いのブラウザは音声入力に対応していません。Chrome、Safari、Edgeなどの最新ブラウザをお試しください。
+                </div>
+              )}
             </div>
             <div className="grid gap-2">
               <Label>写真添付</Label>
