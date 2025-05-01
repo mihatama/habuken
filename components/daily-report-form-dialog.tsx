@@ -75,16 +75,23 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
         setSupabase(client)
         console.log("Supabaseクライアントの初期化に成功しました")
 
-        // バケットの存在を確認
+        // バケットの存在を確認するだけ（作成は試みない）
         const checkBucket = async () => {
           try {
             console.log(`${STORAGE_BUCKET_NAME}バケットを確認中...`)
+
             // バケットの存在を確認
             const { data: buckets, error } = await client.storage.listBuckets()
 
             if (error) {
               console.error("バケット一覧取得エラー:", error)
-              // エラーがあっても続行して作成を試みる
+              toast({
+                title: "警告",
+                description: "ストレージへのアクセスに問題があります。写真機能が制限されます。",
+                variant: "warning",
+              })
+              setBucketExists(false)
+              return
             }
 
             // バケットが存在するか確認
@@ -93,56 +100,36 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
             if (exists) {
               console.log(`${STORAGE_BUCKET_NAME}バケットが存在します`)
               setBucketExists(true)
-            } else {
-              console.log(`${STORAGE_BUCKET_NAME}バケットが見つかりません。作成を試みます。`)
 
+              // バケットへのアクセス権限を確認
               try {
-                // バケットを作成
-                const { error: createError } = await client.storage.createBucket(STORAGE_BUCKET_NAME, {
-                  public: true, // 公開バケットとして作成
-                })
+                const { data, error: accessError } = await client.storage
+                  .from(STORAGE_BUCKET_NAME)
+                  .list(STORAGE_FOLDER_NAME, { limit: 1 })
 
-                if (createError) {
-                  console.error(`${STORAGE_BUCKET_NAME}バケット作成エラー:`, createError)
+                if (accessError) {
+                  console.warn("バケットアクセス権限エラー:", accessError)
                   toast({
                     title: "警告",
-                    description: "写真保存用のストレージを作成できませんでした。管理者に連絡してください。",
+                    description: "ストレージへのアクセス権限に問題があります。写真機能が制限されます。",
                     variant: "warning",
                   })
-                  setBucketExists(false)
-                } else {
-                  console.log(`${STORAGE_BUCKET_NAME}バケットを作成しました`)
-                  setBucketExists(true)
-
-                  // バケットのポリシーを設定（公開アクセス許可）
-                  try {
-                    const { error: policyError } = await client.storage
-                      .from(STORAGE_BUCKET_NAME)
-                      .getPublicUrl("test.txt")
-                    if (policyError) {
-                      console.warn("バケットポリシー確認エラー:", policyError)
-                    }
-                  } catch (policyErr) {
-                    console.warn("バケットポリシー設定エラー:", policyErr)
-                  }
                 }
-              } catch (createErr) {
-                console.error("バケット作成中にエラーが発生しました:", createErr)
-                toast({
-                  title: "エラー",
-                  description: "ストレージの設定に失敗しました。管理者に連絡してください。",
-                  variant: "destructive",
-                })
-                setBucketExists(false)
+              } catch (accessErr) {
+                console.warn("バケットアクセス確認エラー:", accessErr)
               }
+            } else {
+              console.log(`${STORAGE_BUCKET_NAME}バケットが見つかりません`)
+              toast({
+                title: "情報",
+                description: "写真保存用のストレージが設定されていません。写真機能は利用できません。",
+                variant: "default",
+              })
+              setBucketExists(false)
             }
           } catch (err) {
-            console.error("バケット確認/作成エラー:", err)
-            toast({
-              title: "エラー",
-              description: "ストレージの確認中にエラーが発生しました。",
-              variant: "destructive",
-            })
+            console.error("バケット確認エラー:", err)
+            setBucketExists(false)
           }
         }
 
@@ -260,21 +247,38 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
         .list(STORAGE_FOLDER_NAME)
 
       // フォルダが存在しない場合は空ファイルをアップロードして作成
-      if (folderError || !folderExists || folderExists.length === 0) {
-        console.log(`${STORAGE_FOLDER_NAME}フォルダが存在しません。作成します。`)
+      if (folderError) {
+        console.warn("フォルダ確認エラー:", folderError)
+        // フォルダ確認エラーがあっても続行を試みる
+      } else if (!folderExists || folderExists.length === 0) {
+        console.log(`${STORAGE_FOLDER_NAME}フォルダが存在しません。作成を試みます。`)
 
-        // 空のファイルを作成してフォルダを作成
-        const emptyBlob = new Blob([""], { type: "text/plain" })
-        const placeholderFile = new File([emptyBlob], ".placeholder", { type: "text/plain" })
+        try {
+          // 空のファイルを作成してフォルダを作成
+          const emptyBlob = new Blob([""], { type: "text/plain" })
+          const placeholderFile = new File([emptyBlob], ".placeholder", { type: "text/plain" })
 
-        await supabase.storage.from(STORAGE_BUCKET_NAME).upload(`${STORAGE_FOLDER_NAME}/.placeholder`, placeholderFile)
-        console.log(`${STORAGE_FOLDER_NAME}フォルダを作成しました`)
+          const { error: uploadError } = await supabase.storage
+            .from(STORAGE_BUCKET_NAME)
+            .upload(`${STORAGE_FOLDER_NAME}/.placeholder`, placeholderFile)
+
+          if (uploadError) {
+            console.warn("フォルダ作成エラー:", uploadError)
+            // エラーがあっても続行を試みる
+          } else {
+            console.log(`${STORAGE_FOLDER_NAME}フォルダを作成しました`)
+          }
+        } catch (err) {
+          console.warn("フォルダ作成中にエラーが発生しました:", err)
+          // エラーがあっても続行を試みる
+        }
       }
     } catch (err) {
       console.warn("フォルダ確認/作成エラー:", err)
-      // エラーがあっても続行
+      // エラーがあっても続行を試みる
     }
 
+    // 各ファイルをアップロード
     for (const file of files) {
       try {
         // ファイル名を生成
@@ -366,42 +370,11 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
 
       if (photoFiles.length > 0) {
         if (!bucketExists) {
-          // バケットが存在しない場合、再度作成を試みる
-          try {
-            console.log("バケットの再確認と作成を試みます...")
-            const { data: buckets } = await supabase.storage.listBuckets()
-            const exists = buckets?.some((bucket) => bucket.name === STORAGE_BUCKET_NAME)
-
-            if (!exists) {
-              const { error: createError } = await supabase.storage.createBucket(STORAGE_BUCKET_NAME, {
-                public: true,
-              })
-
-              if (!createError) {
-                console.log("バケットの作成に成功しました")
-                setBucketExists(true)
-                uploadedPhotoUrls = await uploadPhotos(photoFiles)
-              } else {
-                console.error("バケット作成エラー:", createError)
-                toast({
-                  title: "警告",
-                  description: "写真保存用のストレージを作成できませんでした。写真なしで保存します。",
-                  variant: "warning",
-                })
-              }
-            } else {
-              console.log("バケットが存在します")
-              setBucketExists(true)
-              uploadedPhotoUrls = await uploadPhotos(photoFiles)
-            }
-          } catch (err) {
-            console.error("バケット再確認/作成エラー:", err)
-            toast({
-              title: "警告",
-              description: "写真保存用のストレージにアクセスできません。写真なしで保存します。",
-              variant: "warning",
-            })
-          }
+          toast({
+            title: "情報",
+            description: "写真保存用のストレージが利用できないため、写真なしで保存します。",
+            variant: "default",
+          })
         } else {
           uploadedPhotoUrls = await uploadPhotos(photoFiles)
         }
@@ -644,6 +617,7 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
                   size="sm"
                   onClick={() => fileInputRef.current?.click()}
                   className="flex items-center gap-1"
+                  disabled={!bucketExists}
                 >
                   <Plus size={16} /> 写真を選択
                 </Button>
@@ -653,6 +627,7 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
                   size="sm"
                   onClick={() => cameraInputRef.current?.click()}
                   className="flex items-center gap-1"
+                  disabled={!bucketExists}
                 >
                   <Camera size={16} /> カメラで撮影
                 </Button>
