@@ -78,13 +78,13 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
         // バケットの存在を確認
         const checkBucket = async () => {
           try {
-            console.log(`${STORAGE_BUCKET_NAME}バケットを使用します`)
-            // バケットは既に存在するため、存在確認のみ行う
+            console.log(`${STORAGE_BUCKET_NAME}バケットを確認中...`)
+            // バケットの存在を確認
             const { data: buckets, error } = await client.storage.listBuckets()
 
             if (error) {
               console.error("バケット一覧取得エラー:", error)
-              return
+              // エラーがあっても続行して作成を試みる
             }
 
             // バケットが存在するか確認
@@ -94,16 +94,55 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
               console.log(`${STORAGE_BUCKET_NAME}バケットが存在します`)
               setBucketExists(true)
             } else {
-              console.error(`${STORAGE_BUCKET_NAME}バケットが見つかりません`)
-              toast({
-                title: "警告",
-                description: "写真保存用のストレージが見つかりません。管理者に連絡してください。",
-                variant: "warning",
-              })
-              setBucketExists(false)
+              console.log(`${STORAGE_BUCKET_NAME}バケットが見つかりません。作成を試みます。`)
+
+              try {
+                // バケットを作成
+                const { error: createError } = await client.storage.createBucket(STORAGE_BUCKET_NAME, {
+                  public: true, // 公開バケットとして作成
+                })
+
+                if (createError) {
+                  console.error(`${STORAGE_BUCKET_NAME}バケット作成エラー:`, createError)
+                  toast({
+                    title: "警告",
+                    description: "写真保存用のストレージを作成できませんでした。管理者に連絡してください。",
+                    variant: "warning",
+                  })
+                  setBucketExists(false)
+                } else {
+                  console.log(`${STORAGE_BUCKET_NAME}バケットを作成しました`)
+                  setBucketExists(true)
+
+                  // バケットのポリシーを設定（公開アクセス許可）
+                  try {
+                    const { error: policyError } = await client.storage
+                      .from(STORAGE_BUCKET_NAME)
+                      .getPublicUrl("test.txt")
+                    if (policyError) {
+                      console.warn("バケットポリシー確認エラー:", policyError)
+                    }
+                  } catch (policyErr) {
+                    console.warn("バケットポリシー設定エラー:", policyErr)
+                  }
+                }
+              } catch (createErr) {
+                console.error("バケット作成中にエラーが発生しました:", createErr)
+                toast({
+                  title: "エラー",
+                  description: "ストレージの設定に失敗しました。管理者に連絡してください。",
+                  variant: "destructive",
+                })
+                setBucketExists(false)
+              }
             }
           } catch (err) {
-            console.error("バケット確認エラー:", err)
+            console.error("バケット確認/作成エラー:", err)
+            toast({
+              title: "エラー",
+              description: "ストレージの確認中にエラーが発生しました。",
+              variant: "destructive",
+            })
           }
         }
 
@@ -327,11 +366,42 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
 
       if (photoFiles.length > 0) {
         if (!bucketExists) {
-          toast({
-            title: "警告",
-            description: "写真保存用のストレージが設定されていません。写真なしで保存します。",
-            variant: "warning",
-          })
+          // バケットが存在しない場合、再度作成を試みる
+          try {
+            console.log("バケットの再確認と作成を試みます...")
+            const { data: buckets } = await supabase.storage.listBuckets()
+            const exists = buckets?.some((bucket) => bucket.name === STORAGE_BUCKET_NAME)
+
+            if (!exists) {
+              const { error: createError } = await supabase.storage.createBucket(STORAGE_BUCKET_NAME, {
+                public: true,
+              })
+
+              if (!createError) {
+                console.log("バケットの作成に成功しました")
+                setBucketExists(true)
+                uploadedPhotoUrls = await uploadPhotos(photoFiles)
+              } else {
+                console.error("バケット作成エラー:", createError)
+                toast({
+                  title: "警告",
+                  description: "写真保存用のストレージを作成できませんでした。写真なしで保存します。",
+                  variant: "warning",
+                })
+              }
+            } else {
+              console.log("バケットが存在します")
+              setBucketExists(true)
+              uploadedPhotoUrls = await uploadPhotos(photoFiles)
+            }
+          } catch (err) {
+            console.error("バケット再確認/作成エラー:", err)
+            toast({
+              title: "警告",
+              description: "写真保存用のストレージにアクセスできません。写真なしで保存します。",
+              variant: "warning",
+            })
+          }
         } else {
           uploadedPhotoUrls = await uploadPhotos(photoFiles)
         }
