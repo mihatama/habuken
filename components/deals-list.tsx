@@ -40,10 +40,15 @@ export function DealsList() {
       setLoading(true)
       const supabase = getClientSupabase()
 
+      console.log("Fetching deals from Supabase database...")
       const { data, error } = await supabase.from("deals").select("*").order("created_at", { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        console.error("Error fetching deals:", error)
+        throw error
+      }
 
+      console.log(`Successfully fetched ${data?.length || 0} deals from database`)
       setDeals(data || [])
     } catch (err: any) {
       console.error("案件データの取得エラー:", err)

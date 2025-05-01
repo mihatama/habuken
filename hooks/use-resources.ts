@@ -1,54 +1,98 @@
-"use client"
-
 import { useQuery } from "@tanstack/react-query"
-import { useToast } from "@/hooks/use-toast"
-import { getToolsData } from "@/lib/supabase-utils"
-import { useData } from "./supabase/use-data"
+import { getClientSupabase } from "@/lib/supabase-utils"
 
-// スタッフ一覧を取得するフック
+// Hook to fetch staff data from Supabase
 export function useStaff() {
-  return useData("staff", {
+  return useQuery({
     queryKey: ["staff"],
-    order: { column: "full_name", ascending: true },
+    queryFn: async () => {
+      console.log("Fetching staff from Supabase...")
+      const supabase = getClientSupabase()
+
+      const { data, error } = await supabase.from("staff").select("*").order("full_name", { ascending: true })
+
+      if (error) {
+        console.error("Error fetching staff:", error)
+        throw error
+      }
+
+      console.log(`Successfully fetched ${data?.length || 0} staff members from database`)
+      return data || []
+    },
   })
 }
 
-// 重機一覧を取得するフック
+// Hook to fetch heavy machinery data from Supabase
 export function useHeavyMachinery() {
-  return useData("heavy_machinery", {
-    queryKey: ["heavyMachinery"],
-    order: { column: "name", ascending: true },
+  return useQuery({
+    queryKey: ["heavy_machinery"],
+    queryFn: async () => {
+      console.log("Fetching heavy machinery from Supabase...")
+      const supabase = getClientSupabase()
+
+      const { data, error } = await supabase
+        .from("resources")
+        .select("*")
+        .eq("resource_type", "重機")
+        .order("name", { ascending: true })
+
+      if (error) {
+        console.error("Error fetching heavy machinery:", error)
+        throw error
+      }
+
+      console.log(`Successfully fetched ${data?.length || 0} heavy machinery items from database`)
+      return data || []
+    },
   })
 }
 
-// 車両一覧を取得するフック
+// Hook to fetch vehicles data from Supabase
 export function useVehicles() {
-  return useData("vehicles", {
+  return useQuery({
     queryKey: ["vehicles"],
-    order: { column: "name", ascending: true },
+    queryFn: async () => {
+      console.log("Fetching vehicles from Supabase...")
+      const supabase = getClientSupabase()
+
+      const { data, error } = await supabase
+        .from("resources")
+        .select("*")
+        .eq("resource_type", "車両")
+        .order("name", { ascending: true })
+
+      if (error) {
+        console.error("Error fetching vehicles:", error)
+        throw error
+      }
+
+      console.log(`Successfully fetched ${data?.length || 0} vehicles from database`)
+      return data || []
+    },
   })
 }
 
-// 備品一覧を取得するフック
+// Hook to fetch tools data from Supabase
 export function useTools() {
-  const { toast } = useToast()
-
   return useQuery({
     queryKey: ["tools"],
     queryFn: async () => {
-      try {
-        const { data } = await getToolsData({
-          order: { column: "name", ascending: true },
-        })
-        return data
-      } catch (error) {
-        toast({
-          title: "エラー",
-          description: error instanceof Error ? error.message : "備品一覧の取得に失敗しました",
-          variant: "destructive",
-        })
+      console.log("Fetching tools from Supabase...")
+      const supabase = getClientSupabase()
+
+      const { data, error } = await supabase
+        .from("resources")
+        .select("*")
+        .eq("resource_type", "工具")
+        .order("name", { ascending: true })
+
+      if (error) {
+        console.error("Error fetching tools:", error)
         throw error
       }
+
+      console.log(`Successfully fetched ${data?.length || 0} tools from database`)
+      return data || []
     },
   })
 }
