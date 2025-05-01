@@ -70,6 +70,7 @@ export async function POST(request: Request) {
     delete reportData.endTime
     delete reportData.photos
     delete reportData.staff_id // staff_idフィールドを削除
+    delete reportData.status // ステータスフィールドを削除（承認システム不要のため）
 
     console.log("API: 挿入するデータ:", {
       project_id: reportData.project_id,

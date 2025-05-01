@@ -87,6 +87,7 @@ export function DailyWorkReport() {
     try {
       console.log("ダイアログを開こうとしています...")
       setIsAddDialogOpen(true)
+      console.log("ダイアログの状態:", isAddDialogOpen) // この時点ではまだfalseの可能性がある（状態更新は非同期）
     } catch (error) {
       console.error("ダイアログを開く際にエラーが発生しました:", error)
       toast({
@@ -204,9 +205,6 @@ export function DailyWorkReport() {
             <Plus className="mr-2 h-4 w-4" />
             新規作成
           </Button>
-          {isAddDialogOpen && (
-            <DailyReportFormDialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} onSuccess={fetchData} />
-          )}
         </div>
       </CardHeader>
       <CardContent>
@@ -401,6 +399,9 @@ export function DailyWorkReport() {
           </TabsContent>
         </Tabs>
       </CardContent>
+
+      {/* ダイアログを外部に配置 */}
+      <DailyReportFormDialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} onSuccess={fetchData} />
     </Card>
   )
 }
