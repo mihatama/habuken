@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import type React from "react"
+
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -8,10 +10,11 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ImageIcon } from "lucide-react"
+import { ImageIcon, Camera, Plus, X } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useQuery } from "@tanstack/react-query"
 import { fetchClientData, insertClientData } from "@/lib/supabase-utils"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface DailyReportFormProps {
   open: boolean
@@ -22,6 +25,11 @@ interface DailyReportFormProps {
 export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyReportFormProps) {
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [customProject, setCustomProject] = useState("")
+  const [selectedTab, setSelectedTab] = useState("existing")
+  const [photoFiles, setPhotoFiles] = useState<File[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
 
   const [formData, setFormData] = useState({
     projectId: "",
@@ -33,15 +41,16 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
     photos: [] as string[],
   })
 
-  // プロジェクトとスタッフのデータを取得
-  const { data: projects = [] } = useQuery({
-    queryKey: ["projects"],
+  // 案件データを取得（dealsテーブルのみから）
+  const { data: deals = [] } = useQuery({
+    queryKey: ["deals"],
     queryFn: async () => {
-      const { data } = await fetchClientData("projects")
+      const { data } = await fetchClientData("deals")
       return data || []
     },
   })
 
+  // スタッフデータを取得
   const { data: staff = [] } = useQuery({
     queryKey: ["staff"],
     queryFn: async () => {
@@ -50,8 +59,74 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
     },
   })
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files)
+      setPhotoFiles([...photoFiles, ...newFiles])
+
+      // ファイル名を保存
+      const fileNames = newFiles.map((file) => file.name)
+      setFormData({
+        ...formData,
+        photos: [...formData.photos, ...fileNames],
+      })
+    }
+  }
+
+  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files)
+      setPhotoFiles([...photoFiles, ...newFiles])
+
+      // 撮影した写真のファイル名を生成して保存
+      const fileNames = newFiles.map(
+        (file, index) => `camera_capture_${Date.now()}_${index}.${file.type.split("/")[1]}`,
+      )
+      setFormData({
+        ...formData,
+        photos: [...formData.photos, ...fileNames],
+      })
+    }
+  }
+
+  const removePhoto = (index: number) => {
+    const updatedFiles = [...photoFiles]
+    updatedFiles.splice(index, 1)
+    setPhotoFiles(updatedFiles)
+
+    const updatedPhotoNames = [...formData.photos]
+    updatedPhotoNames.splice(index, 1)
+    setFormData({
+      ...formData,
+      photos: updatedPhotoNames,
+    })
+  }
+
   const handleSubmit = async () => {
-    if (!formData.projectId || !formData.userId || !formData.workContentText) {
+    // 案件選択の検証
+    let projectIdentifier = formData.projectId
+
+    if (selectedTab === "custom" && !customProject.trim()) {
+      toast({
+        title: "入力エラー",
+        description: "案件名を入力してください",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (selectedTab === "custom") {
+      projectIdentifier = customProject
+    } else if (selectedTab === "existing" && (formData.projectId === "" || formData.projectId === "placeholder")) {
+      toast({
+        title: "入力エラー",
+        description: "案件を選択してください",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!formData.userId || formData.userId === "placeholder" || !formData.workContentText) {
       toast({
         title: "入力エラー",
         description: "必須項目を入力してください",
@@ -65,7 +140,8 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
 
       // 日報データを追加
       await insertClientData("daily_reports", {
-        project_id: formData.projectId,
+        project_id: selectedTab === "existing" ? formData.projectId : null,
+        custom_project_name: selectedTab === "custom" ? customProject : null,
         staff_id: formData.userId,
         work_date: formData.workDate,
         weather: formData.weather,
@@ -91,6 +167,9 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
         speechRecognitionRaw: "",
         photos: [],
       })
+      setCustomProject("")
+      setSelectedTab("existing")
+      setPhotoFiles([])
 
       // ダイアログを閉じる
       onOpenChange(false)
@@ -118,32 +197,53 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
           <DialogTitle>作業日報の作成</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label>案件名 *</Label>
+            <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="existing">既存の案件から選択</TabsTrigger>
+                <TabsTrigger value="custom">手入力</TabsTrigger>
+              </TabsList>
+              <TabsContent value="existing" className="pt-2">
+                <Select
+                  value={formData.projectId}
+                  onValueChange={(value) => setFormData({ ...formData, projectId: value })}
+                >
+                  <SelectTrigger id="projectId">
+                    <SelectValue placeholder="案件を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="placeholder" disabled>
+                      案件を選択してください
+                    </SelectItem>
+                    {deals.map((deal: any) => (
+                      <SelectItem key={`deal-${deal.id}`} value={deal.id}>
+                        {deal.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </TabsContent>
+              <TabsContent value="custom" className="pt-2">
+                <Input
+                  placeholder="案件名を入力"
+                  value={customProject}
+                  onChange={(e) => setCustomProject(e.target.value)}
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="projectId">工事名 *</Label>
-              <Select
-                value={formData.projectId}
-                onValueChange={(value) => setFormData({ ...formData, projectId: value })}
-              >
-                <SelectTrigger id="projectId">
-                  <SelectValue placeholder="工事を選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((project: any) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="userId">作業者 *</Label>
+              <Label htmlFor="userId">登録者 *</Label>
               <Select value={formData.userId} onValueChange={(value) => setFormData({ ...formData, userId: value })}>
                 <SelectTrigger id="userId">
-                  <SelectValue placeholder="作業者を選択" />
+                  <SelectValue placeholder="登録者を選択" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="placeholder" disabled>
+                    登録者を選択してください
+                  </SelectItem>
                   {staff.map((s: any) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.full_name}
@@ -152,8 +252,6 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="workDate">作業日 *</Label>
               <Input
@@ -163,6 +261,8 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
                 onChange={(e) => setFormData({ ...formData, workDate: e.target.value })}
               />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="weather">天候</Label>
               <Select value={formData.weather} onValueChange={(value) => setFormData({ ...formData, weather: value })}>
@@ -173,6 +273,8 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
                   <SelectItem value="sunny">晴れ</SelectItem>
                   <SelectItem value="cloudy">曇り</SelectItem>
                   <SelectItem value="rainy">雨</SelectItem>
+                  <SelectItem value="snowy">雪</SelectItem>
+                  <SelectItem value="windy">強風</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -190,41 +292,57 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="photos">写真添付</Label>
-            <div className="flex gap-2">
-              <Input
-                id="photos"
+            <Label>写真添付</Label>
+            <div className="flex flex-wrap gap-2">
+              <input
+                ref={fileInputRef}
                 type="file"
                 accept="image/*"
                 multiple
-                onChange={(e) => {
-                  if (e.target.files && e.target.files.length > 0) {
-                    const fileNames = Array.from(e.target.files).map((file) => file.name)
-                    setFormData({
-                      ...formData,
-                      photos: [...formData.photos, ...fileNames],
-                    })
-                  }
-                }}
+                className="hidden"
+                onChange={handleFileChange}
               />
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handleCameraCapture}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1"
+              >
+                <Plus size={16} /> 写真を選択
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => cameraInputRef.current?.click()}
+                className="flex items-center gap-1"
+              >
+                <Camera size={16} /> カメラで撮影
+              </Button>
             </div>
             <div className="flex flex-wrap gap-2 mt-2">
-              {formData.photos.map((photo, index) => (
-                <Badge key={index} variant="outline" className="flex items-center gap-1">
+              {photoFiles.map((file, index) => (
+                <Badge key={index} variant="outline" className="flex items-center gap-1 p-1">
                   <ImageIcon className="h-3 w-3 mr-1" />
-                  {photo}
-                  <button
+                  <span className="max-w-[150px] truncate">{file.name}</span>
+                  <Button
                     type="button"
-                    className="ml-1 rounded-full hover:bg-muted p-1"
-                    onClick={() =>
-                      setFormData({
-                        ...formData,
-                        photos: formData.photos.filter((_, i) => i !== index),
-                      })
-                    }
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 w-5 p-0 ml-1"
+                    onClick={() => removePhoto(index)}
                   >
-                    ×
-                  </button>
+                    <X size={12} />
+                  </Button>
                 </Badge>
               ))}
             </div>
