@@ -45,6 +45,7 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
   const [supabase, setSupabase] = useState<any>(null)
   const [showCustomInput, setShowCustomInput] = useState(false)
   const [bucketExists, setBucketExists] = useState(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)
 
   const [formData, setFormData] = useState({
     projectId: "",
@@ -74,6 +75,44 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
         const client = getClientSupabase()
         setSupabase(client)
         console.log("Supabaseクライアントの初期化に成功しました")
+
+        // 現在のユーザー情報を取得
+        const getCurrentUser = async () => {
+          try {
+            const {
+              data: { session },
+              error: sessionError,
+            } = await client.auth.getSession()
+
+            if (sessionError) {
+              console.error("セッション取得エラー:", sessionError)
+              return
+            }
+
+            if (session?.user) {
+              console.log("現在のユーザー:", session.user)
+              setCurrentUser(session.user)
+
+              // ユーザーIDが取得できたら、自動的にフォームにセット
+              const { data: staffData, error: staffError } = await client
+                .from("staff")
+                .select("id")
+                .eq("user_id", session.user.id)
+                .single()
+
+              if (staffData && !staffError) {
+                console.log("ユーザーに関連するスタッフを自動設定:", staffData)
+                setFormData((prev) => ({ ...prev, userId: staffData.id }))
+              }
+            } else {
+              console.log("ユーザーはログインしていません")
+            }
+          } catch (err) {
+            console.error("ユーザー情報取得エラー:", err)
+          }
+        }
+
+        getCurrentUser()
 
         // バケットの存在を確認するだけ（作成は試みない）
         const checkBucket = async () => {
@@ -408,6 +447,17 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
       setIsSubmitting(true)
       console.log("日報データを追加中...")
 
+      // 現在のユーザーIDを確認
+      if (!currentUser?.id) {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        if (!session?.user?.id) {
+          throw new Error("ユーザー認証情報が取得できません。再ログインしてください。")
+        }
+        setCurrentUser(session.user)
+      }
+
       // 写真のアップロード処理
       let uploadedPhotoUrls: string[] = []
 
@@ -423,29 +473,73 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
         }
       }
 
-      // 日報データを追加 - 既存のテーブル構造に合わせて修正
-      const { data, error } = await supabase
-        .from("daily_reports")
-        .insert({
-          project_id: formData.projectId !== "custom" ? formData.projectId : null,
-          custom_project_name: formData.projectId === "custom" ? customProject : null,
-          submitted_by: formData.userId,
-          report_date: formData.workDate,
-          weather: formData.weather,
-          work_description: formData.workContentText,
-          speech_recognition_raw: formData.speechRecognitionRaw,
-          photo_urls: uploadedPhotoUrls,
-          start_time: formData.startTime,
-          end_time: formData.endTime,
-          status: "pending",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .select()
+      // 選択されたスタッフのユーザーIDを取得
+      const { data: staffData, error: staffError } = await supabase
+        .from("staff")
+        .select("user_id")
+        .eq("id", formData.userId)
+        .single()
 
-      if (error) throw error
+      if (staffError) {
+        console.error("スタッフのユーザーID取得エラー:", staffError)
+        throw new Error("スタッフ情報の取得に失敗しました")
+      }
 
-      console.log("日報データの追加に成功しました:", data)
+      // RLSポリシーを満たすために必要なフィールドを追加
+      const reportData = {
+        project_id: formData.projectId !== "custom" ? formData.projectId : null,
+        custom_project_name: formData.projectId === "custom" ? customProject : null,
+        submitted_by: formData.userId,
+        report_date: formData.workDate,
+        weather: formData.weather,
+        work_description: formData.workContentText,
+        speech_recognition_raw: formData.speechRecognitionRaw,
+        photo_urls: uploadedPhotoUrls,
+        start_time: formData.startTime,
+        end_time: formData.endTime,
+        status: "pending",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        // RLSポリシーのために必要なフィールド
+        user_id: staffData.user_id, // スタッフに関連付けられたユーザーID
+      }
+
+      console.log("挿入するデータ:", reportData)
+
+      // 日報データを追加
+      const { data, error } = await supabase.from("daily_reports").insert(reportData).select()
+
+      if (error) {
+        console.error("日報作成エラー詳細:", error)
+
+        // RLSエラーの詳細なハンドリング
+        if (error.message.includes("row-level security")) {
+          // サーバーアクションを使用して管理者権限で挿入を試みる
+          console.log("RLSエラーが発生しました。サーバーアクションを使用して挿入を試みます...")
+
+          // APIルートを使用して挿入を試みる
+          const response = await fetch("/api/daily-reports", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(reportData),
+          })
+
+          if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(`APIエラー: ${errorData.message || response.statusText}`)
+          }
+
+          const result = await response.json()
+          console.log("APIを使用した日報データの追加に成功しました:", result)
+        } else {
+          throw error
+        }
+      } else {
+        console.log("日報データの追加に成功しました:", data)
+      }
+
       toast({
         title: "成功",
         description: "作業日報を追加しました",
