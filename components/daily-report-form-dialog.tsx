@@ -240,22 +240,23 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
         }
       }
 
-      // 日報データを追加
+      // 日報データを追加 - 既存のテーブル構造に合わせて修正
       const { data, error } = await supabase
         .from("daily_reports")
         .insert({
           project_id: formData.projectId !== "custom" ? formData.projectId : null,
           custom_project_name: formData.projectId === "custom" ? customProject : null,
-          staff_id: formData.userId,
-          work_date: formData.workDate,
+          submitted_by: formData.userId,
+          report_date: formData.workDate,
           weather: formData.weather,
-          work_content: formData.workContentText,
+          work_description: formData.workContentText,
           speech_recognition_raw: formData.speechRecognitionRaw,
           photo_urls: uploadedPhotoUrls,
           start_time: formData.startTime,
           end_time: formData.endTime,
           status: "pending",
           created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         })
         .select()
 
