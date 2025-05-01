@@ -20,7 +20,6 @@ import { Badge } from "@/components/ui/badge"
 import { ImageIcon, Camera, Plus, X } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { getClientSupabase } from "@/lib/supabase-utils"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface DailyReportFormProps {
   open: boolean
@@ -32,7 +31,6 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [customProject, setCustomProject] = useState("")
-  const [selectedTab, setSelectedTab] = useState("existing")
   const [photoFiles, setPhotoFiles] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
@@ -50,6 +48,8 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
     workContentText: "",
     speechRecognitionRaw: "",
     photos: [] as string[],
+    startTime: "",
+    endTime: "",
   })
 
   // Supabaseクライアントの初期化
@@ -190,18 +190,17 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
     // 案件選択の検証
     let projectIdentifier = formData.projectId
 
-    if (selectedTab === "custom" && !customProject.trim()) {
-      toast({
-        title: "入力エラー",
-        description: "案件名を入力してください",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (selectedTab === "custom") {
+    if (formData.projectId === "custom") {
+      if (!customProject.trim()) {
+        toast({
+          title: "入力エラー",
+          description: "案件名を入力してください",
+          variant: "destructive",
+        })
+        return
+      }
       projectIdentifier = customProject
-    } else if (selectedTab === "existing" && (formData.projectId === "" || formData.projectId === "placeholder")) {
+    } else if (formData.projectId === "" || formData.projectId === "placeholder") {
       toast({
         title: "入力エラー",
         description: "案件を選択してください",
@@ -210,7 +209,13 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
       return
     }
 
-    if (!formData.userId || formData.userId === "placeholder" || !formData.workContentText) {
+    if (
+      !formData.userId ||
+      formData.userId === "placeholder" ||
+      !formData.workContentText ||
+      !formData.startTime ||
+      !formData.endTime
+    ) {
       toast({
         title: "入力エラー",
         description: "必須項目を入力してください",
@@ -227,14 +232,16 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
       const { data, error } = await supabase
         .from("daily_reports")
         .insert({
-          project_id: selectedTab === "existing" ? formData.projectId : null,
-          custom_project_name: selectedTab === "custom" ? customProject : null,
+          project_id: formData.projectId !== "custom" ? formData.projectId : null,
+          custom_project_name: formData.projectId === "custom" ? customProject : null,
           staff_id: formData.userId,
           work_date: formData.workDate,
           weather: formData.weather,
           work_content: formData.workContentText,
           speech_recognition_raw: formData.speechRecognitionRaw,
           photos: formData.photos,
+          start_time: formData.startTime,
+          end_time: formData.endTime,
           status: "pending",
           created_at: new Date().toISOString(),
         })
@@ -257,9 +264,10 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
         workContentText: "",
         speechRecognitionRaw: "",
         photos: [],
+        startTime: "",
+        endTime: "",
       })
       setCustomProject("")
-      setSelectedTab("existing")
       setPhotoFiles([])
 
       // ダイアログを閉じる
@@ -316,15 +324,19 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label>案件名 *</Label>
-              <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="existing">既存の案件から選択</TabsTrigger>
-                  <TabsTrigger value="custom">手入力</TabsTrigger>
-                </TabsList>
-                <TabsContent value="existing" className="pt-2">
+              <div className="flex gap-2">
+                <div className="flex-1">
                   <Select
                     value={formData.projectId}
-                    onValueChange={(value) => setFormData({ ...formData, projectId: value })}
+                    onValueChange={(value) => {
+                      if (value === "custom") {
+                        // Focus on the custom input when "その他" is selected
+                        setTimeout(() => document.getElementById("customProject")?.focus(), 100)
+                      } else {
+                        setFormData({ ...formData, projectId: value })
+                        setCustomProject("")
+                      }
+                    }}
                   >
                     <SelectTrigger id="projectId">
                       <SelectValue placeholder="案件を選択" />
@@ -338,17 +350,21 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
                           {deal.name}
                         </SelectItem>
                       ))}
+                      <SelectItem value="custom">その他（手入力）</SelectItem>
                     </SelectContent>
                   </Select>
-                </TabsContent>
-                <TabsContent value="custom" className="pt-2">
-                  <Input
-                    placeholder="案件名を入力"
-                    value={customProject}
-                    onChange={(e) => setCustomProject(e.target.value)}
-                  />
-                </TabsContent>
-              </Tabs>
+                </div>
+                {formData.projectId === "custom" && (
+                  <div className="flex-1">
+                    <Input
+                      id="customProject"
+                      placeholder="案件名を入力"
+                      value={customProject}
+                      onChange={(e) => setCustomProject(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
@@ -376,6 +392,26 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
                   type="date"
                   value={formData.workDate}
                   onChange={(e) => setFormData({ ...formData, workDate: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="startTime">作業開始時間 *</Label>
+                <Input
+                  id="startTime"
+                  type="time"
+                  value={formData.startTime}
+                  onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="endTime">作業終了時間 *</Label>
+                <Input
+                  id="endTime"
+                  type="time"
+                  value={formData.endTime}
+                  onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
                 />
               </div>
             </div>
