@@ -32,60 +32,28 @@ export async function POST(request: Request) {
       reportData.deal_id = null
     }
 
-    // submitted_byの処理を修正します - スタッフIDをそのまま使用するように変更
-    // submitted_byの検証 - staff_idをsubmitted_byとして使用
-    if (reportData.staff_id) {
-      // staff_idをsubmitted_byにコピー
-      reportData.submitted_by = reportData.staff_id
-      console.log("API: staff_idをsubmitted_byに設定しました:", reportData.staff_id)
+    // 現在のユーザー情報を取得
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-      // スタッフIDが実際に存在するか確認
-      try {
-        const { data: staffExists, error: staffError } = await supabase
-          .from("staff")
-          .select("id")
-          .eq("id", reportData.staff_id)
-          .single()
-
-        if (staffError || !staffExists) {
-          console.error("API: 指定されたスタッフが存在しません:", reportData.staff_id, staffError)
-          return NextResponse.json(
-            {
-              error: "指定されたスタッフIDが存在しません。有効なスタッフを選択してください。",
-              details: staffError,
-            },
-            { status: 400 },
-          )
-        }
-
-        console.log("API: スタッフの存在を確認しました:", staffExists)
-      } catch (err) {
-        console.error("API: スタッフ検証エラー:", err)
-        return NextResponse.json(
-          {
-            error: "スタッフの検証中にエラーが発生しました。もう一度お試しください。",
-          },
-          { status: 500 },
-        )
-      }
-    } else if (!reportData.submitted_by) {
-      console.error("API: submitted_byが指定されていません")
-      return NextResponse.json({ error: "登録者（submitted_by）が指定されていません。" }, { status: 400 })
+    if (userError) {
+      console.error("API: ユーザー情報の取得に失敗しました:", userError)
+      return NextResponse.json({ error: "ユーザー情報の取得に失敗しました。再ログインしてください。" }, { status: 401 })
     }
 
-    // created_byの検証
-    if (reportData.created_by) {
-      try {
-        const { data: userExists, error: userError } = await supabase.auth.admin.getUserById(reportData.created_by)
-
-        if (userError || !userExists) {
-          console.warn("API: 指定されたユーザーが存在しません:", reportData.created_by)
-          // エラーがあっても続行（サービスロールキーを使用しているため）
-        }
-      } catch (err) {
-        console.warn("API: ユーザー検証エラー:", err)
-      }
+    if (!user) {
+      console.error("API: ユーザーが認証されていません")
+      return NextResponse.json({ error: "認証されていません。ログインしてください。" }, { status: 401 })
     }
+
+    // 現在のユーザーIDをsubmitted_byとして使用
+    reportData.submitted_by = user.id
+    console.log("API: 現在のユーザーIDをsubmitted_byに設定しました:", user.id)
+
+    // created_byも設定
+    reportData.created_by = user.id
 
     // custom_project_nameの処理
     if (!reportData.custom_project_name && reportData.deal_id) {
@@ -131,6 +99,7 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error("API: 日報作成エラー:", error)
+
       return NextResponse.json(
         {
           error: `日報の作成に失敗しました: ${error.message}`,
