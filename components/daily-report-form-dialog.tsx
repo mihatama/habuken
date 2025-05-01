@@ -21,6 +21,10 @@ import { ImageIcon, Camera, Plus, X } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { getClientSupabase } from "@/lib/supabase-utils"
 
+// バケット名を定数として定義
+const STORAGE_BUCKET_NAME = "dailyreports"
+const STORAGE_FOLDER_NAME = "daily_report_photos"
+
 interface DailyReportFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -40,6 +44,7 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
   const [error, setError] = useState<string | null>(null)
   const [supabase, setSupabase] = useState<any>(null)
   const [showCustomInput, setShowCustomInput] = useState(false)
+  const [bucketExists, setBucketExists] = useState(false)
 
   const [formData, setFormData] = useState({
     projectId: "",
@@ -69,6 +74,37 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
         const client = getClientSupabase()
         setSupabase(client)
         console.log("Supabaseクライアントの初期化に成功しました")
+
+        // バケットの存在を確認
+        const checkBucket = async () => {
+          try {
+            const { data: buckets, error } = await client.storage.listBuckets()
+
+            if (error) {
+              console.error("バケット一覧取得エラー:", error)
+              return
+            }
+
+            // バケットが存在するか確認
+            const exists = buckets?.some((bucket) => bucket.name === STORAGE_BUCKET_NAME)
+            setBucketExists(exists)
+
+            if (!exists) {
+              console.warn(`${STORAGE_BUCKET_NAME}バケットが存在しません。`)
+              toast({
+                title: "警告",
+                description: "写真保存用のストレージが設定されていません。管理者に連絡してください。",
+                variant: "warning",
+              })
+            } else {
+              console.log(`${STORAGE_BUCKET_NAME}バケットが存在します`)
+            }
+          } catch (err) {
+            console.error("バケット確認エラー:", err)
+          }
+        }
+
+        checkBucket()
       } catch (err) {
         console.error("Supabaseクライアントの初期化に失敗しました:", err)
         setError("システム設定に問題があります。管理者にお問い合わせください。")
@@ -167,6 +203,52 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
     }
   }
 
+  // 写真をアップロードする関数
+  const uploadPhotos = async (files: File[]): Promise<string[]> => {
+    if (!bucketExists || files.length === 0) {
+      return []
+    }
+
+    const uploadedUrls: string[] = []
+
+    for (const file of files) {
+      try {
+        // ファイル名を生成
+        const fileExt = file.name.split(".").pop()
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`
+        const filePath = `${STORAGE_FOLDER_NAME}/${fileName}`
+
+        // ファイルをアップロード
+        const { error: uploadError } = await supabase.storage.from(STORAGE_BUCKET_NAME).upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        })
+
+        if (uploadError) {
+          console.error("写真のアップロードエラー:", uploadError)
+          toast({
+            title: "警告",
+            description: `写真「${file.name}」のアップロードに失敗しました。`,
+            variant: "warning",
+          })
+          continue // エラーがあっても次の写真を処理
+        }
+
+        // 公開URLを取得
+        const { data: urlData } = supabase.storage.from(STORAGE_BUCKET_NAME).getPublicUrl(filePath)
+
+        if (urlData?.publicUrl) {
+          uploadedUrls.push(urlData.publicUrl)
+          console.log(`写真をアップロードしました: ${urlData.publicUrl}`)
+        }
+      } catch (err) {
+        console.error(`写真「${file.name}」のアップロード中にエラーが発生しました:`, err)
+      }
+    }
+
+    return uploadedUrls
+  }
+
   const handleSubmit = async () => {
     if (!supabase) {
       toast({
@@ -216,27 +298,17 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
       console.log("日報データを追加中...")
 
       // 写真のアップロード処理
-      const uploadedPhotoUrls: string[] = []
+      let uploadedPhotoUrls: string[] = []
 
       if (photoFiles.length > 0) {
-        for (const file of photoFiles) {
-          const fileExt = file.name.split(".").pop()
-          const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`
-          const filePath = `daily_report_photos/${fileName}`
-
-          const { error: uploadError, data } = await supabase.storage.from("daily_reports").upload(filePath, file)
-
-          if (uploadError) {
-            console.error("写真のアップロードエラー:", uploadError)
-            throw uploadError
-          }
-
-          // 公開URLを取得
-          const { data: urlData } = supabase.storage.from("daily_reports").getPublicUrl(filePath)
-
-          if (urlData?.publicUrl) {
-            uploadedPhotoUrls.push(urlData.publicUrl)
-          }
+        if (!bucketExists) {
+          toast({
+            title: "警告",
+            description: "写真保存用のストレージが設定されていません。写真なしで保存します。",
+            variant: "warning",
+          })
+        } else {
+          uploadedPhotoUrls = await uploadPhotos(photoFiles)
         }
       }
 
@@ -449,6 +521,11 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
             </div>
             <div className="grid gap-2">
               <Label>写真添付</Label>
+              {!bucketExists && (
+                <div className="text-amber-500 text-sm mb-2">
+                  ※ 写真保存用のストレージが設定されていません。写真は保存されません。
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 <input
                   ref={fileInputRef}
