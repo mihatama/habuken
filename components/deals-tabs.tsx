@@ -20,11 +20,17 @@ export function DealsTabs() {
       icon: "📅",
       current: pathname === "/deals/calendar",
     },
+    {
+      name: "案件登録",
+      href: "/deals/register",
+      icon: "✏️",
+      current: pathname === "/deals/register",
+    },
   ]
 
   return (
     <div className="border rounded-lg overflow-hidden mb-6">
-      <div className="grid grid-cols-2">
+      <div className="grid grid-cols-3">
         {tabs.map((tab) => (
           <Link
             key={tab.name}
