@@ -2,13 +2,15 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Textarea } from "@/components/ui/textarea"
-import { sampleProjects } from "@/data/sample-data"
 import { format } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
-import { X, ChevronDown, ChevronUp } from "lucide-react"
+import { X, ChevronDown, ChevronUp, Mic, MicOff } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { getClientSupabase } from "@/lib/supabase-utils"
+import { useSpeechRecognition } from "@/hooks/use-speech-recognition"
 
 // チェックリスト項目の型定義
 type ChecklistItem = {
@@ -23,6 +25,7 @@ type ChecklistItem = {
 // フォームデータの型定義
 type FormData = {
   projectId: string
+  customProjectName: string // カスタムプロジェクト名を追加
   inspectorId: string
   inspectionDate: string
   checklistItems: ChecklistItem[]
@@ -174,6 +177,7 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
   // 状態管理
   const [formData, setFormData] = useState<FormData>({
     projectId: "",
+    customProjectName: "",
     inspectorId: "",
     inspectionDate: format(new Date(), "yyyy-MM-dd"),
     checklistItems: checklistItems,
@@ -183,14 +187,174 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({})
+  const [deals, setDeals] = useState<any[]>([])
+  const [staff, setStaff] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [supabase, setSupabase] = useState<any>(null)
+  const [showCustomInput, setShowCustomInput] = useState(false)
   const { toast } = useToast()
 
-  // 巡視者のサンプルデータ
-  const inspectors = [
-    { id: "1", name: "山田 太郎" },
-    { id: "2", name: "佐藤 次郎" },
-    { id: "3", name: "鈴木 三郎" },
-  ]
+  const { isRecording, activeId, startRecording, stopRecording } = useSpeechRecognition()
+
+  // 音声入力の処理
+  const handleVoiceInput = (id: string) => {
+    if (isRecording && activeId === id) {
+      stopRecording()
+    } else {
+      startRecording(id, (text) => {
+        updateChecklistItemComment(id, formData.checklistItems.find((item) => item.id === id)?.comment + text)
+      })
+    }
+  }
+
+  // 総合コメント用の音声入力処理
+  const handleGeneralCommentVoiceInput = () => {
+    const generalCommentId = "general-comment"
+    if (isRecording && activeId === generalCommentId) {
+      stopRecording()
+    } else {
+      startRecording(generalCommentId, (text) => {
+        setFormData((prev) => ({ ...prev, comment: prev.comment + text }))
+      })
+    }
+  }
+
+  // Supabaseクライアントの初期化
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        console.log("Supabaseクライアントを初期化中...")
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+        if (!supabaseUrl || !supabaseAnonKey) {
+          console.error("Supabase環境変数が設定されていません")
+          throw new Error("システム設定に問題があります")
+        }
+
+        const client = getClientSupabase()
+        setSupabase(client)
+        console.log("Supabaseクライアントの初期化に成功しました")
+
+        // 現在のユーザー情報を取得
+        const getCurrentUser = async () => {
+          try {
+            const {
+              data: { user },
+              error: userError,
+            } = await client.auth.getUser()
+
+            if (userError) {
+              console.error("ユーザー取得エラー:", userError)
+              return
+            }
+
+            if (user) {
+              console.log("現在のユーザー:", user)
+
+              // ユーザーIDが取得できたら、自動的にフォームにセット
+              const { data: staffData, error: staffError } = await client
+                .from("staff")
+                .select("id")
+                .eq("user_id", user.id)
+                .single()
+
+              if (staffData && !staffError) {
+                console.log("ユーザーに関連するスタッフを自動設定:", staffData)
+                setFormData((prev) => ({ ...prev, inspectorId: staffData.id }))
+              }
+            } else {
+              console.log("ユーザーはログインしていません")
+            }
+          } catch (err) {
+            console.error("ユーザー情報取得エラー:", err)
+          }
+        }
+
+        getCurrentUser()
+      } catch (err) {
+        console.error("Supabaseクライアントの初期化に失敗しました:", err)
+        setError("システム設定に問題があります。管理者にお問い合わせください。")
+        toast({
+          title: "エラー",
+          description: "システム設定に問題があります。管理者にお問い合わせください。",
+          variant: "destructive",
+        })
+      }
+    }
+  }, [toast])
+
+  // データの取得
+  useEffect(() => {
+    async function fetchData() {
+      if (!supabase) return // supabaseクライアントがない場合は何もしない
+
+      try {
+        setLoading(true)
+        console.log("データの取得を開始します...")
+
+        // 案件データを取得
+        console.log("案件データを取得中...")
+        const { data: dealsData, error: dealsError } = await supabase
+          .from("deals")
+          .select("*")
+          .order("created_at", { ascending: false })
+
+        if (dealsError) {
+          console.error("案件データの取得エラー:", dealsError)
+          throw dealsError
+        }
+
+        console.log("取得した案件データ:", dealsData)
+        setDeals(dealsData || [])
+
+        // スタッフデータを取得
+        console.log("スタッフデータを取得中...")
+        const { data: staffData, error: staffError } = await supabase
+          .from("staff")
+          .select("*")
+          .order("full_name", { ascending: true })
+
+        if (staffError) {
+          console.error("スタッフ取得エラー:", staffError)
+          throw staffError
+        }
+
+        console.log("取得したスタッフデータ:", staffData)
+        setStaff(staffData || [])
+
+        // スタッフデータ取得後に追加するコード
+        // 現在選択されているスタッフIDが有効かどうか確認
+        if (formData.inspectorId) {
+          const staffExists = staffData?.some((s) => s.id === formData.inspectorId)
+          if (!staffExists) {
+            console.warn("選択されているスタッフIDが存在しません:", formData.inspectorId)
+            // 無効なスタッフIDをリセット
+            setFormData((prev) => ({ ...prev, inspectorId: "" }))
+
+            // 最初のスタッフを自動選択（オプション）
+            if (staffData && staffData.length > 0) {
+              console.log("最初のスタッフを自動選択します:", staffData[0].id)
+              setFormData((prev) => ({ ...prev, inspectorId: staffData[0].id }))
+            }
+          }
+        }
+      } catch (err: any) {
+        console.error("データ取得中にエラーが発生しました:", err)
+        setError(err.message || "データの取得に失敗しました")
+        toast({
+          title: "エラー",
+          description: "データの取得に失敗しました: " + (err.message || "不明なエラー"),
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [supabase, toast, formData.inspectorId])
 
   // チェックリスト項目のステータス更新
   const updateChecklistItemStatus = (id: string, status: "good" | "caution" | "danger") => {
@@ -218,6 +382,17 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
     setExpandedItems((prev) => ({ ...prev, [id]: !prev[id] }))
   }
 
+  // 案件選択の処理
+  const handleProjectChange = (value: string) => {
+    setFormData({ ...formData, projectId: value })
+    setShowCustomInput(value === "custom")
+    if (value === "custom") {
+      setTimeout(() => document.getElementById("customProjectName")?.focus(), 100)
+    } else {
+      setFormData((prev) => ({ ...prev, customProjectName: "" }))
+    }
+  }
+
   // 入力フィールドの変更を処理
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -242,19 +417,71 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
     setIsSubmitting(true)
 
     try {
+      // 案件選択の検証
+      if (formData.projectId === "custom") {
+        if (!formData.customProjectName.trim()) {
+          toast({
+            title: "入力エラー",
+            description: "案件名を入力してください",
+            variant: "destructive",
+          })
+          setIsSubmitting(false)
+          return
+        }
+      } else if (formData.projectId === "" || formData.projectId === "placeholder") {
+        toast({
+          title: "入力エラー",
+          description: "案件を選択してください",
+          variant: "destructive",
+        })
+        setIsSubmitting(false)
+        return
+      }
+
+      if (!formData.inspectorId || formData.inspectorId === "placeholder") {
+        toast({
+          title: "入力エラー",
+          description: "巡視者を選択してください",
+          variant: "destructive",
+        })
+        setIsSubmitting(false)
+        return
+      }
+
       // ここでAPIに送信する処理を実装
       console.log("送信データ:", formData)
 
-      // 送信データを整形
-      const selectedProject = sampleProjects.find((p) => p.id.toString() === formData.projectId)
-      const selectedInspector = inspectors.find((i) => i.id === formData.inspectorId)
+      // 選択した案件名を取得
+      let projectName = null
+      if (formData.projectId !== "custom" && formData.projectId !== "" && formData.projectId !== "placeholder") {
+        const selectedDeal = deals.find((deal) => deal.id === formData.projectId)
+        if (selectedDeal) {
+          projectName = selectedDeal.name
+        }
+      } else if (formData.projectId === "custom") {
+        projectName = formData.customProjectName
+      }
 
+      // 選択したスタッフIDからスタッフ情報を取得
+      const selectedStaff = staff.find((s) => s.id === formData.inspectorId)
+      if (!selectedStaff) {
+        toast({
+          title: "エラー",
+          description: "選択したスタッフ情報が見つかりません。別のスタッフを選択してください。",
+          variant: "destructive",
+        })
+        setIsSubmitting(false)
+        return
+      }
+
+      // 送信データを整形
       const submittedData = {
         id: Date.now().toString(), // 一時的なID
-        projectId: formData.projectId,
-        projectName: selectedProject?.name || "不明なプロジェクト",
+        projectId: formData.projectId === "custom" ? null : formData.projectId,
+        projectName: projectName || "不明なプロジェクト",
+        customProjectName: formData.projectId === "custom" ? formData.customProjectName : null,
         inspectorId: formData.inspectorId,
-        inspectorName: selectedInspector?.name || "不明な巡視者",
+        inspectorName: selectedStaff?.full_name || "不明な巡視者",
         inspectionDate: formData.inspectionDate,
         checklistItems: formData.checklistItems,
         comment: formData.comment,
@@ -298,6 +525,21 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
     }
   }
 
+  // エラーがある場合はエラーメッセージを表示
+  if (error) {
+    return (
+      <div className="bg-white p-6 rounded-lg shadow-sm max-w-2xl mx-auto">
+        <div className="py-6 text-center text-red-500">
+          <p>{error}</p>
+          <p className="mt-4">ページを再読み込みしてもう一度お試しください。</p>
+        </div>
+        <div className="flex justify-end">
+          <Button onClick={() => window.location.reload()}>ページを再読み込み</Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="bg-white p-6 rounded-lg shadow-sm max-w-2xl mx-auto max-h-[90vh] flex flex-col">
       <div className="flex justify-between items-center mb-4">
@@ -307,210 +549,263 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
-        <div className="space-y-4 mb-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="projectId" className="block text-sm font-medium text-gray-700 mb-1">
-                対象工事 <span className="text-red-500">*</span>
-              </label>
-              <select
-                id="projectId"
-                name="projectId"
-                value={formData.projectId}
-                onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              >
-                <option value="">工事を選択</option>
-                {sampleProjects.map((project) => (
-                  <option key={project.id} value={project.id.toString()}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="inspectorId" className="block text-sm font-medium text-gray-700 mb-1">
-                巡視者 <span className="text-red-500">*</span>
-              </label>
-              <select
-                id="inspectorId"
-                name="inspectorId"
-                value={formData.inspectorId}
-                onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              >
-                <option value="">巡視者を選択</option>
-                {inspectors.map((inspector) => (
-                  <option key={inspector.id} value={inspector.id}>
-                    {inspector.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="inspectionDate" className="block text-sm font-medium text-gray-700 mb-1">
-              巡視日 <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="date"
-              id="inspectionDate"
-              name="inspectionDate"
-              value={formData.inspectionDate}
-              onChange={handleInputChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
+      {loading ? (
+        <div className="py-8 text-center">
+          <p>データを読み込み中...</p>
         </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+          <div className="space-y-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label htmlFor="projectId" className="block text-sm font-medium text-gray-700">
+                  案件名 <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="projectId"
+                  value={formData.projectId}
+                  onChange={(e) => handleProjectChange(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="placeholder" disabled>
+                    案件を選択してください
+                  </option>
+                  {deals.map((deal: any) => (
+                    <option key={`deal-${deal.id}`} value={deal.id}>
+                      {deal.name}
+                    </option>
+                  ))}
+                  <option value="custom">その他（手入力）</option>
+                </select>
 
-        <div className="flex-1 overflow-hidden flex flex-col">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">チェックリスト</h3>
-          <div className="border rounded-md flex-1 overflow-hidden flex flex-col">
-            <div className="p-4 overflow-y-auto flex-1">
-              {categories.map((category) => (
-                <div key={category} className="space-y-3 mb-6">
-                  <h4 className="font-medium text-sm border-b pb-1 sticky top-0 bg-white z-10">{category}</h4>
-                  <div className="space-y-4">
-                    {formData.checklistItems
-                      .filter((item) => item.category === category)
-                      .map((item) => (
-                        <div key={item.id} className={`rounded-md ${getStatusBgColor(item.status)} p-2`}>
-                          <div className="flex items-center justify-between">
-                            <div className="w-64 text-sm flex items-center">
-                              <span>{item.name}</span>
-                              {item.isEco && (
-                                <span className="ml-2 text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full">
-                                  エコ
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <button
-                                type="button"
-                                onClick={() => updateChecklistItemStatus(item.id, "good")}
-                                className={`flex items-center px-2 py-1 rounded-md transition-colors ${
-                                  item.status === "good" ? "bg-green-200 border border-green-300" : "hover:bg-gray-100"
-                                }`}
-                              >
-                                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-green-500 text-white text-xs">
-                                  ○
-                                </span>
-                                <span className="ml-1 text-xs">良好</span>
-                              </button>
+                {showCustomInput && (
+                  <Input
+                    id="customProjectName"
+                    placeholder="案件名を入力"
+                    value={formData.customProjectName}
+                    onChange={(e) => setFormData({ ...formData, customProjectName: e.target.value })}
+                  />
+                )}
+              </div>
 
-                              <button
-                                type="button"
-                                onClick={() => updateChecklistItemStatus(item.id, "caution")}
-                                className={`flex items-center px-2 py-1 rounded-md transition-colors ${
-                                  item.status === "caution"
-                                    ? "bg-yellow-200 border border-yellow-300"
-                                    : "hover:bg-gray-100"
-                                }`}
-                              >
-                                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-yellow-500 text-white text-xs">
-                                  △
-                                </span>
-                                <span className="ml-1 text-xs">注意</span>
-                              </button>
+              <div>
+                <label htmlFor="inspectorId" className="block text-sm font-medium text-gray-700 mb-1">
+                  巡視者 <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="inspectorId"
+                  name="inspectorId"
+                  value={formData.inspectorId}
+                  onChange={handleInputChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="placeholder" disabled>
+                    巡視者を選択してください
+                  </option>
+                  {staff.map((s: any) => (
+                    <option key={s.id} value={s.id}>
+                      {s.full_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-                              <button
-                                type="button"
-                                onClick={() => updateChecklistItemStatus(item.id, "danger")}
-                                className={`flex items-center px-2 py-1 rounded-md transition-colors ${
-                                  item.status === "danger" ? "bg-red-200 border border-red-300" : "hover:bg-gray-100"
-                                }`}
-                              >
-                                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white text-xs">
-                                  ○
-                                </span>
-                                <span className="ml-1 text-xs">危険</span>
-                              </button>
+            <div>
+              <label htmlFor="inspectionDate" className="block text-sm font-medium text-gray-700 mb-1">
+                巡視日 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                id="inspectionDate"
+                name="inspectionDate"
+                value={formData.inspectionDate}
+                onChange={handleInputChange}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+          </div>
 
-                              <button
-                                type="button"
-                                onClick={() => toggleCommentField(item.id)}
-                                className="ml-2 text-gray-500 hover:text-gray-700"
-                              >
-                                {expandedItems[item.id] ? (
-                                  <ChevronUp className="h-4 w-4" />
-                                ) : (
-                                  <ChevronDown className="h-4 w-4" />
+          <div className="flex-1 overflow-hidden flex flex-col">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">チェックリスト</h3>
+            <div className="border rounded-md flex-1 overflow-hidden flex flex-col">
+              <div className="p-4 overflow-y-auto flex-1">
+                {categories.map((category) => (
+                  <div key={category} className="space-y-3 mb-6">
+                    <h4 className="font-medium text-sm border-b pb-1 sticky top-0 bg-white z-10">{category}</h4>
+                    <div className="space-y-4">
+                      {formData.checklistItems
+                        .filter((item) => item.category === category)
+                        .map((item) => (
+                          <div key={item.id} className={`rounded-md ${getStatusBgColor(item.status)} p-2`}>
+                            <div className="flex items-center justify-between">
+                              <div className="w-64 text-sm flex items-center">
+                                <span>{item.name}</span>
+                                {item.isEco && (
+                                  <span className="ml-2 text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full">
+                                    エコ
+                                  </span>
                                 )}
-                              </button>
-                            </div>
-                          </div>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  type="button"
+                                  onClick={() => updateChecklistItemStatus(item.id, "good")}
+                                  className={`flex items-center px-2 py-1 rounded-md transition-colors ${
+                                    item.status === "good"
+                                      ? "bg-green-200 border border-green-300"
+                                      : "hover:bg-gray-100"
+                                  }`}
+                                >
+                                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-green-500 text-white text-xs">
+                                    ○
+                                  </span>
+                                  <span className="ml-1 text-xs">良好</span>
+                                </button>
 
-                          {expandedItems[item.id] && (
-                            <div className="mt-2">
-                              <Textarea
-                                value={item.comment}
-                                onChange={(e) => updateChecklistItemComment(item.id, e.target.value)}
-                                placeholder="コメントを入力してください"
-                                className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 min-h-[60px] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              />
+                                <button
+                                  type="button"
+                                  onClick={() => updateChecklistItemStatus(item.id, "caution")}
+                                  className={`flex items-center px-2 py-1 rounded-md transition-colors ${
+                                    item.status === "caution"
+                                      ? "bg-yellow-200 border border-yellow-300"
+                                      : "hover:bg-gray-100"
+                                  }`}
+                                >
+                                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-yellow-500 text-white text-xs">
+                                    △
+                                  </span>
+                                  <span className="ml-1 text-xs">注意</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => updateChecklistItemStatus(item.id, "danger")}
+                                  className={`flex items-center px-2 py-1 rounded-md transition-colors ${
+                                    item.status === "danger" ? "bg-red-200 border border-red-300" : "hover:bg-gray-100"
+                                  }`}
+                                >
+                                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white text-xs">
+                                    ○
+                                  </span>
+                                  <span className="ml-1 text-xs">危険</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => toggleCommentField(item.id)}
+                                  className="ml-2 text-gray-500 hover:text-gray-700"
+                                >
+                                  {expandedItems[item.id] ? (
+                                    <ChevronUp className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4" />
+                                  )}
+                                </button>
+                              </div>
                             </div>
-                          )}
-                        </div>
-                      ))}
+
+                            {expandedItems[item.id] && (
+                              <div className="mt-2 relative">
+                                <Textarea
+                                  value={item.comment}
+                                  onChange={(e) => updateChecklistItemComment(item.id, e.target.value)}
+                                  placeholder="コメントを入力してください"
+                                  className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 min-h-[60px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleVoiceInput(item.id)}
+                                  className={`absolute right-2 bottom-2 p-1 rounded-full ${
+                                    isRecording && activeId === item.id
+                                      ? "bg-red-100 text-red-500"
+                                      : "bg-gray-100 text-gray-500"
+                                  }`}
+                                >
+                                  {isRecording && activeId === item.id ? (
+                                    <MicOff className="h-4 w-4" />
+                                  ) : (
+                                    <Mic className="h-4 w-4" />
+                                  )}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="space-y-4 mt-4">
-          <div>
-            <label htmlFor="comment" className="block text-sm font-medium text-gray-700 mb-1">
-              総合コメント
-            </label>
-            <Textarea
-              id="comment"
-              name="comment"
-              value={formData.comment}
-              onChange={handleInputChange}
-              placeholder="指摘事項や改善点などを入力してください"
-              className="w-full border border-gray-300 rounded-md px-3 py-2 min-h-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">写真添付</label>
-            {formData.photoFile ? (
-              <div className="flex items-center justify-between border rounded-md p-2">
-                <span className="text-sm truncate">{formData.photoFile.name}</span>
-                <button type="button" onClick={removeFile} className="text-gray-500 hover:text-gray-700">
-                  <X className="h-4 w-4" />
+          <div className="space-y-4 mt-4">
+            <div>
+              <label htmlFor="comment" className="block text-sm font-medium text-gray-700 mb-1">
+                総合コメント
+              </label>
+              <div className="relative">
+                <Textarea
+                  id="comment"
+                  name="comment"
+                  value={formData.comment}
+                  onChange={handleInputChange}
+                  placeholder="指摘事項や改善点などを入力してください"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 min-h-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleGeneralCommentVoiceInput}
+                  className={`absolute right-2 bottom-2 p-1 rounded-full ${
+                    isRecording && activeId === "general-comment"
+                      ? "bg-red-100 text-red-500"
+                      : "bg-gray-100 text-gray-500"
+                  }`}
+                >
+                  {isRecording && activeId === "general-comment" ? (
+                    <MicOff className="h-4 w-4" />
+                  ) : (
+                    <Mic className="h-4 w-4" />
+                  )}
                 </button>
               </div>
-            ) : (
-              <div className="border border-dashed border-gray-300 rounded-md p-4">
-                <input type="file" id="photoFile" accept="image/*" onChange={handleFileChange} className="hidden" />
-                <label htmlFor="photoFile" className="flex flex-col items-center justify-center cursor-pointer">
-                  <span className="text-sm text-gray-500">ファイルは選択されていません</span>
-                  <span className="mt-1 text-sm text-blue-500">ファイルを選択</span>
-                </label>
-              </div>
-            )}
-          </div>
+            </div>
 
-          <div className="flex justify-end">
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="bg-black text-white px-4 py-2 rounded-md hover:bg-gray-800"
-            >
-              {isSubmitting ? "保存中..." : "保存"}
-            </Button>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">写真添付</label>
+              {formData.photoFile ? (
+                <div className="flex items-center justify-between border rounded-md p-2">
+                  <span className="text-sm truncate">{formData.photoFile.name}</span>
+                  <button type="button" onClick={removeFile} className="text-gray-500 hover:text-gray-700">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="border border-dashed border-gray-300 rounded-md p-4">
+                  <input type="file" id="photoFile" accept="image/*" onChange={handleFileChange} className="hidden" />
+                  <label htmlFor="photoFile" className="flex flex-col items-center justify-center cursor-pointer">
+                    <span className="text-sm text-gray-500">ファイルは選択されていません</span>
+                    <span className="mt-1 text-sm text-blue-500">ファイルを選択</span>
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="bg-black text-white px-4 py-2 rounded-md hover:bg-gray-800"
+              >
+                {isSubmitting ? "保存中..." : "保存"}
+              </Button>
+            </div>
           </div>
-        </div>
-      </form>
+        </form>
+      )}
     </div>
   )
 }
