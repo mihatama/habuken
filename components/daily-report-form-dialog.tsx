@@ -26,10 +26,103 @@ import { useSpeechRecognition } from "@/hooks/use-speech-recognition"
 const STORAGE_BUCKET_NAME = "dailyreports"
 const STORAGE_FOLDER_NAME = "private/daily_report_photos"
 
+// 画像圧縮の設定
+const IMAGE_COMPRESSION_SETTINGS = {
+  maxWidth: 1200,
+  maxHeight: 1200,
+  quality: 0.75, // JPEG品質 (0-1)
+}
+
 interface DailyReportFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess?: () => void
+}
+
+// 画像圧縮用のユーティリティ関数
+async function compressImage(file: File): Promise<{ file: File; originalSize: number; compressedSize: number }> {
+  return new Promise((resolve, reject) => {
+    const originalSize = file.size
+    const reader = new FileReader()
+
+    reader.onload = (readerEvent) => {
+      const img = new Image()
+
+      img.onload = () => {
+        // 画像のサイズを計算
+        let width = img.width
+        let height = img.height
+
+        // 最大サイズを超える場合はリサイズ
+        if (width > IMAGE_COMPRESSION_SETTINGS.maxWidth || height > IMAGE_COMPRESSION_SETTINGS.maxHeight) {
+          const ratio = Math.min(
+            IMAGE_COMPRESSION_SETTINGS.maxWidth / width,
+            IMAGE_COMPRESSION_SETTINGS.maxHeight / height,
+          )
+          width = Math.floor(width * ratio)
+          height = Math.floor(height * ratio)
+        }
+
+        // Canvasに描画して圧縮
+        const canvas = document.createElement("canvas")
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext("2d")
+
+        if (!ctx) {
+          reject(new Error("Canvas context could not be created"))
+          return
+        }
+
+        ctx.drawImage(img, 0, 0, width, height)
+
+        // 画像形式を決定（元の形式を維持するが、基本的にJPEGを推奨）
+        const mimeType = file.type === "image/png" ? "image/png" : "image/jpeg"
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("Blob could not be created"))
+              return
+            }
+
+            // 新しいファイル名を生成（元のファイル名を維持しつつ、圧縮されたことを示す）
+            const fileName = file.name.replace(/(\.[^.]+)$/, (match) => `-compressed${match}`)
+
+            // 新しいFileオブジェクトを作成
+            const compressedFile = new File([blob], fileName, {
+              type: mimeType,
+              lastModified: Date.now(),
+            })
+
+            resolve({
+              file: compressedFile,
+              originalSize,
+              compressedSize: compressedFile.size,
+            })
+          },
+          mimeType,
+          IMAGE_COMPRESSION_SETTINGS.quality,
+        )
+      }
+
+      img.onerror = () => {
+        reject(new Error("Failed to load image"))
+      }
+
+      if (typeof readerEvent.target?.result === "string") {
+        img.src = readerEvent.target.result
+      } else {
+        reject(new Error("Failed to read file"))
+      }
+    }
+
+    reader.onerror = () => {
+      reject(new Error("Failed to read file"))
+    }
+
+    reader.readAsDataURL(file)
+  })
 }
 
 export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyReportFormProps) {
@@ -37,6 +130,8 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [customProject, setCustomProject] = useState("")
   const [photoFiles, setPhotoFiles] = useState<File[]>([])
+  const [photoSizes, setPhotoSizes] = useState<{ [key: string]: { original: number; compressed: number } }>({})
+  const [isCompressing, setIsCompressing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const [deals, setDeals] = useState<any[]>([])
@@ -324,23 +419,98 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
     fetchData()
   }, [supabase, open, toast, formData.userId])
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const newFiles = Array.from(e.target.files)
-      setPhotoFiles((prevFiles) => [...prevFiles, ...newFiles])
+  // 画像を圧縮して追加する関数
+  const processAndAddImages = async (files: File[]) => {
+    if (files.length === 0) return
+
+    setIsCompressing(true)
+
+    try {
+      const compressedResults = await Promise.all(
+        files.map(async (file) => {
+          // 画像ファイルのみ圧縮
+          if (file.type.startsWith("image/")) {
+            try {
+              return await compressImage(file)
+            } catch (err) {
+              console.error(`画像「${file.name}」の圧縮に失敗しました:`, err)
+              // 圧縮に失敗した場合は元のファイルを使用
+              return { file, originalSize: file.size, compressedSize: file.size }
+            }
+          } else {
+            // 画像以外のファイルはそのまま
+            return { file, originalSize: file.size, compressedSize: file.size }
+          }
+        }),
+      )
+
+      // 圧縮結果を保存
+      const newPhotoSizes = { ...photoSizes }
+      compressedResults.forEach(({ file, originalSize, compressedSize }) => {
+        newPhotoSizes[file.name] = { original: originalSize, compressed: compressedSize }
+      })
+      setPhotoSizes(newPhotoSizes)
+
+      // 圧縮された画像をセット
+      const compressedFiles = compressedResults.map((result) => result.file)
+      setPhotoFiles((prevFiles) => [...prevFiles, ...compressedFiles])
+
+      // 圧縮率の高い画像があれば通知
+      const significantCompressions = compressedResults.filter(
+        ({ originalSize, compressedSize }) => (originalSize - compressedSize) / originalSize > 0.5,
+      )
+
+      if (significantCompressions.length > 0) {
+        const totalOriginal = significantCompressions.reduce((sum, { originalSize }) => sum + originalSize, 0)
+        const totalCompressed = significantCompressions.reduce((sum, { compressedSize }) => sum + compressedSize, 0)
+        const savingsPercent = Math.round(((totalOriginal - totalCompressed) / totalOriginal) * 100)
+
+        toast({
+          title: "画像を最適化しました",
+          description: `${significantCompressions.length}枚の画像を約${savingsPercent}%圧縮しました`,
+          variant: "default",
+        })
+      }
+    } catch (err) {
+      console.error("画像処理中にエラーが発生しました:", err)
+      toast({
+        title: "警告",
+        description: "一部の画像の処理に失敗しました。元のサイズで追加します。",
+        variant: "warning",
+      })
+    } finally {
+      setIsCompressing(false)
     }
   }
 
-  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const newFiles = Array.from(e.target.files)
-      setPhotoFiles((prevFiles) => [...prevFiles, ...newFiles])
+      await processAndAddImages(newFiles)
+    }
+  }
+
+  const handleCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files)
+      await processAndAddImages(newFiles)
     }
   }
 
   const removePhoto = (index: number) => {
     setPhotoFiles((prevFiles) => {
       const updatedFiles = [...prevFiles]
+      const removedFile = updatedFiles[index]
+
+      // 削除されたファイルのサイズ情報も削除
+      if (removedFile) {
+        setPhotoSizes((prev) => {
+          const updated = { ...prev }
+          delete updated[removedFile.name]
+          return updated
+        })
+      }
+
       updatedFiles.splice(index, 1)
       return updatedFiles
     })
@@ -660,6 +830,7 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
     })
     setCustomProject("")
     setPhotoFiles([])
+    setPhotoSizes({})
     setShowCustomInput(false)
   }
 
@@ -673,6 +844,17 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
 
     setSpeechSupported(isSpeechRecognitionSupported)
   }, [])
+
+  // ファイルサイズを読みやすい形式に変換する関数
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return "0 B"
+
+    const k = 1024
+    const sizes = ["B", "KB", "MB", "GB"]
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+
+    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
+  }
 
   // エラーがある場合はエラーメッセージを表示
   if (error) {
@@ -875,9 +1057,9 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
                   size="sm"
                   onClick={() => fileInputRef.current?.click()}
                   className="flex items-center gap-1"
-                  disabled={!bucketExists}
+                  disabled={!bucketExists || isCompressing}
                 >
-                  <Plus size={16} /> 写真を選択
+                  {isCompressing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus size={16} />} 写真を選択
                 </Button>
                 <Button
                   type="button"
@@ -885,16 +1067,29 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
                   size="sm"
                   onClick={() => cameraInputRef.current?.click()}
                   className="flex items-center gap-1"
-                  disabled={!bucketExists}
+                  disabled={!bucketExists || isCompressing}
                 >
-                  <Camera size={16} /> カメラで撮影
+                  {isCompressing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Camera size={16} />}{" "}
+                  カメラで撮影
                 </Button>
               </div>
+              {isCompressing && (
+                <div className="text-sm text-blue-600 animate-pulse mt-2">写真を最適化中... しばらくお待ちください</div>
+              )}
               <div className="flex flex-wrap gap-2 mt-2">
                 {photoFiles.map((file, index) => (
                   <Badge key={index} variant="outline" className="flex items-center gap-1 p-1">
                     <ImageIcon className="h-3 w-3 mr-1" />
                     <span className="max-w-[150px] truncate">{file.name}</span>
+                    {photoSizes[file.name] && photoSizes[file.name].original !== photoSizes[file.name].compressed && (
+                      <span className="text-xs text-green-600 ml-1">
+                        {formatFileSize(photoSizes[file.name].compressed)}
+                        <span className="text-gray-400 ml-1">
+                          ({Math.round((1 - photoSizes[file.name].compressed / photoSizes[file.name].original) * 100)}%
+                          削減)
+                        </span>
+                      </span>
+                    )}
                     <Button
                       type="button"
                       variant="ghost"
@@ -911,7 +1106,7 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
           </div>
         )}
         <DialogFooter>
-          <Button onClick={handleSubmit} disabled={isSubmitting || loading}>
+          <Button onClick={handleSubmit} disabled={isSubmitting || loading || isCompressing}>
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 保存中...
