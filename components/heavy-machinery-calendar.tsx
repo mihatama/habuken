@@ -39,22 +39,24 @@ export function HeavyMachineryCalendar() {
       if (machineryError) throw machineryError
       setMachinery(machineryData || [])
 
-      // 重機予約テーブルの存在確認
-      const { error: tableCheckError } = await supabase
-        .from("machinery_reservations")
-        .select("count(*)")
-        .limit(1)
-        .single()
+      try {
+        // 重機予約テーブルの存在確認
+        const { error: tableCheckError } = await supabase.from("machinery_reservations").select("count(*)").limit(1)
 
-      // テーブルが存在しない場合
-      if (tableCheckError && tableCheckError.message.includes("does not exist")) {
+        // テーブルが存在する場合は予約データを取得
+        if (!tableCheckError) {
+          await fetchReservations()
+        } else {
+          // テーブルが存在しない場合
+          console.log("重機予約テーブルが存在しません。テーブルを作成します。")
+          setError("重機予約テーブルが存在しません。テーブルを作成してください。")
+          setIsTableCreationDialogOpen(true)
+        }
+      } catch (tableError) {
+        console.error("テーブル確認エラー:", tableError)
         setError("重機予約テーブルが存在しません。テーブルを作成してください。")
         setIsTableCreationDialogOpen(true)
-        return
       }
-
-      // 予約データを取得
-      await fetchReservations()
     } catch (error) {
       console.error("データ取得エラー:", error)
       setError("データの取得に失敗しました")
@@ -73,28 +75,34 @@ export function HeavyMachineryCalendar() {
     try {
       setIsCreatingTable(true)
 
-      const { error } = await supabase.rpc("create_machinery_reservations_table")
+      // 直接SQLを実行してテーブルを作成
+      const { error: sqlError } = await supabase.rpc("exec_sql", {
+        sql_query: `
+        CREATE TABLE IF NOT EXISTS machinery_reservations (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          machinery_id UUID NOT NULL,
+          title TEXT NOT NULL,
+          start_date TIMESTAMP WITH TIME ZONE NOT NULL,
+          end_date TIMESTAMP WITH TIME ZONE NOT NULL,
+          project_name TEXT,
+          notes TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `,
+      })
 
-      if (error) {
-        // RPCが存在しない場合は直接SQLを実行
-        const { error: sqlError } = await supabase.supabase.rpc("exec_sql", {
-          sql_query: `
-            CREATE TABLE IF NOT EXISTS machinery_reservations (
-              id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-              machinery_id UUID REFERENCES heavy_machinery(id) ON DELETE CASCADE,
-              title TEXT NOT NULL,
-              start_date TIMESTAMP WITH TIME ZONE NOT NULL,
-              end_date TIMESTAMP WITH TIME ZONE NOT NULL,
-              project_name TEXT,
-              notes TEXT,
-              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-              updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-            );
-          `,
+      if (sqlError) {
+        // RPCが存在しない場合は別の方法でテーブルを作成
+        console.error("テーブル作成エラー (RPC):", sqlError)
+
+        // 代替方法: サーバーサイドAPIを使用してテーブルを作成
+        const response = await fetch("/api/create-machinery-table", {
+          method: "POST",
         })
 
-        if (sqlError) {
-          throw sqlError
+        if (!response.ok) {
+          throw new Error("APIによるテーブル作成に失敗しました")
         }
       }
 
@@ -109,7 +117,7 @@ export function HeavyMachineryCalendar() {
       console.error("テーブル作成エラー:", error)
       toast({
         title: "エラー",
-        description: "テーブルの作成に失敗しました",
+        description: "テーブルの作成に失敗しました。管理者に連絡してください。",
         variant: "destructive",
       })
     } finally {
@@ -123,34 +131,78 @@ export function HeavyMachineryCalendar() {
       setLoading(true)
       setError(null)
 
-      const { data, error } = await supabase
-        .from("machinery_reservations")
-        .select("*, heavy_machinery(name, type)")
-        .order("start_date", { ascending: true })
+      // テーブルの存在確認
+      try {
+        const { data: reservationsData, error: reservationsError } = await supabase
+          .from("machinery_reservations")
+          .select("*")
+          .order("start_date", { ascending: true })
 
-      if (error) throw error
+        if (reservationsError) {
+          // テーブルが存在しない場合
+          if (reservationsError.message.includes("does not exist")) {
+            setError("重機予約テーブルが存在しません。テーブルを作成してください。")
+            setIsTableCreationDialogOpen(true)
+            return
+          }
+          throw reservationsError
+        }
 
-      // イベントデータをカレンダー形式に変換
-      const formattedEvents = (data || []).map((reservation) => ({
-        id: reservation.id,
-        title: `${reservation.title} (${reservation.heavy_machinery?.name || "不明"})`,
-        start: new Date(reservation.start_date),
-        end: new Date(reservation.end_date),
-        machinery_id: reservation.machinery_id,
-        project_name: reservation.project_name,
-        notes: reservation.notes,
-        category: "machinery",
-        description: reservation.notes || "",
-      }))
+        // 予約データを取得した後、重機IDのリストを作成
+        const machineryIds = [...new Set(reservationsData.map((r) => r.machinery_id))].filter(Boolean)
 
-      setEvents(formattedEvents)
+        // 重機データを別途取得
+        let machineryMap = {}
+        if (machineryIds.length > 0) {
+          const { data: machineryData, error: machineryError } = await supabase
+            .from("heavy_machinery")
+            .select("id, name, type")
+            .in("id", machineryIds)
 
-      // イベントが取得できた場合は成功メッセージを表示
-      if (data && data.length > 0) {
-        toast({
-          title: "データ読み込み完了",
-          description: `${data.length}件の重機予約を読み込みました`,
-        })
+          if (machineryError) throw machineryError
+
+          // 重機データをマップ形式に変換
+          machineryMap = (machineryData || []).reduce((acc, item) => {
+            acc[item.id] = item
+            return acc
+          }, {})
+        }
+
+        // 予約データと重機データを結合
+        const data = reservationsData.map((reservation) => ({
+          ...reservation,
+          heavy_machinery: machineryMap[reservation.machinery_id] || { name: "不明", type: "不明" },
+        }))
+
+        // イベントデータをカレンダー形式に変換
+        const formattedEvents = (data || []).map((reservation) => ({
+          id: reservation.id,
+          title: `${reservation.title} (${reservation.heavy_machinery?.name || "不明"})`,
+          start: new Date(reservation.start_date),
+          end: new Date(reservation.end_date),
+          machinery_id: reservation.machinery_id,
+          project_name: reservation.project_name,
+          notes: reservation.notes,
+          category: "machinery",
+          description: reservation.notes || "",
+        }))
+
+        setEvents(formattedEvents)
+
+        // イベントが取得できた場合は成功メッセージを表示
+        if (data && data.length > 0) {
+          toast({
+            title: "データ読み込み完了",
+            description: `${data.length}件の重機予約を読み込みました`,
+          })
+        }
+      } catch (error) {
+        if (error.message && error.message.includes("does not exist")) {
+          setError("重機予約テーブルが存在しません。テーブルを作成してください。")
+          setIsTableCreationDialogOpen(true)
+          return
+        }
+        throw error
       }
     } catch (error) {
       console.error("予約データ取得エラー:", error)
@@ -185,7 +237,7 @@ export function HeavyMachineryCalendar() {
       // タイトルがない場合は重機名をタイトルにする
       const title = event.title || `${machineryName}の予約`
 
-      const { data, error } = await supabase
+      const { data: insertedData, error: insertError } = await supabase
         .from("machinery_reservations")
         .insert({
           machinery_id: event.machinery_id,
@@ -196,6 +248,18 @@ export function HeavyMachineryCalendar() {
           notes: event.description || null,
         })
         .select()
+
+      if (insertError) throw insertError
+
+      // 挿入されたデータに重機情報を追加
+      const data = insertedData.map((item) => ({
+        ...item,
+        heavy_machinery: selectedMachinery
+          ? { name: selectedMachinery.name, type: selectedMachinery.type }
+          : { name: "不明", type: "不明" },
+      }))
+
+      const error = null
 
       if (error) throw error
 
@@ -316,10 +380,18 @@ export function HeavyMachineryCalendar() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>重機カレンダー</CardTitle>
-        <Button onClick={() => fetchReservations()} disabled={loading}>
-          {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          更新
-        </Button>
+        <div className="flex space-x-2">
+          {error && error.includes("テーブルが存在しません") && (
+            <Button onClick={() => setIsTableCreationDialogOpen(true)} disabled={isCreatingTable}>
+              {isCreatingTable ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+              テーブルを作成
+            </Button>
+          )}
+          <Button onClick={() => fetchReservations()} disabled={loading}>
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            更新
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {/* テーブル作成ダイアログ */}
