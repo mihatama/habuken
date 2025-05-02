@@ -33,20 +33,51 @@ export function HeavyMachineryCostAnalysis() {
 
       if (machineryError) throw machineryError
 
-      // 使用実績データを取得（例：予約テーブルから）
-      // 注：実際のテーブル名やカラム名は環境に合わせて変更してください
-      const { data: usageData, error: usageError } = await supabase
-        .from("machinery_reservations")
-        .select("*")
-        .order("start_date", { ascending: false })
-        .limit(100)
+      // 案件に紐づく重機の使用実績データを取得
+      // deal_machineryとdealsテーブルを結合して日付情報を取得
+      const { data: machineryUsageData, error: usageError } = await supabase
+        .from("deal_machinery")
+        .select(`
+          id,
+          machinery_id,
+          deal:deal_id (
+            id,
+            name,
+            start_date,
+            end_date
+          )
+        `)
+        .not("deal.start_date", "is", null)
+        .not("deal.end_date", "is", null)
 
-      // 使用実績テーブルがない場合はダミーデータを使用
-      const finalUsageData =
-        usageError || !usageData || usageData.length === 0 ? generateDummyUsageData(machineryData || []) : usageData
+      if (usageError) {
+        console.error("使用実績データの取得エラー:", usageError)
+        // エラー発生時はダミーデータを使用
+        const dummyData = generateDummyUsageData(machineryData || [])
+        setMachinery(machineryData || [])
+        setUsageData(dummyData)
+        return
+      }
+
+      // 使用実績データを整形
+      const formattedUsageData =
+        machineryUsageData?.map((item) => ({
+          id: item.id,
+          machinery_id: item.machinery_id,
+          project_name: item.deal?.name || "不明なプロジェクト",
+          start_date: item.deal?.start_date,
+          end_date: item.deal?.end_date,
+          days:
+            item.deal?.start_date && item.deal?.end_date
+              ? Math.ceil(
+                  (new Date(item.deal.end_date).getTime() - new Date(item.deal.start_date).getTime()) /
+                    (1000 * 60 * 60 * 24),
+                ) + 1
+              : 0,
+        })) || []
 
       setMachinery(machineryData || [])
-      setUsageData(finalUsageData)
+      setUsageData(formattedUsageData.length > 0 ? formattedUsageData : generateDummyUsageData(machineryData || []))
     } catch (error) {
       console.error("データの取得に失敗しました:", error)
       toast({
@@ -54,12 +85,21 @@ export function HeavyMachineryCostAnalysis() {
         description: "データの取得に失敗しました",
         variant: "destructive",
       })
+
+      // エラー発生時もダミーデータを使用
+      const { data: machineryData } = await supabase
+        .from("heavy_machinery")
+        .select("*")
+        .order("name", { ascending: true })
+      const dummyData = generateDummyUsageData(machineryData || [])
+      setMachinery(machineryData || [])
+      setUsageData(dummyData)
     } finally {
       setIsLoading(false)
     }
   }
 
-  // ダミーの使用実績データを生成（実際の環境では削除してください）
+  // ダミーの使用実績データを生成（データがない場合のフォールバック）
   function generateDummyUsageData(machineryList: any[]) {
     const today = new Date()
     const dummyData: any[] = []
@@ -102,19 +142,16 @@ export function HeavyMachineryCostAnalysis() {
       return {
         ...machine,
         totalUsageDays: 0,
-        totalCost: 0,
-        optimalCost: 0,
-        savings: 0,
+        totalDailyOnlyCost: 0,
+        totalOptimalCost: 0,
+        totalSavings: 0,
         usageDetails: [],
       }
     }
 
     // 使用実績ごとのコスト計算
     const usageDetails = machineUsage.map((usage) => {
-      const days =
-        usage.days ||
-        Math.ceil((new Date(usage.end_date).getTime() - new Date(usage.start_date).getTime()) / (1000 * 60 * 60 * 24)) +
-          1
+      const days = usage.days || 0
 
       const costAnalysis = calculateOptimalCost(days, machine.daily_rate, machine.weekly_rate, machine.monthly_rate)
 
@@ -276,7 +313,9 @@ export function HeavyMachineryCostAnalysis() {
                 ))}
 
               {!machineryAnalysis.some((m) => m.usageDetails?.length > 0) && (
-                <div className="text-center py-4 text-muted-foreground">使用実績データがありません</div>
+                <div className="text-center py-4 text-muted-foreground">
+                  使用実績データがありません。案件に重機が割り当てられていないか、日付が設定されていません。
+                </div>
               )}
             </div>
           </>

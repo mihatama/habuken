@@ -2,41 +2,34 @@
 
 import { useState, useEffect, useCallback } from "react"
 
-interface UseSpeechRecognitionReturn {
-  isRecording: boolean
-  activeId: number | null
-  startRecording: (id: number, onResult: (text: string) => void) => void
-  stopRecording: () => void
+interface UseSpeechRecognitionProps {
+  onResult: (text: string) => void
 }
 
-export function useSpeechRecognition(): UseSpeechRecognitionReturn {
+export const useSpeechRecognition = () => {
   const [isRecording, setIsRecording] = useState(false)
   const [activeId, setActiveId] = useState<number | null>(null)
   const [recognition, setRecognition] = useState<any>(null)
 
-  // Initialize speech recognition
   useEffect(() => {
-    if (typeof window !== "undefined" && "webkitSpeechRecognition" in window) {
-      const SpeechRecognition = window.webkitSpeechRecognition
-      const newRecognition = new SpeechRecognition()
-      newRecognition.continuous = true
-      newRecognition.interimResults = true
-      newRecognition.lang = "ja-JP"
-      setRecognition(newRecognition)
-    }
-
-    return () => {
-      if (recognition) {
-        recognition.stop()
+    if (typeof window !== "undefined") {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+      if (SpeechRecognition) {
+        const rec = new SpeechRecognition()
+        rec.continuous = false
+        rec.interimResults = false
+        rec.lang = "ja-JP"
+        setRecognition(rec)
+      } else {
+        console.warn("Speech Recognition API is not supported in this browser.")
       }
     }
   }, [])
 
-  // Start recording
   const startRecording = useCallback(
     (id: number, onResult: (text: string) => void) => {
       if (!recognition) {
-        console.warn("Speech recognition is not supported in this browser")
+        console.warn("Speech Recognition not initialized.")
         return
       }
 
@@ -45,44 +38,36 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
 
       recognition.onresult = (event: any) => {
         const transcript = Array.from(event.results)
-          .map((result: any) => result[0].transcript)
+          .map((result) => result[0].transcript)
           .join("")
-
-        if (event.results[0].isFinal) {
-          onResult(transcript)
-        }
+        onResult(transcript)
+        setIsRecording(false)
+        setActiveId(null)
       }
 
       recognition.onerror = (event: any) => {
-        console.error("Speech recognition error", event.error)
+        console.error("Recognition error:", event.error)
         setIsRecording(false)
         setActiveId(null)
       }
 
       recognition.onend = () => {
-        if (isRecording) {
-          recognition.start()
-        }
+        setIsRecording(false)
+        setActiveId(null)
       }
 
       recognition.start()
     },
-    [recognition, isRecording],
+    [recognition],
   )
 
-  // Stop recording
   const stopRecording = useCallback(() => {
-    if (recognition) {
+    if (recognition && isRecording) {
       recognition.stop()
+      setIsRecording(false)
+      setActiveId(null)
     }
-    setIsRecording(false)
-    setActiveId(null)
-  }, [recognition])
+  }, [recognition, isRecording])
 
-  return {
-    isRecording,
-    activeId,
-    startRecording,
-    stopRecording,
-  }
+  return { isRecording, activeId, startRecording, stopRecording }
 }

@@ -33,20 +33,51 @@ export function VehicleCostAnalysis() {
 
       if (vehicleError) throw vehicleError
 
-      // 使用実績データを取得（例：予約テーブルから）
-      // 注：実際のテーブル名やカラム名は環境に合わせて変更してください
-      const { data: usageData, error: usageError } = await supabase
-        .from("vehicle_reservations")
-        .select("*")
-        .order("start_date", { ascending: false })
-        .limit(100)
+      // 案件に紐づく車両の使用実績データを取得
+      // deal_vehiclesとdealsテーブルを結合して日付情報を取得
+      const { data: vehicleUsageData, error: usageError } = await supabase
+        .from("deal_vehicles")
+        .select(`
+          id,
+          vehicle_id,
+          deal:deal_id (
+            id,
+            name,
+            start_date,
+            end_date
+          )
+        `)
+        .not("deal.start_date", "is", null)
+        .not("deal.end_date", "is", null)
 
-      // 使用実績テーブルがない場合はダミーデータを使用
-      const finalUsageData =
-        usageError || !usageData || usageData.length === 0 ? generateDummyUsageData(vehicleData || []) : usageData
+      if (usageError) {
+        console.error("使用実績データの取得エラー:", usageError)
+        // エラー発生時はダミーデータを使用
+        const dummyData = generateDummyUsageData(vehicleData || [])
+        setVehicles(vehicleData || [])
+        setUsageData(dummyData)
+        return
+      }
+
+      // 使用実績データを整形
+      const formattedUsageData =
+        vehicleUsageData?.map((item) => ({
+          id: item.id,
+          vehicle_id: item.vehicle_id,
+          project_name: item.deal?.name || "不明なプロジェクト",
+          start_date: item.deal?.start_date,
+          end_date: item.deal?.end_date,
+          days:
+            item.deal?.start_date && item.deal?.end_date
+              ? Math.ceil(
+                  (new Date(item.deal.end_date).getTime() - new Date(item.deal.start_date).getTime()) /
+                    (1000 * 60 * 60 * 24),
+                ) + 1
+              : 0,
+        })) || []
 
       setVehicles(vehicleData || [])
-      setUsageData(finalUsageData)
+      setUsageData(formattedUsageData.length > 0 ? formattedUsageData : generateDummyUsageData(vehicleData || []))
     } catch (error) {
       console.error("データの取得に失敗しました:", error)
       toast({
@@ -54,12 +85,18 @@ export function VehicleCostAnalysis() {
         description: "データの取得に失敗しました",
         variant: "destructive",
       })
+
+      // エラー発生時もダミーデータを使用
+      const { data: vehicleData } = await supabase.from("vehicles").select("*").order("name", { ascending: true })
+      const dummyData = generateDummyUsageData(vehicleData || [])
+      setVehicles(vehicleData || [])
+      setUsageData(dummyData)
     } finally {
       setIsLoading(false)
     }
   }
 
-  // ダミーの使用実績データを生成（実際の環境では削除してください）
+  // ダミーの使用実績データを生成（データがない場合のフォールバック）
   function generateDummyUsageData(vehicleList: any[]) {
     const today = new Date()
     const dummyData: any[] = []
@@ -102,19 +139,16 @@ export function VehicleCostAnalysis() {
       return {
         ...vehicle,
         totalUsageDays: 0,
-        totalCost: 0,
-        optimalCost: 0,
-        savings: 0,
+        totalDailyOnlyCost: 0,
+        totalOptimalCost: 0,
+        totalSavings: 0,
         usageDetails: [],
       }
     }
 
     // 使用実績ごとのコスト計算
     const usageDetails = vehicleUsage.map((usage) => {
-      const days =
-        usage.days ||
-        Math.ceil((new Date(usage.end_date).getTime() - new Date(usage.start_date).getTime()) / (1000 * 60 * 60 * 24)) +
-          1
+      const days = usage.days || 0
 
       const costAnalysis = calculateOptimalCost(days, vehicle.daily_rate, vehicle.weekly_rate, vehicle.monthly_rate)
 
@@ -276,7 +310,9 @@ export function VehicleCostAnalysis() {
                 ))}
 
               {!vehicleAnalysis.some((v) => v.usageDetails?.length > 0) && (
-                <div className="text-center py-4 text-muted-foreground">使用実績データがありません</div>
+                <div className="text-center py-4 text-muted-foreground">
+                  使用実績データがありません。案件に車両が割り当てられていないか、日付が設定されていません。
+                </div>
               )}
             </div>
           </>

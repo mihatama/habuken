@@ -58,14 +58,14 @@
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.6",
     "zod": "latest",
-    "@supabase/supabase-js": "latest",
     "@tanstack/react-query": "latest",
-    "@supabase/auth-helpers-nextjs": "latest",
-    "react-big-calendar": "latest",
-    "moment": "latest",
+    "@supabase/supabase-js": "latest",
     "@tanstack/react-table": "latest",
     "uuid": "latest",
-    "@tanstack/react-query-devtools": "latest"
+    "@tanstack/react-query-devtools": "latest",
+    "@supabase/auth-helpers-nextjs": "latest",
+    "react-big-calendar": "latest",
+    "moment": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

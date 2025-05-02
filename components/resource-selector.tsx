@@ -52,7 +52,9 @@ export function ResourceSelector({
 
         switch (resourceType) {
           case "staff":
-            ;({ data, error } = await supabase.from("staff").select("*"))
+            ;({ data, error } = await supabase
+              .from("staff")
+              .select("id, full_name, position, department, phone, email, status"))
             break
           case "machinery":
             ;({ data, error } = await supabase.from("heavy_machinery").select("*"))
