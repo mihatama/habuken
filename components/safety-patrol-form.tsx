@@ -8,11 +8,11 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Badge } from "@/components/ui/badge"
-import { ImageIcon, AlertTriangle } from "lucide-react"
+import { AlertTriangle, Mic, MicOff } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useQuery } from "@tanstack/react-query"
 import { fetchClientData, insertClientData, getClientSupabase } from "@/lib/supabase-utils"
+import { useSpeechRecognition } from "@/hooks/use-speech-recognition"
 
 interface SafetyPatrolFormProps {
   open: boolean
@@ -37,13 +37,11 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [tableExists, setTableExists] = useState<boolean | null>(null)
 
-  const [customProject, setCustomProject] = useState("")
-  const [showCustomInput, setShowCustomInput] = useState(false)
-
   const [formData, setFormData] = useState({
     projectId: "",
     inspectorId: "",
     patrolDate: new Date().toISOString().split("T")[0],
+    patrolTime: new Date().toTimeString().split(" ")[0].substring(0, 5),
     checklistJson: {
       machines: "good",
       protectiveGear: "good",
@@ -54,9 +52,34 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
       fire: "good",
       signage: "good",
     },
+    checklistComments: {
+      machines: "",
+      protectiveGear: "",
+      waste: "",
+      noise: "",
+      scaffolding: "",
+      electricity: "",
+      fire: "",
+      signage: "",
+    },
     comment: "",
-    photos: [] as string[],
+    photos: [] as Array<{
+      file?: File
+      preview: string
+      name: string
+    }>,
+    location: {
+      latitude: null as number | null,
+      longitude: null as number | null,
+      accuracy: null as number | null,
+    },
+    weather: "",
   })
+  const [customProject, setCustomProject] = useState("")
+  const [showCustomInput, setShowCustomInput] = useState(false)
+
+  // 音声認識フックを使用
+  const { isRecording, activeId, startRecording, stopRecording } = useSpeechRecognition()
 
   // Check if safety_patrols table exists
   useEffect(() => {
@@ -99,6 +122,70 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
     },
   })
 
+  // 位置情報を取得
+  useEffect(() => {
+    if (open && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setFormData({
+            ...formData,
+            location: {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+            },
+          })
+        },
+        (error) => {
+          console.error("位置情報の取得に失敗しました:", error)
+        },
+      )
+    }
+  }, [open])
+
+  const handleProjectChange = (value: string) => {
+    setFormData({ ...formData, projectId: value })
+    setShowCustomInput(value === "custom")
+    if (value === "custom") {
+      setTimeout(() => document.getElementById("customProject")?.focus(), 100)
+    } else {
+      setCustomProject("")
+    }
+  }
+
+  // 音声入力を開始する関数
+  const handleStartVoiceInput = (id: number) => {
+    if (isRecording && activeId === id) {
+      stopRecording()
+      return
+    }
+
+    startRecording(id, (text) => {
+      // 音声認識結果を適切なフィールドに設定
+      if (id === 0) {
+        // メインコメント欄
+        setFormData((prev) => ({
+          ...prev,
+          comment: prev.comment ? `${prev.comment} ${text}` : text,
+        }))
+      } else {
+        // チェックリスト項目のコメント欄
+        const itemId = checklistItems[id - 1]?.id
+        if (itemId) {
+          setFormData((prev) => ({
+            ...prev,
+            checklistComments: {
+              ...prev.checklistComments,
+              [itemId]: prev.checklistComments[itemId as keyof typeof prev.checklistComments]
+                ? `${prev.checklistComments[itemId as keyof typeof prev.checklistComments]} ${text}`
+                : text,
+            },
+          }))
+        }
+      }
+    })
+  }
+
   const handleSubmit = async () => {
     // 案件選択の検証
     if (formData.projectId === "custom") {
@@ -110,7 +197,7 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
         })
         return
       }
-    } else if (formData.projectId === "" || formData.projectId === "placeholder") {
+    } else if (!formData.projectId || formData.projectId === "placeholder") {
       toast({
         title: "入力エラー",
         description: "案件を選択してください",
@@ -119,10 +206,10 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
       return
     }
 
-    if (!formData.inspectorId) {
+    if (!formData.inspectorId || formData.inspectorId === "placeholder") {
       toast({
         title: "入力エラー",
-        description: "必須項目を入力してください",
+        description: "巡視者を選択してください",
         variant: "destructive",
       })
       return
@@ -137,29 +224,36 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
       return
     }
 
-    // 選択した案件名を取得
-    let projectName = null
-    if (formData.projectId !== "custom" && formData.projectId !== "" && formData.projectId !== "placeholder") {
-      const selectedProject = projects.find((project) => project.id === formData.projectId)
-      if (selectedProject) {
-        projectName = selectedProject.name
-      }
-    } else if (formData.projectId === "custom") {
-      projectName = customProject
-    }
-
     try {
       setIsSubmitting(true)
 
+      // 選択した案件名を取得
+      let projectName = null
+      let projectId = null
+
+      if (formData.projectId !== "custom" && formData.projectId !== "" && formData.projectId !== "placeholder") {
+        projectId = formData.projectId
+        const selectedProject = projects.find((project: any) => project.id === formData.projectId)
+        if (selectedProject) {
+          projectName = selectedProject.name
+        }
+      } else if (formData.projectId === "custom") {
+        projectName = customProject
+      }
+
       // 安全パトロールデータを追加
       await insertClientData("safety_patrols", {
-        project_id: formData.projectId !== "custom" ? formData.projectId : null,
-        custom_project_name: formData.projectId === "custom" ? customProject : null,
+        project_id: projectId,
+        custom_project_name: projectId ? null : projectName,
         inspector_id: formData.inspectorId,
         patrol_date: formData.patrolDate,
+        patrol_time: formData.patrolTime,
         checklist_json: formData.checklistJson,
+        checklist_comments_json: formData.checklistComments,
         comment: formData.comment,
-        photos: formData.photos,
+        photos: formData.photos.map((p) => p.name),
+        location_json: formData.location,
+        weather: formData.weather,
         status: "pending",
         created_at: new Date().toISOString(),
       })
@@ -174,6 +268,7 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
         projectId: "",
         inspectorId: "",
         patrolDate: new Date().toISOString().split("T")[0],
+        patrolTime: new Date().toTimeString().split(" ")[0].substring(0, 5),
         checklistJson: {
           machines: "good",
           protectiveGear: "good",
@@ -184,9 +279,27 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
           fire: "good",
           signage: "good",
         },
+        checklistComments: {
+          machines: "",
+          protectiveGear: "",
+          waste: "",
+          noise: "",
+          scaffolding: "",
+          electricity: "",
+          fire: "",
+          signage: "",
+        },
         comment: "",
         photos: [],
+        location: {
+          latitude: null,
+          longitude: null,
+          accuracy: null,
+        },
+        weather: "",
       })
+      setCustomProject("")
+      setShowCustomInput(false)
 
       // ダイアログを閉じる
       onOpenChange(false)
@@ -207,9 +320,16 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
     }
   }
 
+  // ダイアログが閉じられるときに音声認識を停止
+  useEffect(() => {
+    if (!open && isRecording) {
+      stopRecording()
+    }
+  }, [open, isRecording, stopRecording])
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>安全・環境巡視日誌の作成</DialogTitle>
         </DialogHeader>
@@ -237,18 +357,7 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
               <div className="grid gap-2">
                 <Label>案件名 *</Label>
                 <div className="space-y-2">
-                  <Select
-                    value={formData.projectId}
-                    onValueChange={(value) => {
-                      setFormData({ ...formData, projectId: value })
-                      setShowCustomInput(value === "custom")
-                      if (value === "custom") {
-                        setTimeout(() => document.getElementById("customProject")?.focus(), 100)
-                      } else {
-                        setCustomProject("")
-                      }
-                    }}
-                  >
+                  <Select value={formData.projectId} onValueChange={handleProjectChange}>
                     <SelectTrigger id="projectId">
                       <SelectValue placeholder="案件を選択" />
                     </SelectTrigger>
@@ -297,19 +406,45 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
                 </Select>
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="patrolDate">巡視日 *</Label>
+                <Input
+                  id="patrolDate"
+                  type="date"
+                  value={formData.patrolDate}
+                  onChange={(e) => setFormData({ ...formData, patrolDate: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="patrolTime">巡視時間</Label>
+                <Input
+                  id="patrolTime"
+                  type="time"
+                  value={formData.patrolTime}
+                  onChange={(e) => setFormData({ ...formData, patrolTime: e.target.value })}
+                />
+              </div>
+            </div>
             <div className="grid gap-2">
-              <Label htmlFor="patrolDate">巡視日 *</Label>
-              <Input
-                id="patrolDate"
-                type="date"
-                value={formData.patrolDate}
-                onChange={(e) => setFormData({ ...formData, patrolDate: e.target.value })}
-              />
+              <Label htmlFor="weather">天候</Label>
+              <Select value={formData.weather} onValueChange={(value) => setFormData({ ...formData, weather: value })}>
+                <SelectTrigger id="weather">
+                  <SelectValue placeholder="天候を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sunny">晴れ</SelectItem>
+                  <SelectItem value="cloudy">曇り</SelectItem>
+                  <SelectItem value="rainy">雨</SelectItem>
+                  <SelectItem value="snowy">雪</SelectItem>
+                  <SelectItem value="windy">強風</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-4">
               <Label>チェックリスト</Label>
-              <div className="border rounded-md p-4 grid gap-4">
-                {checklistItems.map((item) => (
+              <div className="border rounded-md p-4 grid gap-6">
+                {checklistItems.map((item, index) => (
                   <div key={item.id} className="grid gap-2">
                     <Label htmlFor={item.id}>{item.label}</Label>
                     <RadioGroup
@@ -345,59 +480,156 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
                         </Label>
                       </div>
                     </RadioGroup>
+
+                    {/* チェックリスト項目ごとのコメント欄 */}
+                    <div className="relative mt-2">
+                      <Textarea
+                        id={`comment-${item.id}`}
+                        placeholder={`${item.label}に関するコメントを入力`}
+                        value={(formData.checklistComments as any)[item.id]}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            checklistComments: {
+                              ...formData.checklistComments,
+                              [item.id]: e.target.value,
+                            },
+                          })
+                        }
+                        className="min-h-[60px] pr-10"
+                      />
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant={isRecording && activeId === index + 1 ? "destructive" : "ghost"}
+                        className="absolute right-2 top-2 h-8 w-8"
+                        onClick={() => handleStartVoiceInput(index + 1)}
+                        aria-label={isRecording && activeId === index + 1 ? "音声入力停止" : "音声入力開始"}
+                      >
+                        {isRecording && activeId === index + 1 ? (
+                          <MicOff className="h-4 w-4" />
+                        ) : (
+                          <Mic className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="comment">コメント</Label>
-              <Textarea
-                id="comment"
-                value={formData.comment}
-                onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
-                placeholder="指摘事項や改善点などを入力してください"
-                className="min-h-[100px]"
-              />
+              <Label htmlFor="comment">総合コメント</Label>
+              <div className="relative">
+                <Textarea
+                  id="comment"
+                  value={formData.comment}
+                  onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
+                  placeholder="指摘事項や改善点などを入力してください"
+                  className="min-h-[100px] pr-10"
+                />
+                <Button
+                  type="button"
+                  size="icon"
+                  variant={isRecording && activeId === 0 ? "destructive" : "ghost"}
+                  className="absolute right-2 top-2 h-8 w-8"
+                  onClick={() => handleStartVoiceInput(0)}
+                  aria-label={isRecording && activeId === 0 ? "音声入力停止" : "音声入力開始"}
+                >
+                  {isRecording && activeId === 0 ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                </Button>
+              </div>
+              {isRecording && (
+                <div className="text-sm text-blue-600 animate-pulse flex items-center">
+                  <Mic className="h-3 w-3 mr-1" />
+                  音声入力中...
+                </div>
+              )}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="photos">写真添付</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="photos"
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files.length > 0) {
-                      const fileNames = Array.from(e.target.files).map((file) => file.name)
-                      setFormData({
-                        ...formData,
-                        photos: [...formData.photos, ...fileNames],
-                      })
-                    }
-                  }}
-                />
-              </div>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {formData.photos.map((photo, index) => (
-                  <Badge key={index} variant="outline" className="flex items-center gap-1">
-                    <ImageIcon className="h-3 w-3 mr-1" />
-                    {photo}
-                    <button
-                      type="button"
-                      className="ml-1 rounded-full hover:bg-muted p-1"
-                      onClick={() =>
+              <div className="flex flex-wrap gap-2">
+                <div className="flex gap-2">
+                  <Input
+                    id="photos"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        const newPhotos = Array.from(e.target.files).map((file) => ({
+                          file,
+                          preview: URL.createObjectURL(file),
+                          name: file.name,
+                        }))
                         setFormData({
                           ...formData,
-                          photos: formData.photos.filter((_, i) => i !== index),
+                          photos: [...formData.photos, ...newPhotos],
                         })
                       }
-                    >
-                      ×
-                    </button>
-                  </Badge>
-                ))}
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      const input = document.createElement("input")
+                      input.type = "file"
+                      input.accept = "image/*"
+                      input.capture = "environment"
+                      input.onchange = (e) => {
+                        const target = e.target as HTMLInputElement
+                        if (target.files && target.files.length > 0) {
+                          const file = target.files[0]
+                          const newPhoto = {
+                            file,
+                            preview: URL.createObjectURL(file),
+                            name: file.name,
+                          }
+                          setFormData({
+                            ...formData,
+                            photos: [...formData.photos, newPhoto],
+                          })
+                        }
+                      }
+                      input.click()
+                    }}
+                  >
+                    カメラで撮影
+                  </Button>
+                </div>
               </div>
+
+              {formData.photos.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  {formData.photos.map((photo, index) => (
+                    <div key={index} className="relative border rounded-md overflow-hidden">
+                      <img
+                        src={photo.preview || "/placeholder.svg"}
+                        alt={`写真 ${index + 1}`}
+                        className="w-full h-24 object-cover"
+                      />
+                      <button
+                        type="button"
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
+                        onClick={() => {
+                          const newPhotos = [...formData.photos]
+                          if (newPhotos[index].preview) {
+                            URL.revokeObjectURL(newPhotos[index].preview)
+                          }
+                          newPhotos.splice(index, 1)
+                          setFormData({
+                            ...formData,
+                            photos: newPhotos,
+                          })
+                        }}
+                      >
+                        ×
+                      </button>
+                      <div className="p-1 text-xs truncate bg-white/80 absolute bottom-0 w-full">{photo.name}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
