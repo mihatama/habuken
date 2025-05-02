@@ -9,7 +9,10 @@ import { getClientSupabase } from "@/lib/supabase-utils"
 import { useToast } from "@/components/ui/use-toast"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
-import { ImageIcon, FileText, Calendar, Clock, CloudSun, Search } from "lucide-react"
+import { ImageIcon, FileText, Calendar, Clock, CloudSun, Search, RefreshCw, Filter } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export function DailyWorkReportList() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -21,6 +24,8 @@ export function DailyWorkReportList() {
   const [searchTerm, setSearchTerm] = useState("")
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState("all") // "all", "pending", "approved"
+  const [sortBy, setSortBy] = useState("newest") // "newest", "oldest"
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const fetchReports = async () => {
     try {
@@ -31,13 +36,15 @@ export function DailyWorkReportList() {
       const { data: reportsData, error: reportsError } = await supabase
         .from("daily_reports")
         .select("*")
-        .order("created_at", { ascending: false })
+        .order("created_at", { ascending: sortBy === "oldest" })
 
-      if (reportsError) throw reportsError
+      if (reportsError) {
+        console.error("日報データの取得エラー:", reportsError)
+        throw reportsError
+      }
 
-      // デバッグ用ログを追加
-      console.log("取得した日報データの件数:", reportsData?.length || 0)
-      console.log("最新の日報データ:", reportsData?.[0])
+      console.log(`取得した日報データ: ${reportsData?.length || 0}件`)
+      setReports(reportsData || [])
 
       // スタッフデータを取得
       const { data: staffData, error: staffError } = await supabase.from("staff").select("id, full_name")
@@ -74,8 +81,6 @@ export function DailyWorkReportList() {
         dealsMapping[deal.id] = deal.name
       })
 
-      console.log("取得した日報データ:", reportsData)
-      setReports(reportsData || [])
       setStaffMap(staffMapping)
       setDealsMap(dealsMapping)
     } catch (err: any) {
@@ -88,12 +93,18 @@ export function DailyWorkReportList() {
       })
     } finally {
       setLoading(false)
+      setIsRefreshing(false)
     }
   }
 
   useEffect(() => {
     fetchReports()
-  }, [toast])
+  }, [toast, sortBy])
+
+  const handleRefresh = () => {
+    setIsRefreshing(true)
+    fetchReports()
+  }
 
   const getWeatherIcon = (weather: string) => {
     switch (weather) {
@@ -139,12 +150,14 @@ export function DailyWorkReportList() {
     const projectName = getProjectName(report, dealsMap)
     const reporterName = getReporterName(report, staffMap)
     const workDescription = report.work_description || report.work_content || ""
+    const reportDate = report.report_date || ""
 
     const searchLower = searchTerm.toLowerCase()
     return (
       projectName.toLowerCase().includes(searchLower) ||
       reporterName.toLowerCase().includes(searchLower) ||
-      workDescription.toLowerCase().includes(searchLower)
+      workDescription.toLowerCase().includes(searchLower) ||
+      reportDate.includes(searchLower)
     )
   })
 
@@ -169,6 +182,26 @@ export function DailyWorkReportList() {
       return staffMap[reporterId]
     }
     return "不明なスタッフ"
+  }
+
+  // 現在のユーザーIDを取得
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const checkCurrentUser = async () => {
+      const supabase = getClientSupabase()
+      const { data } = await supabase.auth.getSession()
+      if (data.session?.user) {
+        setCurrentUserId(data.session.user.id)
+      }
+    }
+
+    checkCurrentUser()
+  }, [])
+
+  // 自分の日報かどうかを判定
+  const isOwnReport = (report: any) => {
+    return currentUserId && (report.created_by === currentUserId || report.submitted_by === currentUserId)
   }
 
   if (error) {
@@ -206,31 +239,66 @@ export function DailyWorkReportList() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+            <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isRefreshing}>
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+            </Button>
             <Button onClick={() => setIsDialogOpen(true)}>新規作成</Button>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex space-x-2 mb-4">
-            <Button variant={activeTab === "all" ? "default" : "outline"} size="sm" onClick={() => setActiveTab("all")}>
-              すべて
-            </Button>
-            <Button
-              variant={activeTab === "pending" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActiveTab("pending")}
-            >
-              承認待ち
-            </Button>
-            <Button
-              variant={activeTab === "approved" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActiveTab("approved")}
-            >
-              承認済
-            </Button>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+            <div className="flex space-x-2">
+              <Button
+                variant={activeTab === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setActiveTab("all")}
+              >
+                すべて
+              </Button>
+              <Button
+                variant={activeTab === "pending" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setActiveTab("pending")}
+              >
+                承認待ち
+              </Button>
+              <Button
+                variant={activeTab === "approved" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setActiveTab("approved")}
+              >
+                承認済
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="並び順" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">新しい順</SelectItem>
+                  <SelectItem value="oldest">古い順</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+
           {loading ? (
-            <div className="text-center py-8">読み込み中...</div>
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <Card key={i}>
+                  <CardHeader className="pb-2">
+                    <Skeleton className="h-6 w-1/3" />
+                    <Skeleton className="h-4 w-1/2 mt-2" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-4 w-1/4 mb-2" />
+                    <Skeleton className="h-20 w-full" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           ) : filteredReports.length === 0 ? (
             <div className="text-center py-8">
               {searchTerm ? "検索条件に一致する日報はありません" : "日報データがありません"}
@@ -247,8 +315,16 @@ export function DailyWorkReportList() {
                   getWeatherText={getWeatherText}
                   getProjectName={getProjectName}
                   getReporterName={getReporterName}
+                  isOwnReport={isOwnReport(report)}
                 />
               ))}
+            </div>
+          )}
+
+          {filteredReports.length > 0 && (
+            <div className="mt-4 text-center text-sm text-muted-foreground">
+              {filteredReports.length}件の日報が表示されています
+              {searchTerm && ` (検索条件: "${searchTerm}")`}
             </div>
           )}
         </CardContent>
@@ -260,6 +336,10 @@ export function DailyWorkReportList() {
         onSuccess={() => {
           console.log("日報追加成功後のデータ再取得を実行します")
           fetchReports()
+          toast({
+            title: "日報を作成しました",
+            description: "日報が正常に作成されました",
+          })
         }}
       />
     </>
@@ -274,6 +354,7 @@ interface ReportCardProps {
   getWeatherText: (weather: string) => string
   getProjectName: (report: any, dealsMap: Record<string, string>) => string
   getReporterName: (report: any, staffMap: Record<string, string>) => string
+  isOwnReport: boolean
 }
 
 function ReportCard({
@@ -284,8 +365,10 @@ function ReportCard({
   getWeatherText,
   getProjectName,
   getReporterName,
+  isOwnReport,
 }: ReportCardProps) {
   const [showPhotos, setShowPhotos] = useState(false)
+  const { toast } = useToast()
 
   const formatDate = (dateString: string) => {
     try {
@@ -295,12 +378,51 @@ function ReportCard({
     }
   }
 
+  const handleDelete = async () => {
+    if (!isOwnReport) {
+      toast({
+        title: "削除できません",
+        description: "自分が作成した日報のみ削除できます",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!confirm("この日報を削除してもよろしいですか？")) return
+
+    try {
+      const supabase = getClientSupabase()
+      const { error } = await supabase.from("daily_reports").delete().eq("id", report.id)
+
+      if (error) throw error
+
+      toast({
+        title: "日報を削除しました",
+        description: "日報が正常に削除されました",
+      })
+
+      // ここで親コンポーネントの再取得関数を呼び出すことも可能
+      // onDelete(report.id)
+    } catch (err: any) {
+      console.error("日報削除エラー:", err)
+      toast({
+        title: "エラー",
+        description: "日報の削除に失敗しました",
+        variant: "destructive",
+      })
+    }
+  }
+
   return (
-    <Card>
+    <Card className={isOwnReport ? "border-l-4 border-l-blue-500" : ""}>
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle className="text-lg">{getProjectName(report, dealsMap)}</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2">
+              {getProjectName(report, dealsMap)}
+              {report.status === "pending" && <Badge variant="outline">承認待ち</Badge>}
+              {report.status === "approved" && <Badge variant="success">承認済</Badge>}
+            </CardTitle>
             <CardDescription className="flex items-center gap-1 mt-1 flex-wrap">
               <Calendar className="h-3.5 w-3.5" />
               {formatDate(report.report_date || report.work_date)}
@@ -316,6 +438,13 @@ function ReportCard({
               )}
             </CardDescription>
           </div>
+          {isOwnReport && (
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" onClick={handleDelete}>
+                削除
+              </Button>
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent className="pb-2">

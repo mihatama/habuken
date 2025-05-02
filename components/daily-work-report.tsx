@@ -56,7 +56,26 @@ export function DailyWorkReport() {
     try {
       // 作業日報データを取得 (修正: getDailyReportsData を使用)
       const reportsData = await getDailyReportsData()
-      setReports(reportsData)
+
+      // 各日報データに表示用のプロパティを追加
+      const processedReports =
+        reportsData?.map((report) => {
+          // プロジェクト名の設定
+          const projectName = report.custom_project_name || "不明な案件"
+
+          // ユーザー名の設定（後でスタッフデータから更新）
+          const userName = "不明なユーザー"
+
+          return {
+            ...report,
+            projectName,
+            userName,
+            work_content: report.work_description || "", // work_content フィールドがない場合は work_description を使用
+          }
+        }) || []
+
+      console.log("処理後の日報データ:", processedReports)
+      setReports(processedReports)
 
       // プロジェクトデータを取得
       const { data: projectsData } = await supabase.from("projects").select("*")

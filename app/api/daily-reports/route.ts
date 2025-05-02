@@ -72,6 +72,9 @@ export async function POST(request: Request) {
     delete reportData.staff_id // staff_idフィールドを削除
     delete reportData.status // ステータスフィールドを削除（承認システム不要のため）
 
+    // ステータスを明示的に設定
+    reportData.status = "pending"
+
     console.log("API: 挿入するデータ:", {
       project_id: reportData.project_id,
       deal_id: reportData.deal_id,
@@ -80,6 +83,7 @@ export async function POST(request: Request) {
       submitted_by: reportData.submitted_by,
       report_date: reportData.report_date,
       work_description: reportData.work_description,
+      status: reportData.status,
     })
 
     // 日報データを追加
@@ -98,6 +102,20 @@ export async function POST(request: Request) {
     }
 
     console.log("API: 日報データの挿入に成功しました", data)
+
+    // 挿入後にデータが取得できるか確認
+    const { data: checkData, error: checkError } = await supabase
+      .from("daily_reports")
+      .select("*")
+      .eq("id", data[0].id)
+      .single()
+
+    if (checkError) {
+      console.warn("API: 挿入後のデータ確認に失敗しました:", checkError)
+    } else {
+      console.log("API: 挿入後のデータ確認に成功しました:", checkData)
+    }
+
     return NextResponse.json({ success: true, data })
   } catch (error: any) {
     console.error("API: 予期しないエラー:", error)

@@ -72,13 +72,8 @@ export class SupabaseError extends Error {
   }
 }
 
-/**
- * テーブルからデータを取得する関数
- * @param tableName テーブル名
- * @param options 取得オプション
- * @returns 取得したデータ
- * @throws {SupabaseError} データ取得に失敗した場合
- */
+// fetchClientData関数を修正して、より詳細なデバッグ情報を追加します
+
 export async function fetchClientData<T = any>(
   tableName: string,
   options: {
@@ -91,6 +86,7 @@ export async function fetchClientData<T = any>(
   const { filters = {}, order, select = "*", limit } = options
 
   try {
+    console.log(`${tableName}データの取得を開始します...`)
     const supabase = getClientSupabase()
     let query = supabase.from(tableName).select(select)
 
@@ -111,12 +107,15 @@ export async function fetchClientData<T = any>(
       query = query.limit(limit)
     }
 
+    console.log(`${tableName}データをクエリ実行中...`)
     const { data, error } = await query
 
     if (error) {
+      console.error(`${tableName}データの取得エラー:`, error)
       throw new SupabaseError(`Error fetching data from ${tableName}: ${error.message}`, error)
     }
 
+    console.log(`${tableName}データの取得成功:`, data ? data.length : 0, "件")
     return (data || []) as T[]
   } catch (error) {
     if (error instanceof SupabaseError) {
