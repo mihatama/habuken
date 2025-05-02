@@ -866,6 +866,8 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
         custom_project_name: projectName,
         // スタッフID（APIに渡す）
         staff_id: formData.userId,
+        // 登録者の名前を追加
+        full_name: selectedStaff.full_name,
         // 日付と時間
         report_date: formData.workDate,
         start_time: formData.startTime,

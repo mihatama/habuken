@@ -54,6 +54,7 @@ export function DailyWorkReportList() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedReport, setSelectedReport] = useState<any>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [formattedReports, setFormattedReports] = useState<any[]>([])
 
   // 案件名の取得ヘルパー関数
   const getProjectName = (report: any, dealsMap: Record<string, string>) => {
@@ -67,15 +68,6 @@ export function DailyWorkReportList() {
       return report.custom_project_name
     }
     return "不明な案件"
-  }
-
-  // 報告者名の取得ヘルパー関数
-  const getReporterName = (report: any, staffMap: Record<string, string>) => {
-    const reporterId = report.submitted_by || report.created_by
-    if (reporterId && staffMap[reporterId]) {
-      return staffMap[reporterId]
-    }
-    return "不明なスタッフ"
   }
 
   const fetchReports = async () => {
@@ -97,43 +89,99 @@ export function DailyWorkReportList() {
       console.log(`取得した日報データ: ${reportsData?.length || 0}件`)
       setReports(reportsData || [])
 
-      // スタッフデータを取得
-      const { data: staffData, error: staffError } = await supabase.from("staff").select("id, full_name")
-
-      if (staffError) throw staffError
-
       // 案件データを取得
       const { data: dealsData, error: dealsError } = await supabase.from("deals").select("id, name")
 
       if (dealsError) throw dealsError
-
-      // ユーザーデータを取得
-      const { data: userData, error: userError } = await supabase.from("users").select("id, email, full_name")
-
-      if (userError) {
-        console.warn("ユーザーデータの取得に失敗しました:", userError)
-        // ユーザーデータの取得に失敗しても処理を続行
-      }
-
-      // スタッフIDと名前のマッピングを作成
-      const staffMapping: Record<string, string> = {}
-      staffData?.forEach((staff) => {
-        staffMapping[staff.id] = staff.full_name
-      })
-
-      // ユーザーIDと名前のマッピングを作成
-      userData?.forEach((user) => {
-        staffMapping[user.id] = user.full_name || user.email
-      })
 
       // 案件IDと名前のマッピングを作成
       const dealsMapping: Record<string, string> = {}
       dealsData?.forEach((deal) => {
         dealsMapping[deal.id] = deal.name
       })
-
-      setStaffMap(staffMapping)
       setDealsMap(dealsMapping)
+
+      // スタッフデータを取得
+      const { data: staffData, error: staffError } = await supabase
+        .from("staff")
+        .select("id, full_name, user_id")
+        .order("full_name")
+
+      console.log("取得したスタッフデータ:", staffData, staffError)
+
+      // スタッフマップを作成
+      const staffMapping = {}
+      if (!staffError && staffData && staffData.length > 0) {
+        // スタッフデータをマッピング（user_idとidの両方をキーとして使用）
+        staffData.forEach((staff) => {
+          if (staff.id) staffMapping[staff.id] = staff.full_name
+          if (staff.user_id) staffMapping[staff.user_id] = staff.full_name
+        })
+      }
+
+      // ユーザーテーブルも確認
+      const { data: usersData, error: usersError } = await supabase.from("users").select("id, email, user_metadata")
+
+      console.log("取得したユーザーデータ:", usersData, usersError)
+
+      if (!usersError && usersData && usersData.length > 0) {
+        usersData.forEach((user) => {
+          // ユーザーIDをキーとして使用
+          if (user.id && !staffMapping[user.id]) {
+            // user_metadataから名前を取得するか、なければメールアドレスを使用
+            const userName = user.user_metadata?.name || user.user_metadata?.full_name || user.email
+            staffMapping[user.id] = userName
+          }
+        })
+      }
+
+      console.log("作成されたスタッフマッピング:", staffMapping)
+      setStaffMap(staffMapping)
+
+      // データを整形
+      const formattedData =
+        reportsData?.map((report) => {
+          // 報告者名を決定
+          let reporterName = "不明な報告者"
+
+          // 1. カスタム報告者名があればそれを使用
+          if (report.custom_reporter_name) {
+            reporterName = report.custom_reporter_name
+            console.log(`日報 ${report.id}: カスタム報告者名を使用 - ${reporterName}`)
+          }
+          // 2. staff_idがあり、マッピングに存在すればそれを使用
+          else if (report.staff_id && staffMapping[report.staff_id]) {
+            reporterName = staffMapping[report.staff_id]
+            console.log(`日報 ${report.id}: staff_id ${report.staff_id} から報告者名を取得 - ${reporterName}`)
+          }
+          // 3. user_idがあり、マッピングに存在すればそれを使用
+          else if (report.user_id && staffMapping[report.user_id]) {
+            reporterName = staffMapping[report.user_id]
+            console.log(`日報 ${report.id}: user_id ${report.user_id} から報告者名を取得 - ${reporterName}`)
+          }
+          // 4. submitted_byがあり、マッピングに存在すればそれを使用
+          else if (report.submitted_by && staffMapping[report.submitted_by]) {
+            reporterName = staffMapping[report.submitted_by]
+            console.log(`日報 ${report.id}: submitted_by ${report.submitted_by} から報告者名を取得 - ${reporterName}`)
+          }
+          // 5. created_byがあり、マッピングに存在すればそれを使用
+          else if (report.created_by && staffMapping[report.created_by]) {
+            reporterName = staffMapping[report.created_by]
+            console.log(`日報 ${report.id}: created_by ${report.created_by} から報告者名を取得 - ${reporterName}`)
+          } else {
+            console.log(
+              `日報 ${report.id}: 報告者名を特定できませんでした - staff_id: ${report.staff_id}, user_id: ${report.user_id}, submitted_by: ${report.submitted_by}, created_by: ${report.created_by}`,
+            )
+          }
+
+          return {
+            ...report,
+            projectName: getProjectName(report, dealsMapping),
+            reporterName: reporterName,
+          }
+        }) || []
+
+      setFormattedReports(formattedData)
     } catch (err: any) {
       console.error("日報データの取得エラー:", err)
       setError(err.message || "データの取得に失敗しました")
@@ -192,10 +240,10 @@ export function DailyWorkReportList() {
   }
 
   // 検索フィルター
-  const filteredReports = reports.filter((report) => {
+  const filteredReports = formattedReports.filter((report) => {
     // 検索語によるフィルタリング
-    const projectName = getProjectName(report, dealsMap)
-    const reporterName = getReporterName(report, staffMap)
+    const projectName = report.projectName || ""
+    const reporterName = report.reporterName || ""
     const workDescription = report.work_description || report.work_content || ""
     const reportDate = report.report_date || ""
 
@@ -318,12 +366,8 @@ export function DailyWorkReportList() {
                 <ReportCard
                   key={report.id}
                   report={report}
-                  staffMap={staffMap}
-                  dealsMap={dealsMap}
                   getWeatherIcon={getWeatherIcon}
                   getWeatherText={getWeatherText}
-                  getProjectName={getProjectName}
-                  getReporterName={getReporterName}
                   isOwnReport={isOwnReport(report)}
                   onShowDetails={() => showDetails(report)}
                 />
@@ -368,27 +412,13 @@ export function DailyWorkReportList() {
 
 interface ReportCardProps {
   report: any
-  staffMap: Record<string, string>
-  dealsMap: Record<string, string>
   getWeatherIcon: (weather: string) => string
   getWeatherText: (weather: string) => string
-  getProjectName: (report: any, dealsMap: Record<string, string>) => string
-  getReporterName: (report: any, staffMap: Record<string, string>) => string
   isOwnReport: boolean
   onShowDetails: () => void
 }
 
-function ReportCard({
-  report,
-  staffMap,
-  dealsMap,
-  getWeatherIcon,
-  getWeatherText,
-  getProjectName,
-  getReporterName,
-  isOwnReport,
-  onShowDetails,
-}: ReportCardProps) {
+function ReportCard({ report, getWeatherIcon, getWeatherText, isOwnReport, onShowDetails }: ReportCardProps) {
   const [showPhotos, setShowPhotos] = useState(false)
   const { toast } = useToast()
 
@@ -438,7 +468,7 @@ function ReportCard({
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle className="text-lg flex items-center gap-2">{getProjectName(report, dealsMap)}</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2">{report.projectName}</CardTitle>
             <CardDescription className="flex items-center gap-1 mt-1 flex-wrap">
               <Calendar className="h-3.5 w-3.5" />
               {formatDate(report.report_date)}
@@ -473,7 +503,7 @@ function ReportCard({
       </CardHeader>
       <CardContent className="pb-2">
         <div className="text-sm text-muted-foreground mb-2">
-          <span className="font-medium">報告者:</span> {getReporterName(report, staffMap)}
+          <span className="font-medium">報告者:</span> {report.reporterName}
         </div>
         <div className="text-sm mb-2">
           <span className="font-medium">作業内容:</span>
