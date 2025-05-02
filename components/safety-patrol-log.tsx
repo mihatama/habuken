@@ -7,12 +7,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { RefreshCw, Search } from "lucide-react"
+import { RefreshCw, Search, Eye, Edit } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
-import { fetchClientData, updateClientData, getClientSupabase } from "@/lib/supabase-utils"
+import { updateClientData, getClientSupabase } from "@/lib/supabase-utils"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { SafetyInspectionForm } from "./safety-inspection-form"
+import { format } from "date-fns"
 
 // チェックリスト項目の定義
 const checklistItems = [
@@ -58,17 +59,25 @@ export function SafetyPatrolLog() {
 
   // 巡視日誌の保存が完了した時の処理
   const handleFormSuccess = (newLog: any) => {
-    setLogs([...logs, newLog])
+    // データを再取得して最新の状態を反映
+    queryClient.invalidateQueries({ queryKey: ["safetyPatrols"] })
+
+    // フォームを閉じる
     closeForm()
+
+    toast({
+      title: "成功",
+      description: "安全巡視データが正常に保存されました",
+    })
   }
 
-  // Check if safety_patrols table exists
+  // Check if safety_inspections table exists
   const checkTableExists = async () => {
     try {
       setIsCheckingTable(true)
       const supabase = getClientSupabase()
 
-      const { error } = await supabase.from("safety_patrols").select("count(*)").limit(1).single()
+      const { error } = await supabase.from("safety_inspections").select("count(*)").limit(1).single()
 
       if (error && error.message.includes("does not exist")) {
         setTableExists(false)
@@ -94,21 +103,88 @@ export function SafetyPatrolLog() {
       if (!tableExists) return []
 
       try {
-        // 安全パトロールデータを取得
-        const { data, error } = await fetchClientData("safety_patrols", {
-          join: [
-            { table: "projects", on: "project_id", select: ["name as projectName"] },
-            { table: "staff", on: "inspector_id", select: ["full_name as inspectorName"] },
-          ],
-        })
+        console.log("安全巡視データの取得を開始します...")
+        const supabase = getClientSupabase()
 
-        if (error) throw error
-        return data || []
+        // 安全巡視データを取得（リレーションシップを使用せず）
+        console.log("安全巡視データをクエリ実行中...")
+        const { data, error } = await supabase
+          .from("safety_inspections")
+          .select("*")
+          .order("created_at", { ascending: false })
+
+        if (error) {
+          console.error("安全巡視データの取得エラー:", error)
+          throw error
+        }
+
+        console.log(`安全巡視データの取得成功: ${data?.length || 0} 件`)
+
+        // 案件データを取得
+        const dealIds = data
+          .filter((item) => item.deal_id)
+          .map((item) => item.deal_id)
+          .filter((value, index, self) => self.indexOf(value) === index) // 重複を削除
+
+        let dealsMap = {}
+        if (dealIds.length > 0) {
+          const { data: dealsData, error: dealsError } = await supabase
+            .from("deals")
+            .select("id, name")
+            .in("id", dealIds)
+
+          if (!dealsError && dealsData) {
+            dealsMap = dealsData.reduce((acc, deal) => {
+              acc[deal.id] = deal.name
+              return acc
+            }, {})
+          }
+        }
+
+        // ユーザーデータを取得
+        const userIds = data
+          .filter((item) => item.staff_id)
+          .map((item) => item.staff_id)
+          .filter((value, index, self) => self.indexOf(value) === index) // 重複を削除
+
+        let usersMap = {}
+        if (userIds.length > 0) {
+          const { data: usersData, error: usersError } = await supabase
+            .from("users")
+            .select("id, email")
+            .in("id", userIds)
+
+          if (!usersError && usersData) {
+            usersMap = usersData.reduce((acc, user) => {
+              acc[user.id] = user.email
+              return acc
+            }, {})
+          }
+        }
+
+        // データを整形
+        const formattedData = data.map((item) => ({
+          id: item.id,
+          projectName: item.custom_project_name || (item.deal_id && dealsMap[item.deal_id]) || "不明な案件",
+          inspectionDate: item.inspection_date,
+          inspectorName: item.custom_inspector_name || (item.staff_id && usersMap[item.staff_id]) || "不明な巡視者",
+          comment: item.comment || "",
+          status: item.status || "pending",
+          checklist: item.checklist_items || [],
+          photoUrls: item.photo_urls || [],
+          createdAt: item.created_at,
+          rawData: item,
+        }))
+
+        // logsステート変数を更新
+        setLogs(formattedData)
+
+        return formattedData
       } catch (error) {
-        console.error("安全パトロールデータ取得エラー:", error)
+        console.error("安全巡視データ取得エラー:", error)
         toast({
           title: "エラー",
-          description: "安全パトロールデータの取得に失敗しました",
+          description: "安全巡視データの取得に失敗しました",
           variant: "destructive",
         })
         return []
@@ -117,14 +193,12 @@ export function SafetyPatrolLog() {
     enabled: tableExists === true,
   })
 
-  const filteredPatrols = patrols.filter(
-    (patrol) =>
-      (patrol.projectName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        patrol.inspectorName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        patrol.comment?.toLowerCase().includes(searchTerm.toLowerCase())) &&
-      (activeTab === "all" ||
-        (activeTab === "pending" && patrol.status === "pending") ||
-        (activeTab === "approved" && patrol.status === "approved")),
+  // 検索フィルター
+  const filteredLogs = logs.filter(
+    (log) =>
+      log.projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      log.inspectorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      log.comment.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
   const handleAddPatrolSuccess = () => {
@@ -134,23 +208,23 @@ export function SafetyPatrolLog() {
 
   const handleApprovePatrol = async (patrolId: string) => {
     try {
-      await updateClientData("safety_patrols", patrolId, {
+      await updateClientData("safety_inspections", patrolId, {
         status: "approved",
         updated_at: new Date().toISOString(),
       })
 
       toast({
         title: "成功",
-        description: "安全パトロールを承認しました",
+        description: "安全巡視を承認しました",
       })
 
       // データを再取得
       queryClient.invalidateQueries({ queryKey: ["safetyPatrols"] })
     } catch (error) {
-      console.error("安全パトロール承認エラー:", error)
+      console.error("安全巡視承認エラー:", error)
       toast({
         title: "エラー",
-        description: "安全パトロールの承認に失敗しました",
+        description: "安全巡視の承認に失敗しました",
         variant: "destructive",
       })
     }
@@ -158,23 +232,23 @@ export function SafetyPatrolLog() {
 
   const handleRejectPatrol = async (patrolId: string) => {
     try {
-      await updateClientData("safety_patrols", patrolId, {
+      await updateClientData("safety_inspections", patrolId, {
         status: "rejected",
         updated_at: new Date().toISOString(),
       })
 
       toast({
         title: "成功",
-        description: "安全パトロールを差し戻しました",
+        description: "安全巡視を差し戻しました",
       })
 
       // データを再取得
       queryClient.invalidateQueries({ queryKey: ["safetyPatrols"] })
     } catch (error) {
-      console.error("安全パトロール差し戻しエラー:", error)
+      console.error("安全巡視差し戻しエラー:", error)
       toast({
         title: "エラー",
-        description: "安全パトロールの差し戻しに失敗しました",
+        description: "安全巡視の差し戻しに失敗しました",
         variant: "destructive",
       })
     }
@@ -185,6 +259,7 @@ export function SafetyPatrolLog() {
       case "good":
         return <Badge className="bg-green-500 hover:bg-green-600">◎</Badge>
       case "warning":
+      case "caution":
         return <Badge className="bg-yellow-500 hover:bg-yellow-600">△</Badge>
       case "danger":
         return <Badge className="bg-red-500 hover:bg-red-600">×</Badge>
@@ -196,6 +271,7 @@ export function SafetyPatrolLog() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
+      case "completed":
         return <Badge className="bg-yellow-500 hover:bg-yellow-600">承認待ち</Badge>
       case "approved":
         return <Badge className="bg-green-500 hover:bg-green-600">承認済</Badge>
@@ -207,18 +283,28 @@ export function SafetyPatrolLog() {
   }
 
   const countIssues = (patrol: any) => {
-    const checklist = patrol.checklist_json
+    const checklist = patrol.checklist || []
     let warningCount = 0
     let dangerCount = 0
 
-    if (checklist) {
-      Object.values(checklist).forEach((status: any) => {
-        if (status === "warning") warningCount++
-        if (status === "danger") dangerCount++
+    if (Array.isArray(checklist)) {
+      checklist.forEach((item: any) => {
+        if (item.status === "warning" || item.status === "caution") warningCount++
+        if (item.status === "danger") dangerCount++
       })
     }
 
     return { warningCount, dangerCount }
+  }
+
+  // 日付フォーマット関数
+  const formatDateString = (dateString: string | null | undefined): string => {
+    if (!dateString) return "日付なし"
+    try {
+      return format(new Date(dateString), "yyyy年MM月dd日")
+    } catch (error) {
+      return dateString
+    }
   }
 
   // If we're still checking if the table exists, show a loading state
@@ -248,7 +334,7 @@ export function SafetyPatrolLog() {
         <CardContent>
           <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-md border border-yellow-200 dark:border-yellow-800 mb-4">
             <p className="text-yellow-700 dark:text-yellow-300">
-              安全パトロールテーブルが存在しません。データベースが正しく設定されていることを確認してください。
+              安全巡視テーブルが存在しません。データベースが正しく設定されていることを確認してください。
             </p>
           </div>
           <Button onClick={checkTableExists} className="mt-2">
@@ -295,27 +381,38 @@ export function SafetyPatrolLog() {
               </tr>
             </thead>
             <tbody>
-              {logs.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                    <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2" />
+                    データを読み込み中...
+                  </td>
+                </tr>
+              ) : filteredLogs.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                     表示する巡視日誌はありません
                   </td>
                 </tr>
               ) : (
-                logs.map((log) => (
-                  <tr key={log.id} className="border-b">
+                filteredLogs.map((log) => (
+                  <tr key={log.id} className="border-b hover:bg-gray-50">
                     <td className="px-4 py-3">{log.projectName}</td>
-                    <td className="px-4 py-3">{log.inspectionDate}</td>
+                    <td className="px-4 py-3">{formatDateString(log.inspectionDate)}</td>
                     <td className="px-4 py-3">{log.inspectorName}</td>
-                    <td className="px-4 py-3">{log.comment}</td>
-                    <td className="px-4 py-3">{log.status}</td>
+                    <td className="px-4 py-3">
+                      <div className="max-w-xs truncate">{log.comment || "コメントなし"}</div>
+                    </td>
+                    <td className="px-4 py-3">{getStatusBadge(log.status)}</td>
                     <td className="px-4 py-3">
                       <div className="flex space-x-2">
-                        <Button variant="outline" size="sm">
-                          詳細
+                        <Button variant="outline" size="sm" className="flex items-center gap-1">
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>詳細</span>
                         </Button>
-                        <Button variant="outline" size="sm">
-                          編集
+                        <Button variant="outline" size="sm" className="flex items-center gap-1">
+                          <Edit className="h-3.5 w-3.5" />
+                          <span>編集</span>
                         </Button>
                       </div>
                     </td>

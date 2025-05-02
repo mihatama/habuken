@@ -35,7 +35,6 @@ type FormData = {
   inspectorId: string
   customInspectorName: string
   inspectionDate: string
-  weather: string
   checklistItems: ChecklistItem[]
   comment: string
   photoFiles: File[]
@@ -280,7 +279,6 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
     inspectorId: "",
     customInspectorName: "",
     inspectionDate: format(new Date(), "yyyy-MM-dd"),
-    weather: "sunny",
     checklistItems: checklistItems,
     comment: "",
     photoFiles: [],
@@ -864,6 +862,25 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
         return
       }
 
+      // スタッフに関連するユーザーIDを取得（外部キー制約のため）
+      let inspectorUserId = user.id // デフォルトは現在のユーザーID
+
+      if (formData.inspectorId !== "custom") {
+        // スタッフテーブルからuser_idを取得
+        const { data: staffUserData, error: staffUserError } = await supabase
+          .from("staff")
+          .select("user_id")
+          .eq("id", formData.inspectorId)
+          .single()
+
+        if (staffUserData && !staffUserError && staffUserData.user_id) {
+          inspectorUserId = staffUserData.user_id
+          console.log("スタッフに関連するユーザーID:", inspectorUserId)
+        } else {
+          console.log("スタッフに関連するユーザーIDが見つからないため、現在のユーザーIDを使用:", user.id)
+        }
+      }
+
       // テーブル構造に合わせてデータを準備
       const inspectionData = {
         deal_id:
@@ -871,10 +888,9 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
             ? formData.projectId
             : null,
         custom_project_name: formData.projectId === "custom" ? formData.customProjectName : projectName,
-        staff_id: formData.inspectorId !== "custom" ? formData.inspectorId : null,
+        staff_id: formData.inspectorId !== "custom" ? inspectorUserId : user.id, // usersテーブルのIDを使用
         custom_inspector_name: formData.inspectorId === "custom" ? formData.customInspectorName : null,
         inspection_date: formData.inspectionDate,
-        weather: formData.weather,
         checklist_items: formData.checklistItems,
         comment: formData.comment,
         photo_urls: uploadedPhotoUrls,
@@ -885,29 +901,61 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
 
       console.log("挿入するデータ:", inspectionData)
 
-      // Supabaseに直接挿入
-      const { data, error } = await supabase.from("safety_inspections").insert([inspectionData]).select()
-
-      if (error) {
-        console.error("安全巡視記録の保存エラー:", error)
-        toast({
-          title: "エラー",
-          description: `安全巡視記録の保存に失敗しました: ${error.message}`,
-          variant: "destructive",
+      // APIルートを使用して安全巡視データを追加
+      try {
+        const response = await fetch("/api/safety-inspections", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(inspectionData),
         })
-        return
-      }
 
-      console.log("安全巡視記録を保存しました:", data)
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(`APIエラー: ${errorData.error || response.statusText}`)
+        }
 
-      toast({
-        title: "保存完了",
-        description: "安全・環境巡視日誌が保存されました",
-      })
+        const result = await response.json()
+        console.log("APIを使用した安全巡視データの追加に成功しました:", result)
 
-      // 成功コールバックを呼び出し
-      if (onSuccess) {
-        onSuccess(data[0])
+        toast({
+          title: "保存完了",
+          description: "安全・環境巡視日誌が保存されました",
+        })
+
+        // 成功コールバックを呼び出し
+        if (onSuccess) {
+          onSuccess(result)
+        }
+      } catch (apiError: any) {
+        console.error("API経由の挿入エラー:", apiError)
+
+        // APIが利用できない場合はSupabaseに直接挿入を試みる
+        console.log("APIが利用できないため、Supabaseに直接挿入を試みます")
+        const { data, error } = await supabase.from("safety_inspections").insert([inspectionData]).select()
+
+        if (error) {
+          console.error("安全巡視記録の保存エラー:", error)
+          toast({
+            title: "エラー",
+            description: `安全巡視記録の保存に失敗しました: ${error.message}`,
+            variant: "destructive",
+          })
+          return
+        }
+
+        console.log("安全巡視記録を保存しました:", data)
+
+        toast({
+          title: "保存完了",
+          description: "安全・環境巡視日誌が保存されました",
+        })
+
+        // 成功コールバックを呼び出し
+        if (onSuccess) {
+          onSuccess(data[0])
+        }
       }
     } catch (error: any) {
       console.error("保存エラー:", error)
@@ -1092,22 +1140,6 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
             className="w-full mt-1"
             required
           />
-        </div>
-
-        <div>
-          <Label htmlFor="weather">天候</Label>
-          <Select value={formData.weather} onValueChange={(value) => setFormData({ ...formData, weather: value })}>
-            <SelectTrigger id="weather" className="mt-1">
-              <SelectValue placeholder="天候を選択" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="sunny">晴れ</SelectItem>
-              <SelectItem value="cloudy">曇り</SelectItem>
-              <SelectItem value="rainy">雨</SelectItem>
-              <SelectItem value="snowy">雪</SelectItem>
-              <SelectItem value="windy">強風</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
 
         <div>
