@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { X, ChevronDown, ChevronUp, Mic, MicOff, Loader2, Camera, Plus, ImageIcon } from "lucide-react"
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition"
 import { Badge } from "@/components/ui/badge"
-import { createClient } from "@/lib/supabase-client"
+import { getClientSupabase } from "@/lib/supabase-client-browser"
 
 // チェックリスト項目の型定義
 type ChecklistItem = {
@@ -311,7 +311,7 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
     if (typeof window !== "undefined") {
       try {
         console.log("Supabaseクライアントを初期化中...")
-        const client = createClient()
+        const client = getClientSupabase()
         setSupabase(client)
         console.log("Supabaseクライアントの初期化に成功しました")
 
