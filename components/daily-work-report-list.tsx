@@ -7,12 +7,10 @@ import { Input } from "@/components/ui/input"
 import { DailyReportFormDialog } from "./daily-report-form-dialog"
 import { getClientSupabase } from "@/lib/supabase-utils"
 import { useToast } from "@/components/ui/use-toast"
-import { format } from "date-fns"
-import { ja } from "date-fns/locale"
 import { ImageIcon, FileText, Calendar, Clock, CloudSun, Search, RefreshCw, Filter } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 export function DailyWorkReportList() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -23,9 +21,10 @@ export function DailyWorkReportList() {
   const [dealsMap, setDealsMap] = useState<Record<string, string>>({})
   const [searchTerm, setSearchTerm] = useState("")
   const { toast } = useToast()
-  const [activeTab, setActiveTab] = useState("all") // "all", "pending", "approved"
   const [sortBy, setSortBy] = useState("newest") // "newest", "oldest"
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [selectedReport, setSelectedReport] = useState<any>(null)
+  const [detailsOpen, setDetailsOpen] = useState(false)
 
   const fetchReports = async () => {
     try {
@@ -142,11 +141,7 @@ export function DailyWorkReportList() {
 
   // 検索フィルター
   const filteredReports = reports.filter((report) => {
-    // まずタブによるフィルタリング
-    if (activeTab === "pending" && report.status !== "pending") return false
-    if (activeTab === "approved" && report.status !== "approved") return false
-
-    // 次に検索語によるフィルタリング
+    // 検索語によるフィルタリング
     const projectName = getProjectName(report, dealsMap)
     const reporterName = getReporterName(report, staffMap)
     const workDescription = report.work_description || report.work_content || ""
@@ -204,6 +199,12 @@ export function DailyWorkReportList() {
     return currentUserId && (report.created_by === currentUserId || report.submitted_by === currentUserId)
   }
 
+  // 詳細を表示する関数
+  const showDetails = (report: any) => {
+    setSelectedReport(report)
+    setDetailsOpen(true)
+  }
+
   if (error) {
     return (
       <Card>
@@ -247,29 +248,6 @@ export function DailyWorkReportList() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
-            <div className="flex space-x-2">
-              <Button
-                variant={activeTab === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setActiveTab("all")}
-              >
-                すべて
-              </Button>
-              <Button
-                variant={activeTab === "pending" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setActiveTab("pending")}
-              >
-                承認待ち
-              </Button>
-              <Button
-                variant={activeTab === "approved" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setActiveTab("approved")}
-              >
-                承認済
-              </Button>
-            </div>
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
               <Select value={sortBy} onValueChange={setSortBy}>
@@ -316,6 +294,7 @@ export function DailyWorkReportList() {
                   getProjectName={getProjectName}
                   getReporterName={getReporterName}
                   isOwnReport={isOwnReport(report)}
+                  onShowDetails={() => showDetails(report)}
                 />
               ))}
             </div>
@@ -342,6 +321,84 @@ export function DailyWorkReportList() {
           })
         }}
       />
+
+      {/* 詳細ダイアログ */}
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>日報詳細</DialogTitle>
+          </DialogHeader>
+          {selectedReport && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">案件名</h3>
+                  <p>{getProjectName(selectedReport, dealsMap)}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">報告者</h3>
+                  <p>{getReporterName(selectedReport, staffMap)}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">作業日</h3>
+                  <p>{formatDate(selectedReport.report_date)}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">天気</h3>
+                  <p>
+                    {getWeatherIcon(selectedReport.weather)} {getWeatherText(selectedReport.weather)}
+                  </p>
+                </div>
+                {selectedReport.start_time && selectedReport.end_time && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">作業時間</h3>
+                    <p>
+                      {selectedReport.start_time.substring(0, 5)} 〜 {selectedReport.end_time.substring(0, 5)}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground">作業内容</h3>
+                <p className="whitespace-pre-wrap mt-1">
+                  {selectedReport.work_description || selectedReport.work_content}
+                </p>
+              </div>
+
+              {selectedReport.issues && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">課題・問題点</h3>
+                  <p className="whitespace-pre-wrap mt-1">{selectedReport.issues}</p>
+                </div>
+              )}
+
+              {selectedReport.photo_urls && selectedReport.photo_urls.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">写真</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
+                    {selectedReport.photo_urls.map((url: string, index: number) => (
+                      <a
+                        key={index}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block overflow-hidden rounded border border-gray-200"
+                      >
+                        <img
+                          src={url || "/placeholder.svg"}
+                          alt={`現場写真 ${index + 1}`}
+                          className="w-full h-32 object-cover"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
@@ -355,6 +412,35 @@ interface ReportCardProps {
   getProjectName: (report: any, dealsMap: Record<string, string>) => string
   getReporterName: (report: any, staffMap: Record<string, string>) => string
   isOwnReport: boolean
+  onShowDetails: () => void
+}
+
+// 日付フォーマット関数
+const formatDate = (dateString: string | null | undefined): string => {
+  if (!dateString) return "日付なし"
+
+  try {
+    // YYYY-MM-DD形式の日付を処理
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateString)
+    if (match) {
+      const year = match[1]
+      const month = match[2]
+      const day = match[3]
+      return `${year}年${month}月${day}日`
+    }
+
+    // ISO形式の日付を処理
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) {
+      console.error("Invalid date:", dateString)
+      return "日付エラー"
+    }
+
+    return `${date.getFullYear()}年${(date.getMonth() + 1).toString().padStart(2, "0")}月${date.getDate().toString().padStart(2, "0")}日`
+  } catch (error) {
+    console.error("Date formatting error:", error)
+    return "日付エラー"
+  }
 }
 
 function ReportCard({
@@ -366,17 +452,10 @@ function ReportCard({
   getProjectName,
   getReporterName,
   isOwnReport,
+  onShowDetails,
 }: ReportCardProps) {
   const [showPhotos, setShowPhotos] = useState(false)
   const { toast } = useToast()
-
-  const formatDate = (dateString: string) => {
-    try {
-      return format(new Date(dateString), "yyyy年MM月dd日(E)", { locale: ja })
-    } catch (e) {
-      return dateString
-    }
-  }
 
   const handleDelete = async () => {
     if (!isOwnReport) {
@@ -413,19 +492,21 @@ function ReportCard({
     }
   }
 
+  // 作業内容の短縮表示用
+  const getShortenedContent = () => {
+    const content = report.work_description || report.work_content || ""
+    return content.length > 100 ? content.substring(0, 100) + "..." : content
+  }
+
   return (
     <Card className={isOwnReport ? "border-l-4 border-l-blue-500" : ""}>
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle className="text-lg flex items-center gap-2">
-              {getProjectName(report, dealsMap)}
-              {report.status === "pending" && <Badge variant="outline">承認待ち</Badge>}
-              {report.status === "approved" && <Badge variant="success">承認済</Badge>}
-            </CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2">{getProjectName(report, dealsMap)}</CardTitle>
             <CardDescription className="flex items-center gap-1 mt-1 flex-wrap">
               <Calendar className="h-3.5 w-3.5" />
-              {formatDate(report.report_date || report.work_date)}
+              {formatDate(report.report_date)}
               <span className="mx-1">|</span>
               <CloudSun className="h-3.5 w-3.5" />
               {getWeatherIcon(report.weather)} {getWeatherText(report.weather)}
@@ -438,60 +519,38 @@ function ReportCard({
               )}
             </CardDescription>
           </div>
-          {isOwnReport && (
-            <div className="flex gap-2">
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onShowDetails}>
+              詳細
+            </Button>
+            {isOwnReport && (
               <Button variant="ghost" size="sm" onClick={handleDelete}>
                 削除
               </Button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pb-2">
         <div className="text-sm text-muted-foreground mb-2">
           <span className="font-medium">報告者:</span> {getReporterName(report, staffMap)}
         </div>
-        <div className="text-sm whitespace-pre-wrap">{report.work_description || report.work_content}</div>
+        <div className="text-sm mb-2">
+          <span className="font-medium">作業内容:</span>
+        </div>
+        <div className="text-sm whitespace-pre-wrap">{getShortenedContent()}</div>
 
         {report.photo_urls && report.photo_urls.length > 0 && (
-          <div className="mt-3">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 text-xs"
-              onClick={() => setShowPhotos(!showPhotos)}
-            >
-              <ImageIcon className="h-3.5 w-3.5" />
-              写真 ({report.photo_urls.length}枚)
-              {showPhotos ? " 非表示" : " 表示"}
-            </Button>
-
-            {showPhotos && (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
-                {report.photo_urls.map((url: string, index: number) => (
-                  <a
-                    key={index}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block overflow-hidden rounded border border-gray-200"
-                  >
-                    <img
-                      src={url || "/placeholder.svg"}
-                      alt={`現場写真 ${index + 1}`}
-                      className="w-full h-32 object-cover"
-                    />
-                  </a>
-                ))}
-              </div>
-            )}
+          <div className="mt-3 flex items-center gap-2">
+            <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">写真 {report.photo_urls.length}枚</span>
           </div>
         )}
       </CardContent>
       <CardFooter className="pt-0 text-xs text-muted-foreground">
         <div className="flex items-center gap-1">
           <FileText className="h-3 w-3" />
-          {format(new Date(report.created_at), "yyyy/MM/dd HH:mm")} 作成
+          {formatDate(report.created_at)} 作成
         </div>
       </CardFooter>
     </Card>
