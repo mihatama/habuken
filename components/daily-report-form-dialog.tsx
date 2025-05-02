@@ -1081,15 +1081,6 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
                   <Badge key={index} variant="outline" className="flex items-center gap-1 p-1">
                     <ImageIcon className="h-3 w-3 mr-1" />
                     <span className="max-w-[150px] truncate">{file.name}</span>
-                    {photoSizes[file.name] && photoSizes[file.name].original !== photoSizes[file.name].compressed && (
-                      <span className="text-xs text-green-600 ml-1">
-                        {formatFileSize(photoSizes[file.name].compressed)}
-                        <span className="text-gray-400 ml-1">
-                          ({Math.round((1 - photoSizes[file.name].compressed / photoSizes[file.name].original) * 100)}%
-                          削減)
-                        </span>
-                      </span>
-                    )}
                     <Button
                       type="button"
                       variant="ghost"
