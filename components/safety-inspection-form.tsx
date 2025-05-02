@@ -7,10 +7,17 @@ import { Textarea } from "@/components/ui/textarea"
 import { format } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
-import { X, ChevronDown, ChevronUp, Mic, MicOff, Loader2, Camera, Plus, ImageIcon } from "lucide-react"
+import { X, Mic, MicOff, Loader2, Camera, Plus, ImageIcon } from "lucide-react"
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition"
 import { Badge } from "@/components/ui/badge"
-import { getClientSupabase } from "@/lib/supabase-client-browser"
+import { getClientSupabase } from "@/lib/supabase-utils"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+
+// バケット名を定数として定義
+const STORAGE_BUCKET_NAME = "dailyreports"
+const STORAGE_FOLDER_NAME = "public/safety_inspection_photos"
 
 // チェックリスト項目の型定義
 type ChecklistItem = {
@@ -18,7 +25,6 @@ type ChecklistItem = {
   category: string
   name: string
   status: "good" | "caution" | "danger"
-  comment: string // コメントフィールドを追加
   isEco?: boolean
 }
 
@@ -29,6 +35,7 @@ type FormData = {
   inspectorId: string
   customInspectorName: string
   inspectionDate: string
+  weather: string
   checklistItems: ChecklistItem[]
   comment: string
   photoFiles: File[]
@@ -55,7 +62,6 @@ const checklistItems: ChecklistItem[] = [
     category: "作業員",
     name: "保護帽、服装、はきもの",
     status: "good",
-    comment: "",
     isEco: false,
   },
   {
@@ -63,16 +69,14 @@ const checklistItems: ChecklistItem[] = [
     category: "作業員",
     name: "保護具の使用の状況",
     status: "good",
-    comment: "",
     isEco: false,
   },
-  { id: "danger_zone", category: "作業員", name: "立入禁止(危険)", status: "good", comment: "", isEco: false },
+  { id: "danger_zone", category: "作業員", name: "立入禁止(危険)", status: "good", isEco: false },
   {
     id: "environmental_instructions",
     category: "作業員",
     name: "環境指示を確認しているか",
     status: "good",
-    comment: "",
     isEco: true,
   },
   {
@@ -80,28 +84,25 @@ const checklistItems: ChecklistItem[] = [
     category: "作業員",
     name: "環境目標は達成したか",
     status: "good",
-    comment: "",
     isEco: true,
   },
 
   // 機械器具カテゴリ
-  { id: "work_area", category: "機械器具", name: "作業(掘削)場所の整備", status: "good", comment: "", isEco: false },
+  { id: "work_area", category: "機械器具", name: "作業(掘削)場所の整備", status: "good", isEco: false },
   {
     id: "operation_method",
     category: "機械器具",
     name: "操作(作業)方法・資格",
     status: "good",
-    comment: "",
     isEco: false,
   },
-  { id: "maintenance", category: "機械器具", name: "整備・点検状況", status: "good", comment: "", isEco: false },
-  { id: "low_noise", category: "機械器具", name: "排対・低騒音型の機械か", status: "good", comment: "", isEco: true },
+  { id: "maintenance", category: "機械器具", name: "整備・点検状況", status: "good", isEco: false },
+  { id: "low_noise", category: "機械器具", name: "排対・低騒音型の機械か", status: "good", isEco: true },
   {
     id: "noise_vibration",
     category: "機械器具",
     name: "周辺への騒音、振動対策は良いか",
     status: "good",
-    comment: "",
     isEco: true,
   },
   {
@@ -109,7 +110,6 @@ const checklistItems: ChecklistItem[] = [
     category: "機械器具",
     name: "機械からの異常音は良いか",
     status: "good",
-    comment: "",
     isEco: true,
   },
   {
@@ -117,7 +117,6 @@ const checklistItems: ChecklistItem[] = [
     category: "機械器具",
     name: "機械の燃料・オイル漏れは無いか",
     status: "good",
-    comment: "",
     isEco: true,
   },
   {
@@ -125,7 +124,6 @@ const checklistItems: ChecklistItem[] = [
     category: "機械器具",
     name: "車両・重機の使用前点検はしたか",
     status: "good",
-    comment: "",
     isEco: true,
   },
   {
@@ -133,39 +131,36 @@ const checklistItems: ChecklistItem[] = [
     category: "機械器具",
     name: "アイドリングストップをしたか",
     status: "good",
-    comment: "",
     isEco: true,
   },
 
   // 交通安全カテゴリ
-  { id: "signs", category: "交通安全", name: "標識の保全", status: "good", comment: "", isEco: false },
+  { id: "signs", category: "交通安全", name: "標識の保全", status: "good", isEco: false },
   {
     id: "traffic_facilities",
     category: "交通安全",
     name: "交通安全施設の保全",
     status: "good",
-    comment: "",
     isEco: false,
   },
-  { id: "traffic_control", category: "交通安全", name: "交通整理の状況", status: "good", comment: "", isEco: false },
-  { id: "road_condition", category: "交通安全", name: "路面状況(段差)", status: "good", comment: "", isEco: false },
+  { id: "traffic_control", category: "交通安全", name: "交通整理の状況", status: "good", isEco: false },
+  { id: "road_condition", category: "交通安全", name: "路面状況(段差)", status: "good", isEco: false },
 
   // 工事現場カテゴリ
-  { id: "scaffolding", category: "工事現場", name: "型枠、足場工、昇降路", status: "good", comment: "", isEco: false },
-  { id: "excavation", category: "工事現場", name: "掘削方法", status: "good", comment: "", isEco: false },
-  { id: "passage", category: "工事現場", name: "通路・出入口", status: "good", comment: "", isEco: false },
-  { id: "dust_measures", category: "工事現場", name: "ホコリ対策は良いか", status: "good", comment: "", isEco: true },
-  { id: "water_measures", category: "工事現場", name: "濁水対策は良いか", status: "good", comment: "", isEco: true },
-  { id: "odor_measures", category: "工事現場", name: "悪臭対策は良いか", status: "good", comment: "", isEco: true },
-  { id: "waste_disposal", category: "工事現場", name: "廃棄物の適正処理", status: "good", comment: "", isEco: true },
-  { id: "complaints", category: "工事現場", name: "苦情は無いか", status: "good", comment: "", isEco: true },
-  { id: "cleanup", category: "工事現場", name: "跡片付、整理、清掃状況", status: "good", comment: "", isEco: true },
+  { id: "scaffolding", category: "工事現場", name: "型枠、足場工、昇降路", status: "good", isEco: false },
+  { id: "excavation", category: "工事現場", name: "掘削方法", status: "good", isEco: false },
+  { id: "passage", category: "工事現場", name: "通路・出入口", status: "good", isEco: false },
+  { id: "dust_measures", category: "工事現場", name: "ホコリ対策は良いか", status: "good", isEco: true },
+  { id: "water_measures", category: "工事現場", name: "濁水対策は良いか", status: "good", isEco: true },
+  { id: "odor_measures", category: "工事現場", name: "悪臭対策は良いか", status: "good", isEco: true },
+  { id: "waste_disposal", category: "工事現場", name: "廃棄物の適正処理", status: "good", isEco: true },
+  { id: "complaints", category: "工事現場", name: "苦情は無いか", status: "good", isEco: true },
+  { id: "cleanup", category: "工事現場", name: "跡片付、整理、清掃状況", status: "good", isEco: true },
   {
     id: "electrical",
     category: "工事現場",
     name: "電気のつっぱなし・消し忘れはないか",
     status: "good",
-    comment: "",
     isEco: true,
   },
   {
@@ -173,16 +168,12 @@ const checklistItems: ChecklistItem[] = [
     category: "工事現場",
     name: "水の出しっぱなし・閉め忘れはないか",
     status: "good",
-    comment: "",
     isEco: true,
   },
 ]
 
 // カテゴリーのリスト
 const categories = ["作業員", "機械器具", "交通安全", "工事現場"]
-
-// その他オプションの定数
-const OTHER_OPTION = "other"
 
 // 画像圧縮用のユーティリティ関数
 async function compressImage(file: File): Promise<{ file: File; originalSize: number; compressedSize: number }> {
@@ -280,6 +271,7 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
   const [showCustomInput, setShowCustomInput] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const { toast } = useToast()
+  const [bucketExists, setBucketExists] = useState(false)
 
   // 状態管理
   const [formData, setFormData] = useState<FormData>({
@@ -288,19 +280,15 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
     inspectorId: "",
     customInspectorName: "",
     inspectionDate: format(new Date(), "yyyy-MM-dd"),
+    weather: "sunny",
     checklistItems: checklistItems,
     comment: "",
     photoFiles: [],
   })
 
   // 音声入力の状態管理
-  const [isListening, setIsListening] = useState(false)
-  const [currentInputId, setCurrentInputId] = useState<string | null>(null)
-  const { transcript, listening, startListening, stopListening } = useSpeechRecognition()
-  const previousTranscriptRef = useRef("")
-
+  const { isRecording, activeId, startRecording, stopRecording } = useSpeechRecognition()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({})
   const [photoSizes, setPhotoSizes] = useState<{ [key: string]: { original: number; compressed: number } }>({})
   const [isCompressing, setIsCompressing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -352,6 +340,109 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
         }
 
         getCurrentUser()
+
+        // バケットの存在を確認するだけ（作成は試みない）
+        const checkBucket = async () => {
+          try {
+            console.log(`${STORAGE_BUCKET_NAME}バケットを直接アクセスして確認中...`)
+
+            // バケット一覧を取得せず、直接バケットにアクセスを試みる
+            try {
+              // バケットのルートフォルダにアクセスを試みる
+              const { data, error: accessError } = await client.storage.from(STORAGE_BUCKET_NAME).list("", { limit: 1 })
+
+              if (accessError) {
+                console.warn("バケットアクセスエラー:", accessError)
+                console.warn("エラーコード:", accessError.code)
+                console.warn("エラーメッセージ:", accessError.message)
+
+                // バケットが存在しないエラーの場合
+                if (accessError.message.includes("does not exist") || accessError.code === "404") {
+                  console.log(`${STORAGE_BUCKET_NAME}バケットが存在しません`)
+                  toast({
+                    title: "情報",
+                    description: "写真保存用のストレージが設定されていません。写真機能は利用できません。",
+                    variant: "default",
+                  })
+                  setBucketExists(false)
+                  return
+                }
+
+                // その他のアクセスエラーの場合
+                toast({
+                  title: "警告",
+                  description: `ストレージへのアクセス権限に問題があります: ${accessError.message}`,
+                  variant: "warning",
+                })
+                setBucketExists(false)
+                return
+              }
+
+              // バケットにアクセスできた場合
+              console.log(`${STORAGE_BUCKET_NAME}バケットにアクセスできました:`, data)
+              setBucketExists(true)
+
+              // 次に特定のフォルダへのアクセスを確認
+              try {
+                console.log(`${STORAGE_FOLDER_NAME}フォルダのアクセス権限を確認中...`)
+                const { data: folderData, error: folderError } = await client.storage
+                  .from(STORAGE_BUCKET_NAME)
+                  .list(STORAGE_FOLDER_NAME, { limit: 1 })
+
+                if (folderError) {
+                  console.warn("フォルダアクセスエラー:", folderError)
+
+                  // フォルダが存在しない場合は作成を試みる
+                  if (folderError.message.includes("not found") || folderError.code === "404") {
+                    console.log(`${STORAGE_FOLDER_NAME}フォルダが存在しません。作成を試みます。`)
+
+                    try {
+                      // 空のファイルを作成してフォルダを作成
+                      const emptyBlob = new Blob([""], { type: "text/plain" })
+                      const placeholderFile = new File([emptyBlob], ".placeholder", { type: "text/plain" })
+
+                      const { error: uploadError } = await client.storage
+                        .from(STORAGE_BUCKET_NAME)
+                        .upload(`${STORAGE_FOLDER_NAME}/.placeholder`, placeholderFile)
+
+                      if (uploadError) {
+                        console.warn("フォルダ作成エラー:", uploadError)
+                      } else {
+                        console.log(`${STORAGE_FOLDER_NAME}フォルダを作成しました`)
+                      }
+                    } catch (createErr) {
+                      console.warn("フォルダ作成エラー:", createErr)
+                    }
+                  } else {
+                    // その他のフォルダアクセスエラー
+                    toast({
+                      title: "警告",
+                      description: `フォルダへのアクセス権限に問題があります: ${folderError.message}`,
+                      variant: "warning",
+                    })
+                  }
+                } else {
+                  console.log(`${STORAGE_FOLDER_NAME}フォルダにアクセスできました:`, folderData)
+                }
+              } catch (folderErr) {
+                console.warn("フォルダアクセス確認エラー:", folderErr)
+              }
+            } catch (err) {
+              console.error("バケットアクセスエラー:", err)
+              toast({
+                title: "警告",
+                description: "ストレージへのアクセスに問題があります。写真機能が制限されます。",
+                variant: "warning",
+              })
+              setBucketExists(false)
+            }
+          } catch (err) {
+            console.error("バケット確認処理エラー:", err)
+            setBucketExists(false)
+          }
+        }
+
+        checkBucket()
       } catch (err) {
         console.error("Supabaseクライアントの初期化に失敗しました:", err)
         setError("システム設定に問題があります。管理者にお問い合わせください。")
@@ -440,24 +531,6 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
       ...prev,
       checklistItems: prev.checklistItems.map((item) => (item.id === id ? { ...item, status } : item)),
     }))
-
-    // 注意または危険を選択した場合、コメント入力欄を自動的に展開
-    if (status === "caution" || status === "danger") {
-      setExpandedItems((prev) => ({ ...prev, [id]: true }))
-    }
-  }
-
-  // チェックリスト項目のコメント更新
-  const updateChecklistItemComment = (id: string, comment: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      checklistItems: prev.checklistItems.map((item) => (item.id === id ? { ...item, comment } : item)),
-    }))
-  }
-
-  // コメント入力欄の表示/非表示を切り替え
-  const toggleCommentField = (id: string) => {
-    setExpandedItems((prev) => ({ ...prev, [id]: !prev[id] }))
   }
 
   // 入力フィールドの変更を処理
@@ -569,77 +642,106 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
     })
   }
 
-  // 音声入力の開始/停止を制御
-  const toggleVoiceInput = (inputId: string) => {
-    if (isListening && currentInputId === inputId) {
-      stopListening()
-      setIsListening(false)
-      setCurrentInputId(null)
+  // 音声認識の結果を処理する関数
+  const handleSpeechResult = (text: string) => {
+    // 総合コメントに追記する形で更新
+    setFormData((prev) => ({
+      ...prev,
+      comment: prev.comment ? `${prev.comment} ${text}` : text,
+    }))
+  }
+
+  // 音声入力の開始/停止を切り替える関数
+  const toggleSpeechRecognition = () => {
+    if (isRecording) {
+      stopRecording()
     } else {
-      if (isListening) {
-        stopListening()
-      }
-      previousTranscriptRef.current = transcript
-      startListening()
-      setIsListening(true)
-      setCurrentInputId(inputId)
+      // 1 は任意のID。複数の入力フィールドがある場合に区別するために使用
+      startRecording(1, handleSpeechResult)
     }
   }
 
   // コンポーネントのクリーンアップ
   useEffect(() => {
     return () => {
-      if (listening) {
-        stopListening()
+      if (isRecording) {
+        stopRecording()
       }
     }
-  }, [listening, stopListening])
+  }, [isRecording, stopRecording])
 
-  // 音声認識の結果を監視
-  useEffect(() => {
-    if (!listening && transcript && currentInputId) {
-      // 前回の文字起こしと比較して、新しい部分だけを取得
-      const newText = transcript.substring(previousTranscriptRef.current.length)
+  // ファイルをBase64に変換する関数
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = (error) => reject(error)
+    })
+  }
 
-      if (currentInputId === "comment") {
-        // 総合コメントの場合
-        setFormData((prev) => ({
-          ...prev,
-          comment: prev.comment + newText,
-        }))
-      } else if (currentInputId === "customProjectName") {
-        // カスタム案件名の場合
-        setFormData((prev) => ({
-          ...prev,
-          customProjectName: prev.customProjectName + newText,
-        }))
-      } else if (currentInputId === "customInspectorName") {
-        // カスタム巡視者名の場合
-        setFormData((prev) => ({
-          ...prev,
-          customInspectorName: prev.customInspectorName + newText,
-        }))
-      } else {
-        // チェックリスト項目のコメントの場合
-        setFormData((prev) => ({
-          ...prev,
-          checklistItems: prev.checklistItems.map((item) =>
-            item.id === currentInputId ? { ...item, comment: item.comment + newText } : item,
-          ),
-        }))
+  // 写真をアップロードする関数
+  const uploadPhotos = async (files: File[]): Promise<string[]> => {
+    if (!bucketExists || files.length === 0) {
+      return []
+    }
+
+    const uploadedUrls: string[] = []
+
+    try {
+      // 各ファイルをAPIルート経由でアップロード
+      for (const file of files) {
+        try {
+          // ファイルをBase64エンコード
+          const base64Image = await fileToBase64(file)
+
+          // APIルートを使用してアップロード
+          const response = await fetch("/api/upload-image", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              base64Image,
+              fileName: file.name,
+              contentType: file.type,
+              folderName: STORAGE_FOLDER_NAME, // 安全巡視用のフォルダを指定
+            }),
+          })
+
+          if (!response.ok) {
+            const errorData = await response.json()
+            console.error("画像アップロードAPIエラー:", errorData)
+            toast({
+              title: "警告",
+              description: `写真「${file.name}」のアップロードに失敗しました。`,
+              variant: "warning",
+            })
+            continue // エラーがあっても次の写真を処理
+          }
+
+          const result = await response.json()
+
+          if (result.success && result.url) {
+            uploadedUrls.push(result.url)
+            console.log(`写真をアップロードしました: ${result.url}`)
+          }
+        } catch (err) {
+          console.error(`写真「${file.name}」のアップロード中にエラーが発生しました:`, err)
+        }
       }
 
-      // 現在の文字起こしを保存
-      previousTranscriptRef.current = transcript
-      setCurrentInputId(null)
-      setIsListening(false)
+      return uploadedUrls
+    } catch (err) {
+      console.error("画像アップロード処理中にエラーが発生しました:", err)
+      return []
     }
-  }, [transcript, listening, currentInputId])
+  }
 
   // フォーム送信前のバリデーション
   const validateForm = () => {
     // 案件名のバリデーション
-    if (formData.projectId === OTHER_OPTION && !formData.customProjectName.trim()) {
+    if (formData.projectId === "custom" && !formData.customProjectName.trim()) {
       toast({
         title: "入力エラー",
         description: "カスタム案件名を入力してください",
@@ -649,7 +751,7 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
     }
 
     // 巡視者のバリデーション
-    if (formData.inspectorId === OTHER_OPTION && !formData.customInspectorName.trim()) {
+    if (formData.inspectorId === "custom" && !formData.customInspectorName.trim()) {
       toast({
         title: "入力エラー",
         description: "巡視者名を入力してください",
@@ -665,49 +767,138 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    if (!supabase) {
+      toast({
+        title: "エラー",
+        description: "システムに接続できません。ページを再読み込みしてください。",
+        variant: "destructive",
+      })
+      return
+    }
+
     // バリデーションチェック
     if (!validateForm()) {
+      return
+    }
+
+    // 案件選択の検証
+    if (formData.projectId === "custom") {
+      if (!formData.customProjectName.trim()) {
+        toast({
+          title: "入力エラー",
+          description: "案件名を入力してください",
+          variant: "destructive",
+        })
+        return
+      }
+    } else if (formData.projectId === "" || formData.projectId === "placeholder") {
+      toast({
+        title: "入力エラー",
+        description: "案件を選択してください",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!formData.inspectorId || formData.inspectorId === "placeholder") {
+      toast({
+        title: "入力エラー",
+        description: "巡視者を選択してください",
+        variant: "destructive",
+      })
       return
     }
 
     setIsSubmitting(true)
 
     try {
-      // 送信データを整形
-      const selectedProject =
-        formData.projectId === OTHER_OPTION
-          ? { id: "custom", name: formData.customProjectName }
-          : deals?.find((p) => p.id.toString() === formData.projectId) || {
-              id: "unknown",
-              name: "不明なプロジェクト",
-            }
+      // ユーザー情報を取得
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
 
-      const selectedInspector =
-        formData.inspectorId === OTHER_OPTION
-          ? { id: "custom", name: formData.customInspectorName }
-          : staff.find((i) => i.id === formData.inspectorId) || { id: "unknown", name: "不明な巡視者" }
-
-      // 写真URLの配列（実際のアップロード処理は省略）
-      const photoUrls = formData.photoFiles.map((file, index) => `mock-url-${index}-${file.name}`)
-
-      const submittedData = {
-        id: Date.now().toString(), // 一時的なID
-        projectId: formData.projectId === OTHER_OPTION ? "custom" : formData.projectId,
-        projectName: formData.projectId === OTHER_OPTION ? formData.customProjectName : selectedProject.name,
-        customProjectName: formData.projectId === OTHER_OPTION ? formData.customProjectName : "",
-        inspectorId: formData.inspectorId === OTHER_OPTION ? "custom" : formData.inspectorId,
-        inspectorName: formData.inspectorId === OTHER_OPTION ? formData.customInspectorName : selectedInspector.name,
-        customInspectorName: formData.inspectorId === OTHER_OPTION ? formData.customInspectorName : "",
-        inspectionDate: formData.inspectionDate,
-        checklistItems: formData.checklistItems,
-        comment: formData.comment,
-        photoFiles: formData.photoFiles,
-        photoUrls: photoUrls, // 実際のアップロード後のURLを格納
-        status: "完了",
-        createdAt: new Date().toISOString(),
+      if (!user) {
+        toast({
+          title: "エラー",
+          description: "ユーザー情報が取得できませんでした。再ログインしてください。",
+          variant: "destructive",
+        })
+        return
       }
 
-      console.log("送信データ:", submittedData)
+      // 写真のアップロード処理
+      let uploadedPhotoUrls: string[] = []
+
+      if (formData.photoFiles.length > 0) {
+        if (!bucketExists) {
+          toast({
+            title: "情報",
+            description: "写真保存用のストレージが利用できないため、写真なしで保存します。",
+            variant: "default",
+          })
+        } else {
+          uploadedPhotoUrls = await uploadPhotos(formData.photoFiles)
+        }
+      }
+
+      // 選択した案件名を取得
+      let projectName = null
+      if (formData.projectId !== "custom" && formData.projectId !== "" && formData.projectId !== "placeholder") {
+        const selectedDeal = deals.find((deal) => deal.id === formData.projectId)
+        if (selectedDeal) {
+          projectName = selectedDeal.name
+        }
+      } else if (formData.projectId === "custom") {
+        projectName = formData.customProjectName
+      }
+
+      // 選択したスタッフIDからスタッフ情報を取得
+      const selectedStaff = staff.find((s) => s.id === formData.inspectorId)
+      if (!selectedStaff && formData.inspectorId !== "custom") {
+        toast({
+          title: "エラー",
+          description: "選択したスタッフ情報が見つかりません。別のスタッフを選択してください。",
+          variant: "destructive",
+        })
+        setIsSubmitting(false)
+        return
+      }
+
+      // テーブル構造に合わせてデータを準備
+      const inspectionData = {
+        deal_id:
+          formData.projectId !== "custom" && formData.projectId !== "" && formData.projectId !== "placeholder"
+            ? formData.projectId
+            : null,
+        custom_project_name: formData.projectId === "custom" ? formData.customProjectName : projectName,
+        staff_id: formData.inspectorId !== "custom" ? formData.inspectorId : null,
+        custom_inspector_name: formData.inspectorId === "custom" ? formData.customInspectorName : null,
+        inspection_date: formData.inspectionDate,
+        weather: formData.weather,
+        checklist_items: formData.checklistItems,
+        comment: formData.comment,
+        photo_urls: uploadedPhotoUrls,
+        status: "completed",
+        created_by: user.id,
+        user_id: user.id,
+      }
+
+      console.log("挿入するデータ:", inspectionData)
+
+      // Supabaseに直接挿入
+      const { data, error } = await supabase.from("safety_inspections").insert([inspectionData]).select()
+
+      if (error) {
+        console.error("安全巡視記録の保存エラー:", error)
+        toast({
+          title: "エラー",
+          description: `安全巡視記録の保存に失敗しました: ${error.message}`,
+          variant: "destructive",
+        })
+        return
+      }
+
+      console.log("安全巡視記録を保存しました:", data)
 
       toast({
         title: "保存完了",
@@ -716,13 +907,13 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
 
       // 成功コールバックを呼び出し
       if (onSuccess) {
-        onSuccess(submittedData)
+        onSuccess(data[0])
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("保存エラー:", error)
       toast({
         title: "保存エラー",
-        description: "安全・環境巡視日誌の保存に失敗しました",
+        description: "安全・環境巡視日誌の保存に失敗しました: " + (error.message || "不明なエラー"),
         variant: "destructive",
       })
     } finally {
@@ -745,25 +936,23 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
   }
 
   // プロジェクト選択時の処理
-  const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const { value } = e.target
+  const handleProjectChange = (value: string) => {
     setFormData((prev) => ({
       ...prev,
       projectId: value,
       // その他以外を選択した場合はカスタム名をリセット
-      customProjectName: value === OTHER_OPTION ? prev.customProjectName : "",
+      customProjectName: value === "custom" ? prev.customProjectName : "",
     }))
-    setShowCustomInput(value === OTHER_OPTION)
+    setShowCustomInput(value === "custom")
   }
 
   // 巡視者選択時の処理
-  const handleInspectorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const { value } = e
+  const handleInspectorChange = (value: string) => {
     setFormData((prev) => ({
       ...prev,
       inspectorId: value,
       // その他以外を選択した場合はカスタム名をリセット
-      customInspectorName: value === OTHER_OPTION ? prev.customInspectorName : "",
+      customInspectorName: value === "custom" ? prev.customInspectorName : "",
     }))
   }
 
@@ -805,159 +994,120 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
       <form onSubmit={handleSubmit} className="space-y-6 pr-1">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label htmlFor="projectId" className="block text-sm font-medium text-gray-700">
+            <Label htmlFor="projectId">
               案件名 <span className="text-red-500">*</span>
-            </label>
-            <select
-              id="projectId"
-              name="projectId"
-              value={formData.projectId}
-              onChange={handleProjectChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-              disabled={loading}
-            >
-              <option value="">案件を選択してください</option>
-              {loading ? (
-                <option value="" disabled>
-                  読み込み中...
-                </option>
-              ) : (
-                deals?.map((deal) => (
-                  <option key={deal.id} value={deal.id.toString()}>
-                    {deal.name}
-                  </option>
-                ))
+            </Label>
+            <div className="space-y-2">
+              <Select value={formData.projectId} onValueChange={handleProjectChange}>
+                <SelectTrigger id="projectId">
+                  <SelectValue placeholder="案件を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="placeholder" disabled>
+                    案件を選択してください
+                  </SelectItem>
+                  {deals.map((deal: any) => (
+                    <SelectItem key={`deal-${deal.id}`} value={deal.id}>
+                      {deal.name}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="custom">その他（手入力）</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {loading && (
+                <div className="text-xs text-blue-500 mt-1 flex items-center">
+                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  案件データを読み込み中...
+                </div>
               )}
-              <option value={OTHER_OPTION}>その他（手入力）</option>
-            </select>
-            {loading && (
-              <div className="text-xs text-blue-500 mt-1 flex items-center">
-                <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                案件データを読み込み中...
-              </div>
-            )}
-            {formData.projectId === OTHER_OPTION && (
-              <div className="mt-2 relative">
-                <input
-                  type="text"
-                  id="customProjectName"
-                  name="customProjectName"
-                  value={formData.customProjectName}
-                  onChange={handleInputChange}
-                  placeholder="案件名を入力してください"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => toggleVoiceInput("customProjectName")}
-                  className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-1.5 rounded-full ${
-                    isListening && currentInputId === "customProjectName"
-                      ? "bg-red-100 text-red-600"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                  title="音声入力"
-                >
-                  {isListening && currentInputId === "customProjectName" ? (
-                    <MicOff className="h-4 w-4" />
-                  ) : (
-                    <Mic className="h-4 w-4" />
-                  )}
-                </button>
-                {isListening && currentInputId === "customProjectName" && (
-                  <div className="text-xs text-red-500 mt-1 flex items-center">
-                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                    音声入力中...
-                  </div>
-                )}
-              </div>
-            )}
+
+              {showCustomInput && (
+                <div className="mt-2">
+                  <Input
+                    id="customProjectName"
+                    name="customProjectName"
+                    value={formData.customProjectName}
+                    onChange={handleInputChange}
+                    placeholder="案件名を入力してください"
+                    className="w-full"
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="inspectorId" className="block text-sm font-medium text-gray-700">
+            <Label htmlFor="inspectorId">
               巡視者 <span className="text-red-500">*</span>
-            </label>
-            <select
-              id="inspectorId"
-              name="inspectorId"
-              value={formData.inspectorId}
-              onChange={handleInspectorChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-              disabled={loading}
-            >
-              <option value="">巡視者を選択してください</option>
-              {loading ? (
-                <option value="" disabled>
-                  読み込み中...
-                </option>
-              ) : (
-                staff.map((s) => (
-                  <option key={s.id} value={s.id}>
+            </Label>
+            <Select value={formData.inspectorId} onValueChange={handleInspectorChange}>
+              <SelectTrigger id="inspectorId">
+                <SelectValue placeholder="巡視者を選択" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="placeholder" disabled>
+                  巡視者を選択してください
+                </SelectItem>
+                {staff.map((s: any) => (
+                  <SelectItem key={s.id} value={s.id}>
                     {s.full_name}
-                  </option>
-                ))
-              )}
-              <option value={OTHER_OPTION}>その他（手入力）</option>
-            </select>
+                  </SelectItem>
+                ))}
+                <SelectItem value="custom">その他（手入力）</SelectItem>
+              </SelectContent>
+            </Select>
             {loading && (
               <div className="text-xs text-blue-500 mt-1 flex items-center">
                 <Loader2 className="h-3 w-3 animate-spin mr-1" />
                 スタッフデータを読み込み中...
               </div>
             )}
-            {formData.inspectorId === OTHER_OPTION && (
-              <div className="mt-2 relative">
-                <input
+            {formData.inspectorId === "custom" && (
+              <div className="mt-2">
+                <Input
                   type="text"
                   id="customInspectorName"
                   name="customInspectorName"
                   value={formData.customInspectorName}
                   onChange={handleInputChange}
                   placeholder="巡視者名を入力してください"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full"
                 />
-                <button
-                  type="button"
-                  onClick={() => toggleVoiceInput("customInspectorName")}
-                  className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-1.5 rounded-full ${
-                    isListening && currentInputId === "customInspectorName"
-                      ? "bg-red-100 text-red-600"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                  title="音声入力"
-                >
-                  {isListening && currentInputId === "customInspectorName" ? (
-                    <MicOff className="h-4 w-4" />
-                  ) : (
-                    <Mic className="h-4 w-4" />
-                  )}
-                </button>
-                {isListening && currentInputId === "customInspectorName" && (
-                  <div className="text-xs text-red-500 mt-1 flex items-center">
-                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                    音声入力中...
-                  </div>
-                )}
               </div>
             )}
           </div>
         </div>
 
         <div>
-          <label htmlFor="inspectionDate" className="block text-sm font-medium text-gray-700 mb-1">
+          <Label htmlFor="inspectionDate">
             巡視日 <span className="text-red-500">*</span>
-          </label>
-          <input
+          </Label>
+          <Input
             type="date"
             id="inspectionDate"
             name="inspectionDate"
             value={formData.inspectionDate}
             onChange={handleInputChange}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full mt-1"
             required
           />
+        </div>
+
+        <div>
+          <Label htmlFor="weather">天候</Label>
+          <Select value={formData.weather} onValueChange={(value) => setFormData({ ...formData, weather: value })}>
+            <SelectTrigger id="weather" className="mt-1">
+              <SelectValue placeholder="天候を選択" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="sunny">晴れ</SelectItem>
+              <SelectItem value="cloudy">曇り</SelectItem>
+              <SelectItem value="rainy">雨</SelectItem>
+              <SelectItem value="snowy">雪</SelectItem>
+              <SelectItem value="windy">強風</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
@@ -1021,55 +1171,8 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
                               </span>
                               <span className="ml-1 text-xs">危険</span>
                             </button>
-
-                            <button
-                              type="button"
-                              onClick={() => toggleCommentField(item.id)}
-                              className="ml-2 text-gray-500 hover:text-gray-700"
-                            >
-                              {expandedItems[item.id] ? (
-                                <ChevronUp className="h-4 w-4" />
-                              ) : (
-                                <ChevronDown className="h-4 w-4" />
-                              )}
-                            </button>
                           </div>
                         </div>
-
-                        {expandedItems[item.id] && (
-                          <div className="mt-2 relative">
-                            <div className="flex items-center">
-                              <Textarea
-                                value={item.comment}
-                                onChange={(e) => updateChecklistItemComment(item.id, e.target.value)}
-                                placeholder="コメントを入力してください"
-                                className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 min-h-[60px] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => toggleVoiceInput(item.id)}
-                                className={`ml-2 p-2 rounded-full ${
-                                  isListening && currentInputId === item.id
-                                    ? "bg-red-100 text-red-600"
-                                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                                }`}
-                                title="音声入力"
-                              >
-                                {isListening && currentInputId === item.id ? (
-                                  <MicOff className="h-4 w-4" />
-                                ) : (
-                                  <Mic className="h-4 w-4" />
-                                )}
-                              </button>
-                            </div>
-                            {isListening && currentInputId === item.id && (
-                              <div className="text-xs text-red-500 mt-1 flex items-center">
-                                <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                                音声入力中...
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </div>
                     ))}
                 </div>
@@ -1079,48 +1182,47 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
         </div>
 
         <div>
-          <label htmlFor="comment" className="block text-sm font-medium text-gray-700 mb-1">
-            総合コメント
-          </label>
-          <div className="relative">
-            <div className="flex items-center">
-              <Textarea
-                id="comment"
-                name="comment"
-                value={formData.comment}
-                onChange={handleInputChange}
-                placeholder="指摘事項や改善点などを入力してください"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 min-h-[100px] focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                type="button"
-                onClick={() => toggleVoiceInput("comment")}
-                className={`ml-2 p-2 rounded-full ${
-                  isListening && currentInputId === "comment"
-                    ? "bg-red-100 text-red-600"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-                title="音声入力"
-              >
-                {isListening && currentInputId === "comment" ? (
-                  <MicOff className="h-4 w-4" />
-                ) : (
-                  <Mic className="h-4 w-4" />
-                )}
-              </button>
-            </div>
-            {isListening && currentInputId === "comment" && (
-              <div className="text-xs text-red-500 mt-1 flex items-center">
-                <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                音声入力中...
-              </div>
-            )}
+          <div className="flex items-center justify-between">
+            <Label htmlFor="comment">総合コメント</Label>
+            <Button
+              type="button"
+              size="sm"
+              variant={isRecording ? "destructive" : "outline"}
+              onClick={toggleSpeechRecognition}
+              className={`flex items-center gap-1 ${isRecording ? "animate-pulse" : ""}`}
+            >
+              {isRecording ? (
+                <>
+                  <MicOff size={16} /> 録音停止
+                </>
+              ) : (
+                <>
+                  <Mic size={16} /> 音声入力
+                </>
+              )}
+            </Button>
           </div>
+          <Textarea
+            id="comment"
+            name="comment"
+            value={formData.comment}
+            onChange={handleInputChange}
+            placeholder="指摘事項や改善点などを入力してください"
+            className="w-full mt-1 min-h-[100px]"
+          />
+          {isRecording && (
+            <div className="text-sm text-green-600 animate-pulse">音声を認識中... マイクに向かって話してください</div>
+          )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">写真添付</label>
-          <div className="flex flex-wrap gap-2">
+          <Label>写真添付</Label>
+          {!bucketExists && (
+            <div className="text-amber-500 text-sm mb-2">
+              ※ 写真保存用のストレージが設定されていません。写真は保存されません。
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2 mt-1">
             <input
               ref={fileInputRef}
               type="file"
@@ -1191,7 +1293,13 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
             disabled={isSubmitting}
             className="bg-black text-white px-4 py-2 rounded-md hover:bg-gray-800"
           >
-            {isSubmitting ? "保存中..." : "保存"}
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 保存中...
+              </>
+            ) : (
+              "保存する"
+            )}
           </Button>
         </div>
       </form>
