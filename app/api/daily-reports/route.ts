@@ -123,15 +123,32 @@ export async function POST(request: Request) {
       status: reportData.status,
     })
 
+    // 日報データを追加する前にコンソールログを追加
+    console.log("API: 日報データを追加します...", JSON.stringify(reportData, null, 2))
+
     // 日報データを追加
     const { data, error } = await supabase.from("daily_reports").insert(reportData).select()
 
     if (error) {
       console.error("API: 日報作成エラー:", error)
+      console.error("API: エラーの詳細:", JSON.stringify(error, null, 2))
+
+      // エラーメッセージをより詳細に
+      let errorMessage = `日報の作成に失敗しました: ${error.message}`
+
+      // 外部キー制約エラーの場合
+      if (error.code === "23503") {
+        errorMessage = "参照整合性エラー: 関連するデータが存在しません。"
+      }
+
+      // 一意性制約エラーの場合
+      if (error.code === "23505") {
+        errorMessage = "同じデータがすでに存在します。"
+      }
 
       return NextResponse.json(
         {
-          error: `日報の作成に失敗しました: ${error.message}`,
+          error: errorMessage,
           details: error,
         },
         { status: 500 },

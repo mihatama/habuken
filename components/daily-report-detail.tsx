@@ -81,6 +81,12 @@ export function DailyReportDetail({ report }: DailyReportDetailProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* 報告者情報を追加 */}
+        <div>
+          <h3 className="text-sm font-medium mb-2">報告者</h3>
+          <div className="text-sm">{report.full_name || "不明な報告者"}</div>
+        </div>
+
         <div>
           <h3 className="text-sm font-medium mb-2">作業内容</h3>
           <div className="whitespace-pre-wrap text-sm bg-muted p-3 rounded-md">
@@ -90,7 +96,7 @@ export function DailyReportDetail({ report }: DailyReportDetailProps) {
 
         {/* 作業者情報 */}
         <div className="mt-4">
-          <h3 className="text-lg font-semibold mb-2">作業者情報</h3>
+          <h3 className="text-sm font-medium mb-2">作業者情報</h3>
           {report.workers && Array.isArray(report.workers) && report.workers.length > 0 ? (
             <div className="space-y-2">
               {report.workers.map((worker: any, index: number) => (
