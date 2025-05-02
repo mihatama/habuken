@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Calendar, Briefcase, Users, Truck, Car, Key, ClipboardList, FileText, Settings, X } from "lucide-react"
+import { Calendar, Briefcase, Users, Truck, Car, Key, ClipboardList, FileText, X } from "lucide-react"
 
 interface MobileNavProps {
   isOpen: boolean
@@ -93,14 +93,6 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
           >
             <FileText className="h-5 w-5" />
             <span>現場報告</span>
-          </Button>
-          <Button
-            variant="ghost"
-            className="flex w-full justify-start gap-2"
-            onClick={() => handleNavigation("/settings")}
-          >
-            <Settings className="h-5 w-5" />
-            <span>設定</span>
           </Button>
         </div>
       </div>

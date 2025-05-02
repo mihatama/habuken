@@ -8,7 +8,7 @@ import { MobileNav } from "@/components/mobile-nav"
 import { UserNav } from "@/components/user-nav"
 import { useAuth } from "@/contexts/auth-context"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Calendar, Briefcase, Users, Truck, Car, Key, ClipboardList, FileText, Settings } from "lucide-react"
+import { Calendar, Briefcase, Users, Truck, Car, Key, ClipboardList, FileText } from "lucide-react"
 
 export function Header() {
   const router = useRouter()
@@ -145,17 +145,6 @@ export function Header() {
               >
                 <FileText className="h-5 w-5 mb-1" />
                 <span>現場報告</span>
-              </Link>
-              <Link
-                href="/settings"
-                className="flex flex-col items-center text-sm font-medium transition-colors hover:text-primary"
-                onClick={(e) => {
-                  e.preventDefault()
-                  router.push("/settings")
-                }}
-              >
-                <Settings className="h-5 w-5 mb-1" />
-                <span>設定</span>
               </Link>
             </div>
             <div className="flex items-center">
