@@ -143,6 +143,14 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
   const [bucketExists, setBucketExists] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
 
+  // 作業者の型定義
+  interface Worker {
+    id: string
+    name: string
+    startTime: string
+    endTime: string
+  }
+
   const [formData, setFormData] = useState({
     projectId: "",
     userId: "",
@@ -153,6 +161,7 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
     photos: [] as string[],
     startTime: "",
     endTime: "",
+    workers: [] as Worker[], // 作業者配列を追加
   })
 
   const { isRecording, activeId, startRecording, stopRecording } = useSpeechRecognition()
@@ -593,6 +602,157 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
     })
   }
 
+  // 作業者を追加する関数
+  const addWorker = () => {
+    // 選択されているスタッフを取得
+    const selectedStaff = staff.find((s) => s.id === formData.userId)
+
+    if (!selectedStaff) {
+      toast({
+        title: "エラー",
+        description: "登録者を先に選択してください",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // 新しい作業者を追加（初期値は登録者の情報と時間）
+    setFormData((prev) => ({
+      ...prev,
+      workers: [
+        ...prev.workers,
+        {
+          id: selectedStaff.id,
+          name: selectedStaff.full_name,
+          startTime: prev.startTime,
+          endTime: prev.endTime,
+        },
+      ],
+    }))
+  }
+
+  // 作業者を削除する関数
+  const removeWorker = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      workers: prev.workers.filter((_, i) => i !== index),
+    }))
+  }
+
+  // 作業者の情報を更新する関数
+  const updateWorker = (index: number, field: keyof Worker, value: string) => {
+    setFormData((prev) => {
+      const updatedWorkers = [...prev.workers]
+      updatedWorkers[index] = {
+        ...updatedWorkers[index],
+        [field]: value,
+      }
+      return {
+        ...prev,
+        workers: updatedWorkers,
+      }
+    })
+  }
+
+  // 作業者のスタッフを変更する関数
+  const changeWorkerStaff = (index: number, staffId: string) => {
+    const selectedStaff = staff.find((s) => s.id === staffId)
+    if (!selectedStaff) return
+
+    setFormData((prev) => {
+      const updatedWorkers = [...prev.workers]
+      updatedWorkers[index] = {
+        ...updatedWorkers[index],
+        id: selectedStaff.id,
+        name: selectedStaff.full_name,
+      }
+      return {
+        ...prev,
+        workers: updatedWorkers,
+      }
+    })
+  }
+
+  // フォームリセット関数
+  const resetForm = () => {
+    setFormData({
+      projectId: "",
+      userId: "",
+      workDate: new Date().toISOString().split("T")[0],
+      weather: "sunny",
+      workContentText: "",
+      speechRecognitionRaw: "",
+      photos: [],
+      startTime: "",
+      endTime: "",
+      workers: [], // 作業者配列をリセット
+    })
+    setCustomProject("")
+    setPhotoFiles([])
+    setPhotoSizes({})
+    setShowCustomInput(false)
+  }
+
+  // 音声認識の互換性チェック
+  const [speechSupported, setSpeechSupported] = useState(true)
+
+  useEffect(() => {
+    // ブラウザが音声認識をサポートしているか確認
+    const isSpeechRecognitionSupported =
+      typeof window !== "undefined" && ("webkitSpeechRecognition" in window || "SpeechRecognition" in window)
+
+    setSpeechSupported(isSpeechRecognitionSupported)
+  }, [])
+
+  // ファイルサイズを読みやすい形式に変換する関数
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return "0 B"
+
+    const k = 1024
+    const sizes = ["B", "KB", "MB", "GB"]
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+
+    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
+  }
+
+  // エラーがある場合はエラーメッセージを表示
+  if (error) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>エラー</DialogTitle>
+          </DialogHeader>
+          <div className="py-6 text-center text-red-500">
+            <p>{error}</p>
+            <p className="mt-4">ページを再読み込みしてもう一度お試しください。</p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => window.location.reload()}>ページを再読み込み</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
+  // 登録者の開始時間が変更されたときのハンドラ
+  const handleStartTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newStartTime = e.target.value
+    setFormData((prev) => ({
+      ...prev,
+      startTime: newStartTime,
+    }))
+  }
+
+  // 登録者の終了時間が変更されたときのハンドラ
+  const handleEndTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newEndTime = e.target.value
+    setFormData((prev) => ({
+      ...prev,
+      endTime: newEndTime,
+    }))
+  }
+
   const handleSubmit = async () => {
     if (!supabase) {
       toast({
@@ -720,6 +880,13 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
         created_by: user.id,
         // 現在のユーザーIDを明示的に送信
         user_id: user.id,
+        // 作業者情報を追加
+        workers: formData.workers.map((worker) => ({
+          id: worker.id,
+          name: worker.name,
+          start_time: worker.startTime,
+          end_time: worker.endTime,
+        })),
       }
 
       console.log("挿入するデータ:", reportData)
@@ -797,67 +964,6 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
     }
   }
 
-  // フォームリセット関数
-  const resetForm = () => {
-    setFormData({
-      projectId: "",
-      userId: "",
-      workDate: new Date().toISOString().split("T")[0],
-      weather: "sunny",
-      workContentText: "",
-      speechRecognitionRaw: "",
-      photos: [],
-      startTime: "",
-      endTime: "",
-    })
-    setCustomProject("")
-    setPhotoFiles([])
-    setPhotoSizes({})
-    setShowCustomInput(false)
-  }
-
-  // 音声認識の互換性チェック
-  const [speechSupported, setSpeechSupported] = useState(true)
-
-  useEffect(() => {
-    // ブラウザが音声認識をサポートしているか確認
-    const isSpeechRecognitionSupported =
-      typeof window !== "undefined" && ("webkitSpeechRecognition" in window || "SpeechRecognition" in window)
-
-    setSpeechSupported(isSpeechRecognitionSupported)
-  }, [])
-
-  // ファイルサイズを読みやすい形式に変換する関数
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return "0 B"
-
-    const k = 1024
-    const sizes = ["B", "KB", "MB", "GB"]
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-
-    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
-  }
-
-  // エラーがある場合はエラーメッセージを表示
-  if (error) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>エラー</DialogTitle>
-          </DialogHeader>
-          <div className="py-6 text-center text-red-500">
-            <p>{error}</p>
-            <p className="mt-4">ページを再読み込みしてもう一度お試しください。</p>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => window.location.reload()}>ページを再読み込み</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    )
-  }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
@@ -933,21 +1039,11 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="startTime">作業開始時間 *</Label>
-                <Input
-                  id="startTime"
-                  type="time"
-                  value={formData.startTime}
-                  onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                />
+                <Input id="startTime" type="time" value={formData.startTime} onChange={handleStartTimeChange} />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="endTime">作業終了時間 *</Label>
-                <Input
-                  id="endTime"
-                  type="time"
-                  value={formData.endTime}
-                  onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                />
+                <Input id="endTime" type="time" value={formData.endTime} onChange={handleEndTimeChange} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -1006,6 +1102,81 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
               {!speechSupported && (
                 <div className="text-sm text-amber-500">
                   お使いのブラウザは音声入力に対応していません。Chrome、Safari、Edgeなどの最新ブラウザをお試しください。
+                </div>
+              )}
+            </div>
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between">
+                <Label>作業者</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={addWorker}
+                  className="flex items-center gap-1"
+                >
+                  <Plus size={16} /> 作業者を追加
+                </Button>
+              </div>
+
+              {formData.workers.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-2">
+                  作業者が登録されていません。登録者が作業者として自動的に記録されます。
+                </div>
+              ) : (
+                <div className="space-y-3 mt-2">
+                  {formData.workers.map((worker, index) => (
+                    <div key={index} className="border rounded-md p-3 relative">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute top-2 right-2 h-6 w-6 p-0"
+                        onClick={() => removeWorker(index)}
+                      >
+                        <X size={14} />
+                      </Button>
+
+                      <div className="grid gap-3">
+                        <div className="grid gap-2">
+                          <Label htmlFor={`worker-${index}-name`}>名前</Label>
+                          <Select value={worker.id} onValueChange={(value) => changeWorkerStaff(index, value)}>
+                            <SelectTrigger id={`worker-${index}-name`}>
+                              <SelectValue placeholder="作業者を選択" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {staff.map((s) => (
+                                <SelectItem key={`worker-staff-${s.id}`} value={s.id}>
+                                  {s.full_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="grid gap-2">
+                            <Label htmlFor={`worker-${index}-start`}>開始時間</Label>
+                            <Input
+                              id={`worker-${index}-start`}
+                              type="time"
+                              value={worker.startTime}
+                              onChange={(e) => updateWorker(index, "startTime", e.target.value)}
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor={`worker-${index}-end`}>終了時間</Label>
+                            <Input
+                              id={`worker-${index}-end`}
+                              type="time"
+                              value={worker.endTime}
+                              onChange={(e) => updateWorker(index, "endTime", e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

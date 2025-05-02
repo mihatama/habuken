@@ -60,6 +60,43 @@ export async function POST(request: Request) {
       }
     }
 
+    // 作業者情報の処理
+    if (!reportData.workers || !Array.isArray(reportData.workers) || reportData.workers.length === 0) {
+      // 作業者が指定されていない場合は、登録者を作業者として追加
+      if (reportData.submitted_by) {
+        try {
+          // 登録者の情報を取得
+          const { data: staffData, error: staffError } = await supabase
+            .from("staff")
+            .select("id, full_name")
+            .eq("id", reportData.submitted_by)
+            .single()
+
+          if (!staffError && staffData) {
+            reportData.workers = [
+              {
+                id: staffData.id,
+                name: staffData.full_name,
+                start_time: reportData.start_time,
+                end_time: reportData.end_time,
+              },
+            ]
+          }
+        } catch (err) {
+          console.warn("API: 登録者情報の取得に失敗しました:", err)
+        }
+      }
+    }
+
+    // workers配列がJSON形式であることを確認
+    if (reportData.workers && Array.isArray(reportData.workers)) {
+      // すでにJSON形式の場合は変換不要
+      console.log("API: 作業者情報:", reportData.workers)
+    } else {
+      // 作業者情報がない場合は空配列を設定
+      reportData.workers = []
+    }
+
     // 不要なフィールドを削除
     delete reportData.user_id
     delete reportData.projectId

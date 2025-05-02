@@ -888,8 +888,14 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
             ? formData.projectId
             : null,
         custom_project_name: formData.projectId === "custom" ? formData.customProjectName : projectName,
-        staff_id: formData.inspectorId !== "custom" ? inspectorUserId : user.id, // usersテーブルのIDを使用
-        custom_inspector_name: formData.inspectorId === "custom" ? formData.customInspectorName : null,
+        staff_id: inspectorUserId, // ユーザーIDを設定
+        inspector_id: formData.inspectorId !== "custom" ? formData.inspectorId : null, // スタッフテーブルのIDを設定
+        custom_inspector_name:
+          formData.inspectorId === "custom"
+            ? formData.customInspectorName
+            : selectedStaff
+              ? selectedStaff.full_name
+              : null, // スタッフ名を保存
         inspection_date: formData.inspectionDate,
         checklist_items: formData.checklistItems,
         comment: formData.comment,

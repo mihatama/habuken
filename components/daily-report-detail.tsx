@@ -88,6 +88,35 @@ export function DailyReportDetail({ report }: DailyReportDetailProps) {
           </div>
         </div>
 
+        {/* 作業者情報 */}
+        <div className="mt-4">
+          <h3 className="text-lg font-semibold mb-2">作業者情報</h3>
+          {report.workers && Array.isArray(report.workers) && report.workers.length > 0 ? (
+            <div className="space-y-2">
+              {report.workers.map((worker: any, index: number) => (
+                <div key={index} className="border rounded-md p-3">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <span className="text-sm font-medium">名前:</span>
+                      <p>{worker.name}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium">開始時間:</span>
+                      <p>{worker.start_time}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium">終了時間:</span>
+                      <p>{worker.end_time}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">作業者情報はありません</p>
+          )}
+        </div>
+
         {photoUrls.length > 0 && (
           <div>
             <h3 className="text-sm font-medium mb-2">添付写真 ({photoUrls.length}枚)</h3>

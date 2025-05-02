@@ -27,7 +27,8 @@ export async function POST(request: NextRequest) {
         {
           deal_id: data.deal_id,
           custom_project_name: data.custom_project_name,
-          staff_id: data.staff_id, // 正しいカラム名を使用
+          staff_id: data.staff_id, // ユーザーID
+          inspector_id: data.inspector_id, // スタッフテーブルのID
           custom_inspector_name: data.custom_inspector_name,
           inspection_date: data.inspection_date,
           weather: data.weather,
