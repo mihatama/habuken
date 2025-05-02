@@ -121,7 +121,7 @@ export async function deleteCalendarEvent(eventId: string) {
   }
 }
 
-// イベント取得
+// イベント取得 - ページング対応
 export async function getCalendarEvents(filters?: {
   startDate?: string
   endDate?: string
@@ -129,12 +129,20 @@ export async function getCalendarEvents(filters?: {
   staffId?: string
   resourceId?: string
   eventType?: "project" | "staff" | "tool" | "general"
+  page?: number
+  pageSize?: number
 }) {
   try {
     const supabase = getServerSupabase()
 
+    // ページングのデフォルト値
+    const page = filters?.page || 1
+    const pageSize = filters?.pageSize || 100
+    const start = (page - 1) * pageSize
+    const end = start + pageSize - 1
+
     // リレーションシップを使わずに基本的なイベントデータを取得
-    let query = supabase.from("shifts").select("*")
+    let query = supabase.from("shifts").select("*", { count: "exact" })
 
     // フィルター適用
     if (filters) {
@@ -158,55 +166,39 @@ export async function getCalendarEvents(filters?: {
       }
     }
 
-    const { data: shiftsData, error: shiftsError } = await query.order("start_time", { ascending: true })
+    // ページング適用
+    const {
+      data: shiftsData,
+      count,
+      error: shiftsError,
+    } = await query.order("start_time", { ascending: true }).range(start, end)
 
     if (shiftsError) throw new Error(`イベント取得エラー: ${shiftsError.message}`)
 
-    // 関連データを個別に取得
-    const staffIds = shiftsData
-      .filter((shift) => shift.staff_id)
-      .map((shift) => shift.staff_id)
-      .filter((value, index, self) => self.indexOf(value) === index) // 重複を削除
+    // 関連データのIDを抽出（重複を削除）
+    const staffIds = [...new Set(shiftsData.filter((shift) => shift.staff_id).map((shift) => shift.staff_id))]
 
-    const projectIds = shiftsData
-      .filter((shift) => shift.project_id)
-      .map((shift) => shift.project_id)
-      .filter((value, index, self) => self.indexOf(value) === index) // 重複を削除
+    const projectIds = [...new Set(shiftsData.filter((shift) => shift.project_id).map((shift) => shift.project_id))]
 
-    const resourceIds = shiftsData
-      .filter((shift) => shift.resource_id)
-      .map((shift) => shift.resource_id)
-      .filter((value, index, self) => self.indexOf(value) === index) // 重複を削除
+    const resourceIds = [...new Set(shiftsData.filter((shift) => shift.resource_id).map((shift) => shift.resource_id))]
 
-    // スタッフデータを取得
-    let staffData: any[] = []
-    if (staffIds.length > 0) {
-      const { data, error } = await supabase.from("staff").select("*").in("id", staffIds)
-      if (error) throw new Error(`スタッフデータ取得エラー: ${error.message}`)
-      staffData = data || []
-    }
+    // 関連データを並行して取得
+    const [staffResult, projectResult, resourceResult] = await Promise.all([
+      staffIds.length > 0 ? supabase.from("staff").select("*").in("id", staffIds) : { data: [], error: null },
+      projectIds.length > 0 ? supabase.from("projects").select("*").in("id", projectIds) : { data: [], error: null },
+      resourceIds.length > 0 ? supabase.from("resources").select("*").in("id", resourceIds) : { data: [], error: null },
+    ])
 
-    // プロジェクトデータを取得
-    let projectsData: any[] = []
-    if (projectIds.length > 0) {
-      const { data, error } = await supabase.from("projects").select("*").in("id", projectIds)
-      if (error) throw new Error(`プロジェクトデータ取得エラー: ${error.message}`)
-      projectsData = data || []
-    }
-
-    // リソースデータを取得
-    let resourcesData: any[] = []
-    if (resourceIds.length > 0) {
-      const { data, error } = await supabase.from("resources").select("*").in("id", resourceIds)
-      if (error) throw new Error(`リソースデータ取得エラー: ${error.message}`)
-      resourcesData = data || []
-    }
+    // エラーチェック
+    if (staffResult.error) throw new Error(`スタッフデータ取得エラー: ${staffResult.error.message}`)
+    if (projectResult.error) throw new Error(`プロジェクトデータ取得エラー: ${projectResult.error.message}`)
+    if (resourceResult.error) throw new Error(`リソースデータ取得エラー: ${resourceResult.error.message}`)
 
     // データを結合
     const enrichedData = shiftsData.map((shift) => {
-      const staff = staffData.find((s) => s.id === shift.staff_id) || null
-      const project = projectsData.find((p) => p.id === shift.project_id) || null
-      const resource = resourcesData.find((r) => r.id === shift.resource_id) || null
+      const staff = staffResult.data?.find((s) => s.id === shift.staff_id) || null
+      const project = projectResult.data?.find((p) => p.id === shift.project_id) || null
+      const resource = resourceResult.data?.find((r) => r.id === shift.resource_id) || null
 
       return {
         ...shift,
@@ -216,7 +208,16 @@ export async function getCalendarEvents(filters?: {
       }
     })
 
-    return { success: true, data: enrichedData }
+    return {
+      success: true,
+      data: enrichedData,
+      pagination: {
+        total: count || 0,
+        page,
+        pageSize,
+        totalPages: Math.ceil((count || 0) / pageSize),
+      },
+    }
   } catch (error) {
     console.error("イベント取得エラー:", error)
     return { success: false, error: error instanceof Error ? error.message : "不明なエラー", data: [] }
@@ -263,10 +264,13 @@ export async function createMultipleAssignmentEvent({
       event_type,
     }
 
+    // バッチ処理用の配列
+    const insertData = []
+
     // スタッフの割り当てがある場合
     if (staff_ids && staff_ids.length > 0) {
       for (const staff_id of staff_ids) {
-        await supabase.from("shifts").insert({
+        insertData.push({
           ...baseEventData,
           staff_id,
         })
@@ -276,7 +280,7 @@ export async function createMultipleAssignmentEvent({
     // リソースの割り当てがある場合
     if (resource_ids && resource_ids.length > 0) {
       for (const resource_id of resource_ids) {
-        await supabase.from("shifts").insert({
+        insertData.push({
           ...baseEventData,
           resource_id,
         })
@@ -286,7 +290,7 @@ export async function createMultipleAssignmentEvent({
     // 重機の割り当てがある場合
     if (heavy_machinery_ids && heavy_machinery_ids.length > 0) {
       for (const heavy_machinery_id of heavy_machinery_ids) {
-        await supabase.from("shifts").insert({
+        insertData.push({
           ...baseEventData,
           heavy_machinery_id,
         })
@@ -296,7 +300,7 @@ export async function createMultipleAssignmentEvent({
     // 車両の割り当てがある場合
     if (vehicle_ids && vehicle_ids.length > 0) {
       for (const vehicle_id of vehicle_ids) {
-        await supabase.from("shifts").insert({
+        insertData.push({
           ...baseEventData,
           vehicle_id,
         })
@@ -306,7 +310,7 @@ export async function createMultipleAssignmentEvent({
     // 備品の割り当てがある場合
     if (tool_ids && tool_ids.length > 0) {
       for (const tool_id of tool_ids) {
-        await supabase.from("shifts").insert({
+        insertData.push({
           ...baseEventData,
           tool_id,
         })
@@ -314,14 +318,16 @@ export async function createMultipleAssignmentEvent({
     }
 
     // 何も割り当てがない場合は一般的なイベントとして作成
-    if (
-      (!staff_ids || staff_ids.length === 0) &&
-      (!resource_ids || resource_ids.length === 0) &&
-      (!heavy_machinery_ids || heavy_machinery_ids.length === 0) &&
-      (!vehicle_ids || vehicle_ids.length === 0) &&
-      (!tool_ids || tool_ids.length === 0)
-    ) {
-      await supabase.from("shifts").insert(baseEventData)
+    if (insertData.length === 0) {
+      insertData.push(baseEventData)
+    }
+
+    // バッチ挿入（最大100件ずつ）
+    const BATCH_SIZE = 100
+    for (let i = 0; i < insertData.length; i += BATCH_SIZE) {
+      const batch = insertData.slice(i, i + BATCH_SIZE)
+      const { error } = await supabase.from("shifts").insert(batch)
+      if (error) throw new Error(`バッチ挿入エラー: ${error.message}`)
     }
 
     revalidatePath("/dashboard")

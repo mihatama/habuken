@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useRef, useEffect } from "react"
+import { useRef, useEffect, useCallback, useMemo, useReducer, memo } from "react"
 import { Calendar, momentLocalizer } from "react-big-calendar"
 import moment from "moment"
 import "moment/locale/ja"
@@ -98,9 +97,269 @@ export interface EnhancedCalendarProps {
   categories?: { value: string; label: string }[]
   onRefresh?: () => void
   readOnly?: boolean
-  defaultDate?: Date // Add this line
+  defaultDate?: Date
 }
 
+// 状態管理用のreducer
+type CalendarState = {
+  view: "week" | "month"
+  currentDate: Date
+  selectedEvent: CalendarEvent | null
+  isDialogOpen: boolean
+  isNewEvent: boolean
+  isSubmitting: boolean
+  formData: Partial<CalendarEvent>
+}
+
+type CalendarAction =
+  | { type: "SET_VIEW"; payload: "week" | "month" }
+  | { type: "SET_CURRENT_DATE"; payload: Date }
+  | { type: "SELECT_EVENT"; payload: CalendarEvent | null }
+  | { type: "SET_DIALOG_OPEN"; payload: boolean }
+  | { type: "SET_NEW_EVENT"; payload: boolean }
+  | { type: "SET_SUBMITTING"; payload: boolean }
+  | { type: "UPDATE_FORM_DATA"; payload: Partial<CalendarEvent> }
+  | { type: "RESET_FORM_DATA"; payload: { categories: Category[]; startDate?: Date } }
+
+function calendarReducer(state: CalendarState, action: CalendarAction): CalendarState {
+  switch (action.type) {
+    case "SET_VIEW":
+      return { ...state, view: action.payload }
+    case "SET_CURRENT_DATE":
+      return { ...state, currentDate: action.payload }
+    case "SELECT_EVENT":
+      return { ...state, selectedEvent: action.payload }
+    case "SET_DIALOG_OPEN":
+      return { ...state, isDialogOpen: action.payload }
+    case "SET_NEW_EVENT":
+      return { ...state, isNewEvent: action.payload }
+    case "SET_SUBMITTING":
+      return { ...state, isSubmitting: action.payload }
+    case "UPDATE_FORM_DATA":
+      return { ...state, formData: { ...state.formData, ...action.payload } }
+    case "RESET_FORM_DATA":
+      const startTime = action.payload.startDate || new Date()
+      startTime.setHours(0, 0, 0, 0)
+
+      const endTime = new Date(startTime)
+      endTime.setHours(23, 59, 59, 999)
+
+      return {
+        ...state,
+        formData: {
+          title: "",
+          start: startTime,
+          end: endTime,
+          description: "",
+          category: action.payload.categories.length > 0 ? action.payload.categories[0].value : undefined,
+          allDay: true,
+        },
+      }
+    default:
+      return state
+  }
+}
+
+// メモ化されたイベントコンポーネント
+const EventItem = memo(({ event, onClick }: { event: CalendarEvent; onClick: () => void }) => {
+  return (
+    <div onClick={onClick} className="p-2 text-sm truncate" title={event.title}>
+      {event.title}
+    </div>
+  )
+})
+EventItem.displayName = "EventItem"
+
+// メモ化されたカレンダーヘッダーコンポーネント
+const CalendarHeader = memo(
+  ({
+    currentDate,
+    view,
+    onViewChange,
+    onNavigate,
+    onRefresh,
+    isLoading,
+  }: {
+    currentDate: Date
+    view: "week" | "month"
+    onViewChange: (view: "week" | "month") => void
+    onNavigate: (action: "PREV" | "NEXT" | "TODAY") => void
+    onRefresh?: () => void
+    isLoading?: boolean
+  }) => {
+    const formatDateHeader = useCallback((date: Date) => {
+      return moment(date).format("YYYY年M月")
+    }, [])
+
+    return (
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => onNavigate("PREV")} aria-label="前の期間">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => onNavigate("TODAY")} aria-label="今日">
+            今日
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => onNavigate("NEXT")} aria-label="次の期間">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <div className="text-lg font-medium ml-2">{formatDateHeader(currentDate)}</div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="flex border rounded-md overflow-hidden">
+            <Button
+              variant={view === "week" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => onViewChange("week")}
+              className="rounded-none"
+            >
+              週
+            </Button>
+            <Button
+              variant={view === "month" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => onViewChange("month")}
+              className="rounded-none"
+            >
+              月
+            </Button>
+          </div>
+
+          {onRefresh && (
+            <Button variant="outline" size="sm" onClick={onRefresh} disabled={isLoading} aria-label="更新">
+              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            </Button>
+          )}
+        </div>
+      </div>
+    )
+  },
+)
+CalendarHeader.displayName = "CalendarHeader"
+
+// メモ化されたイベントフォームコンポーネント
+const EventForm = memo(
+  ({
+    formData,
+    isNewEvent,
+    isSubmitting,
+    categories,
+    onInputChange,
+    onDateChange,
+    onCategoryChange,
+    onSubmit,
+    onDelete,
+    onCancel,
+  }: {
+    formData: Partial<CalendarEvent>
+    isNewEvent: boolean
+    isSubmitting: boolean
+    categories: Category[]
+    onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void
+    onDateChange: (e: React.ChangeEvent<HTMLInputElement>, field: "start" | "end") => void
+    onCategoryChange: (value: string) => void
+    onSubmit: (e: React.FormEvent) => void
+    onDelete: () => void
+    onCancel: () => void
+  }) => {
+    // Format the date/time for the input fields
+    const formatDateForInput = useCallback((date: Date) => {
+      return moment(date).format("YYYY-MM-DD")
+    }, [])
+
+    return (
+      <form onSubmit={onSubmit}>
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="title">タイトル</Label>
+            <Input id="title" name="title" value={formData.title || ""} onChange={onInputChange} required />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="start">開始日</Label>
+              <div className="flex items-center">
+                <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
+                <Input
+                  id="start"
+                  type="date"
+                  value={formData.start ? formatDateForInput(formData.start as Date) : ""}
+                  onChange={(e) => onDateChange(e, "start")}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="end">終了日</Label>
+              <div className="flex items-center">
+                <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
+                <Input
+                  id="end"
+                  type="date"
+                  value={formData.end ? formatDateForInput(formData.end as Date) : ""}
+                  onChange={(e) => onDateChange(e, "end")}
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          {categories.length > 0 && (
+            <div className="grid gap-2">
+              <Label htmlFor="category">カテゴリ</Label>
+              <Select value={formData.category || categories[0].value} onValueChange={onCategoryChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="カテゴリを選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category.value} value={category.value}>
+                      {category.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div className="grid gap-2">
+            <Label htmlFor="description">詳細</Label>
+            <Textarea
+              id="description"
+              name="description"
+              value={formData.description || ""}
+              onChange={onInputChange}
+              rows={3}
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="flex justify-between sm:justify-between">
+          <div>
+            {!isNewEvent && (
+              <Button type="button" variant="destructive" onClick={onDelete} disabled={isSubmitting}>
+                削除
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={onCancel}>
+              キャンセル
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "保存中..." : "保存"}
+            </Button>
+          </div>
+        </DialogFooter>
+      </form>
+    )
+  },
+)
+EventForm.displayName = "EventForm"
+
+// メインのEnhancedCalendarコンポーネント
 export function EnhancedCalendar({
   events,
   onEventAdd,
@@ -110,126 +369,135 @@ export function EnhancedCalendar({
   error = null,
   categories = [],
   onRefresh,
-  readOnly = false, // Default to false for backward compatibility
+  readOnly = false,
   defaultDate,
 }: EnhancedCalendarProps) {
-  const [view, setView] = useState<"week" | "month">("week")
-  const [currentDate, setCurrentDate] = useState<Date>(defaultDate || new Date())
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [isNewEvent, setIsNewEvent] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [formData, setFormData] = useState<Partial<CalendarEvent>>({
-    title: "",
-    start: new Date(),
-    end: new Date(),
-    description: "",
-    category: categories.length > 0 ? categories[0].value : undefined,
+  // useReducerを使用して関連する状態を一元管理
+  const [state, dispatch] = useReducer(calendarReducer, {
+    view: "week",
+    currentDate: defaultDate || new Date(),
+    selectedEvent: null,
+    isDialogOpen: false,
+    isNewEvent: false,
+    isSubmitting: false,
+    formData: {
+      title: "",
+      start: new Date(),
+      end: new Date(),
+      description: "",
+      category: categories.length > 0 ? categories[0].value : undefined,
+      allDay: true,
+    },
   })
+
+  const { view, currentDate, selectedEvent, isDialogOpen, isNewEvent, isSubmitting, formData } = state
 
   const isMobile = useMediaQuery("(max-width: 768px)")
   const calendarRef = useRef<any>(null)
 
-  // すべてのイベントを終日イベントとして処理
-  const processedEvents = events.map((event) => ({
-    ...event,
-    allDay: true,
-  }))
+  // すべてのイベントを終日イベントとして処理し、メモ化
+  const processedEvents = useMemo(
+    () =>
+      events.map((event) => ({
+        ...event,
+        allDay: true,
+      })),
+    [events],
+  )
 
   // Reset form data when selected event changes
   useEffect(() => {
     if (selectedEvent) {
-      setFormData({
-        ...selectedEvent,
-      })
+      dispatch({ type: "UPDATE_FORM_DATA", payload: { ...selectedEvent } })
     } else {
-      const startTime = new Date()
-      startTime.setHours(0, 0, 0, 0) // 開始時間を日の始まりに設定
-
-      const endTime = new Date(startTime)
-      endTime.setHours(23, 59, 59, 999) // 終了時間を日の終わりに設定
-
-      setFormData({
-        title: "",
-        start: startTime,
-        end: endTime,
-        description: "",
-        category: categories.length > 0 ? categories[0].value : undefined,
-        allDay: true,
-      })
+      dispatch({ type: "RESET_FORM_DATA", payload: { categories } })
     }
   }, [selectedEvent, categories])
 
-  const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
-    // If in read-only mode, don't allow creating new events
-    if (readOnly) return
+  // メモ化されたイベントハンドラ
+  const handleSelectSlot = useCallback(
+    ({ start, end }: { start: Date; end: Date }) => {
+      // If in read-only mode, don't allow creating new events
+      if (readOnly) return
 
-    // 選択された日の開始と終了を設定
-    const startDate = new Date(start)
-    startDate.setHours(0, 0, 0, 0)
+      // 選択された日の開始と終了を設定
+      const startDate = new Date(start)
+      startDate.setHours(0, 0, 0, 0)
 
-    const endDate = new Date(start)
-    endDate.setHours(23, 59, 59, 999)
+      const endDate = new Date(start)
+      endDate.setHours(23, 59, 59, 999)
 
-    setSelectedEvent(null)
-    setIsNewEvent(true)
-    setFormData({
-      title: "",
-      start: startDate,
-      end: endDate,
-      description: "",
-      category: categories.length > 0 ? categories[0].value : undefined,
-      allDay: true,
-    })
-    setIsDialogOpen(true)
-  }
+      dispatch({ type: "SELECT_EVENT", payload: null })
+      dispatch({ type: "SET_NEW_EVENT", payload: true })
+      dispatch({
+        type: "UPDATE_FORM_DATA",
+        payload: {
+          title: "",
+          start: startDate,
+          end: endDate,
+          description: "",
+          category: categories.length > 0 ? categories[0].value : undefined,
+          allDay: true,
+        },
+      })
+      dispatch({ type: "SET_DIALOG_OPEN", payload: true })
+    },
+    [readOnly, categories],
+  )
 
-  const handleSelectEvent = (event: CalendarEvent) => {
-    // If in read-only mode, show event details but don't allow editing
-    if (readOnly) {
-      // You could implement a read-only view of the event here if desired
-      return
-    }
+  const handleSelectEvent = useCallback(
+    (event: CalendarEvent) => {
+      // If in read-only mode, show event details but don't allow editing
+      if (readOnly) {
+        // You could implement a read-only view of the event here if desired
+        return
+      }
 
-    setSelectedEvent(event)
-    setIsNewEvent(false)
-    setIsDialogOpen(true)
-  }
+      dispatch({ type: "SELECT_EVENT", payload: event })
+      dispatch({ type: "SET_NEW_EVENT", payload: false })
+      dispatch({ type: "SET_DIALOG_OPEN", payload: true })
+    },
+    [readOnly],
+  )
 
-  const handleEventResize = async ({ event, start, end }: { event: CalendarEvent; start: Date; end: Date }) => {
-    // Disable in read-only mode
-    if (readOnly) return
+  const handleEventResize = useCallback(
+    async ({ event, start, end }: { event: CalendarEvent; start: Date; end: Date }) => {
+      // Disable in read-only mode
+      if (readOnly) return
+      if (!onEventUpdate) return
 
-    if (!onEventUpdate) return
+      try {
+        const updatedEvent = { ...event, start, end, allDay: true }
+        await onEventUpdate(updatedEvent)
+      } catch (error) {
+        console.error("Failed to resize event:", error)
+      }
+    },
+    [readOnly, onEventUpdate],
+  )
 
-    try {
-      const updatedEvent = { ...event, start, end, allDay: true }
-      await onEventUpdate(updatedEvent)
-    } catch (error) {
-      console.error("Failed to resize event:", error)
-    }
-  }
+  const handleEventDrop = useCallback(
+    async ({ event, start, end }: { event: CalendarEvent; start: Date; end: Date }) => {
+      // Disable in read-only mode
+      if (readOnly) return
+      if (!onEventUpdate) return
 
-  const handleEventDrop = async ({ event, start, end }: { event: CalendarEvent; start: Date; end: Date }) => {
-    // Disable in read-only mode
-    if (readOnly) return
+      try {
+        const updatedEvent = { ...event, start, end, allDay: true }
+        await onEventUpdate(updatedEvent)
+      } catch (error) {
+        console.error("Failed to move event:", error)
+      }
+    },
+    [readOnly, onEventUpdate],
+  )
 
-    if (!onEventUpdate) return
-
-    try {
-      const updatedEvent = { ...event, start, end, allDay: true }
-      await onEventUpdate(updatedEvent)
-    } catch (error) {
-      console.error("Failed to move event:", error)
-    }
-  }
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
+    dispatch({ type: "UPDATE_FORM_DATA", payload: { [name]: value } })
+  }, [])
 
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, field: "start" | "end") => {
+  const handleDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>, field: "start" | "end") => {
     const value = e.target.value
     const [date] = value.split("T")
 
@@ -241,77 +509,76 @@ export function EnhancedCalendar({
         newDate = new Date(`${date}T23:59:59`)
       }
 
-      setFormData((prev) => ({ ...prev, [field]: newDate }))
+      dispatch({ type: "UPDATE_FORM_DATA", payload: { [field]: newDate } })
     }
-  }
+  }, [])
 
-  const handleCategoryChange = (value: string) => {
-    setFormData((prev) => ({ ...prev, category: value }))
-  }
+  const handleCategoryChange = useCallback((value: string) => {
+    dispatch({ type: "UPDATE_FORM_DATA", payload: { category: value } })
+  }, [])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (readOnly) return
-    if (!formData.title || !formData.start || !formData.end) return
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault()
+      if (readOnly) return
+      if (!formData.title || !formData.start || !formData.end) return
 
-    setIsSubmitting(true)
+      dispatch({ type: "SET_SUBMITTING", payload: true })
 
-    try {
-      // 必ず終日イベントとして保存
-      const eventData = {
-        ...formData,
-        allDay: true,
-      }
-
-      if (isNewEvent) {
-        if (onEventAdd) {
-          await onEventAdd(eventData as CalendarEvent)
+      try {
+        // 必ず終日イベントとして保存
+        const eventData = {
+          ...formData,
+          allDay: true,
         }
-      } else if (selectedEvent && onEventUpdate) {
-        await onEventUpdate({ ...selectedEvent, ...eventData } as CalendarEvent)
+
+        if (isNewEvent) {
+          if (onEventAdd) {
+            await onEventAdd(eventData as CalendarEvent)
+          }
+        } else if (selectedEvent && onEventUpdate) {
+          await onEventUpdate({ ...selectedEvent, ...eventData } as CalendarEvent)
+        }
+
+        dispatch({ type: "SET_DIALOG_OPEN", payload: false })
+      } catch (error) {
+        console.error("Failed to save event:", error)
+      } finally {
+        dispatch({ type: "SET_SUBMITTING", payload: false })
       }
+    },
+    [readOnly, formData, isNewEvent, onEventAdd, selectedEvent, onEventUpdate],
+  )
 
-      setIsDialogOpen(false)
-    } catch (error) {
-      console.error("Failed to save event:", error)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     if (readOnly) return
     if (!selectedEvent || !onEventDelete) return
 
-    setIsSubmitting(true)
+    dispatch({ type: "SET_SUBMITTING", payload: true })
 
     try {
-      await onEventDelete(selectedEvent.id)
-      setIsDialogOpen(false)
+      await onEventDelete(selectedEvent.id as string)
+      dispatch({ type: "SET_DIALOG_OPEN", payload: false })
     } catch (error) {
       console.error("Failed to delete event:", error)
     } finally {
-      setIsSubmitting(false)
+      dispatch({ type: "SET_SUBMITTING", payload: false })
     }
-  }
+  }, [readOnly, selectedEvent, onEventDelete])
 
-  const handleViewChange = (newView: "week" | "month") => {
-    setView(newView)
-  }
+  const handleViewChange = useCallback((newView: "week" | "month") => {
+    dispatch({ type: "SET_VIEW", payload: newView })
+  }, [])
 
-  const handleNavigate = (action: "PREV" | "NEXT" | "TODAY") => {
+  const handleNavigate = useCallback((action: "PREV" | "NEXT" | "TODAY") => {
     if (calendarRef.current) {
       const { onNavigate } = calendarRef.current.props
       onNavigate(action)
     }
-  }
+  }, [])
 
-  const formatDateHeader = (date: Date) => {
-    return moment(date).format("YYYY年M月")
-  }
-
-  // Custom event styling based on category
-  const eventStyleGetter = (event: CalendarEvent) => {
+  // Custom event styling based on category - メモ化
+  const eventStyleGetter = useCallback((event: CalendarEvent) => {
     let backgroundColor = "#3182ce" // Default blue
     const textColor = "white"
     let fontStyle = "normal"
@@ -363,29 +630,7 @@ export function EnhancedCalendar({
         fontStyle,
       },
     }
-  }
-
-  // Format the date/time for the input fields
-  const formatDateForInput = (date: Date) => {
-    return moment(date).format("YYYY-MM-DD")
-  }
-
-  const handleToday = () => {
-    const today = new Date()
-    setCurrentDate(today)
-  }
-
-  const handlePrevious = () => {
-    const newDate = new Date(currentDate)
-    newDate.setMonth(currentDate.getMonth() - 1)
-    setCurrentDate(newDate)
-  }
-
-  const handleNext = () => {
-    const newDate = new Date(currentDate)
-    newDate.setMonth(currentDate.getMonth() + 1)
-    setCurrentDate(newDate)
-  }
+  }, [])
 
   if (error) {
     return (
@@ -404,47 +649,15 @@ export function EnhancedCalendar({
       {/* カスタムCSSをページに挿入 */}
       <style>{customStyles}</style>
 
-      <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handlePrevious} aria-label="前の期間">
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleToday} aria-label="今日">
-            今日
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleNext} aria-label="次の期間">
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <div className="text-lg font-medium ml-2">{formatDateHeader(currentDate)}</div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="flex border rounded-md overflow-hidden">
-            <Button
-              variant={view === "week" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => handleViewChange("week")}
-              className="rounded-none"
-            >
-              週
-            </Button>
-            <Button
-              variant={view === "month" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => handleViewChange("month")}
-              className="rounded-none"
-            >
-              月
-            </Button>
-          </div>
-
-          {onRefresh && (
-            <Button variant="outline" size="sm" onClick={onRefresh} disabled={isLoading} aria-label="更新">
-              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-            </Button>
-          )}
-        </div>
-      </div>
+      {/* メモ化されたヘッダーコンポーネント */}
+      <CalendarHeader
+        currentDate={currentDate}
+        view={view}
+        onViewChange={handleViewChange}
+        onNavigate={handleNavigate}
+        onRefresh={onRefresh}
+        isLoading={isLoading}
+      />
 
       <div className="flex-grow" style={{ height: "70vh" }}>
         <Calendar
@@ -459,9 +672,9 @@ export function EnhancedCalendar({
             month: true,
           }}
           view={view}
-          onView={(newView: any) => setView(newView)}
+          onView={(newView: any) => dispatch({ type: "SET_VIEW", payload: newView })}
           date={currentDate}
-          onNavigate={(date: Date) => setCurrentDate(date)}
+          onNavigate={(date: Date) => dispatch({ type: "SET_CURRENT_DATE", payload: date })}
           selectable={!readOnly}
           onSelectSlot={handleSelectSlot}
           onSelectEvent={handleSelectEvent}
@@ -496,96 +709,23 @@ export function EnhancedCalendar({
 
       {/* Only render the dialog if not in read-only mode */}
       {!readOnly && (
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => dispatch({ type: "SET_DIALOG_OPEN", payload: open })}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>{isNewEvent ? "新しい予定を追加" : "予定を編集"}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit}>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="title">タイトル</Label>
-                  <Input id="title" name="title" value={formData.title || ""} onChange={handleInputChange} required />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="start">開始日</Label>
-                    <div className="flex items-center">
-                      <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
-                      <Input
-                        id="start"
-                        type="date"
-                        value={formatDateForInput(formData.start as Date)}
-                        onChange={(e) => handleDateChange(e, "start")}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="end">終了日</Label>
-                    <div className="flex items-center">
-                      <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
-                      <Input
-                        id="end"
-                        type="date"
-                        value={formatDateForInput(formData.end as Date)}
-                        onChange={(e) => handleDateChange(e, "end")}
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {categories.length > 0 && (
-                  <div className="grid gap-2">
-                    <Label htmlFor="category">カテゴリ</Label>
-                    <Select value={formData.category || categories[0].value} onValueChange={handleCategoryChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="カテゴリを選択" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((category) => (
-                          <SelectItem key={category.value} value={category.value}>
-                            {category.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                <div className="grid gap-2">
-                  <Label htmlFor="description">詳細</Label>
-                  <Textarea
-                    id="description"
-                    name="description"
-                    value={formData.description || ""}
-                    onChange={handleInputChange}
-                    rows={3}
-                  />
-                </div>
-              </div>
-
-              <DialogFooter className="flex justify-between sm:justify-between">
-                <div>
-                  {!isNewEvent && onEventDelete && (
-                    <Button type="button" variant="destructive" onClick={handleDelete} disabled={isSubmitting}>
-                      削除
-                    </Button>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    キャンセル
-                  </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "保存中..." : "保存"}
-                  </Button>
-                </div>
-              </DialogFooter>
-            </form>
+            <EventForm
+              formData={formData}
+              isNewEvent={isNewEvent}
+              isSubmitting={isSubmitting}
+              categories={categories}
+              onInputChange={handleInputChange}
+              onDateChange={handleDateChange}
+              onCategoryChange={handleCategoryChange}
+              onSubmit={handleSubmit}
+              onDelete={handleDelete}
+              onCancel={() => dispatch({ type: "SET_DIALOG_OPEN", payload: false })}
+            />
           </DialogContent>
         </Dialog>
       )}
