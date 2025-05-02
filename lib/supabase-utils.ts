@@ -150,20 +150,20 @@ export async function getHeavyMachineryList() {
   }
 }
 
-/**
- * スタッフデータを取得する関数
- * @returns スタッフデータの配列
- * @throws {SupabaseError} データ取得に失敗した場合
- */
+// getStaffList関数を修正して、より多くのスタッフ情報を取得できるようにします
 export async function getStaffList() {
   try {
     const supabase = getClientSupabase()
-    const { data, error } = await supabase.from("staff").select("*").order("full_name")
+    const { data, error } = await supabase
+      .from("staff")
+      .select("*, user:user_id(id, email, user_metadata)")
+      .order("full_name")
 
     if (error) {
       throw new SupabaseError(`スタッフデータの取得エラー: ${error.message}`, error)
     }
 
+    console.log("取得したスタッフデータ:", data?.length || 0, "件")
     return data || []
   } catch (error) {
     if (error instanceof SupabaseError) {
@@ -222,20 +222,26 @@ export async function getToolsData() {
   }
 }
 
-/**
- * 日報データを取得する関数
- * @returns 日報データの配列
- * @throws {SupabaseError} データ取得に失敗した場合
- */
+// 日報データを取得する関数を改善
 export async function getDailyReportsData() {
   try {
     const supabase = getClientSupabase()
-    const { data, error } = await supabase.from("daily_reports").select("*").order("created_at", { ascending: false })
+    const { data, error } = await supabase
+      .from("daily_reports")
+      .select(`
+        *,
+        staff:staff_id(id, full_name),
+        user:user_id(id, email, user_metadata),
+        creator:created_by(id, email, user_metadata),
+        submitter:submitted_by(id, email, user_metadata)
+      `)
+      .order("created_at", { ascending: false })
 
     if (error) {
       throw new SupabaseError(`日報データの取得エラー: ${error.message}`, error)
     }
 
+    console.log("取得した日報データ:", data?.length || 0, "件")
     return data || []
   } catch (error) {
     if (error instanceof SupabaseError) {

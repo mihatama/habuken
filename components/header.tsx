@@ -9,7 +9,8 @@ import { MobileNav } from "@/components/mobile-nav"
 import { UserNav } from "@/components/user-nav"
 import { useAuth } from "@/contexts/auth-context"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Menu } from "lucide-react"
+// Lucideアイコンをインポート
+import { Menu, LayoutDashboard, Briefcase, Users, Truck, Car, Package, Calendar, FileText } from "lucide-react"
 
 export function Header() {
   const router = useRouter()
@@ -67,85 +68,94 @@ export function Header() {
 
         {!loading && user && (
           <nav className="hidden md:flex md:flex-1 md:items-center md:justify-between">
+            {/* ナビゲーションリンクにアイコンを追加 */}
             <div className="flex items-center space-x-6">
               <Link
                 href="/dashboard"
-                className={`transition-colors ${isActive("/dashboard")}`}
+                className={`transition-colors ${isActive("/dashboard")} flex items-center gap-1`}
                 onClick={(e) => {
                   e.preventDefault()
                   router.push("/dashboard")
                 }}
               >
+                <LayoutDashboard className="h-4 w-4" />
                 ダッシュボード
               </Link>
               <Link
                 href="/deals"
-                className={`transition-colors ${isActive("/deals")}`}
+                className={`transition-colors ${isActive("/deals")} flex items-center gap-1`}
                 onClick={(e) => {
                   e.preventDefault()
                   router.push("/deals")
                 }}
               >
+                <Briefcase className="h-4 w-4" />
                 案件
               </Link>
               <Link
                 href="/master/staff"
-                className={`transition-colors ${isActive("/master/staff")}`}
+                className={`transition-colors ${isActive("/master/staff")} flex items-center gap-1`}
                 onClick={(e) => {
                   e.preventDefault()
                   router.push("/master/staff")
                 }}
               >
+                <Users className="h-4 w-4" />
                 スタッフ
               </Link>
               <Link
                 href="/master/heavy"
-                className={`transition-colors ${isActive("/master/heavy")}`}
+                className={`transition-colors ${isActive("/master/heavy")} flex items-center gap-1`}
                 onClick={(e) => {
                   e.preventDefault()
                   router.push("/master/heavy")
                 }}
               >
+                <Truck className="h-4 w-4" />
                 重機
               </Link>
               <Link
                 href="/master/vehicle"
-                className={`transition-colors ${isActive("/master/vehicle")}`}
+                className={`transition-colors ${isActive("/master/vehicle")} flex items-center gap-1`}
                 onClick={(e) => {
                   e.preventDefault()
                   router.push("/master/vehicle")
                 }}
               >
+                <Car className="h-4 w-4" />
                 車両
               </Link>
               <Link
                 href="/tools"
-                className={`transition-colors ${isActive("/tools")}`}
+                className={`transition-colors ${isActive("/tools")} flex items-center gap-1`}
                 onClick={(e) => {
                   e.preventDefault()
                   router.push("/tools")
                 }}
               >
+                <Package className="h-4 w-4" />
                 備品
               </Link>
               <Link
                 href="/leave"
-                className={`transition-colors ${isActive("/leave")}`}
+                className={`transition-colors ${isActive("/leave")} flex items-center gap-1`}
                 onClick={(e) => {
                   e.preventDefault()
                   router.push("/leave")
                 }}
               >
+                <Calendar className="h-4 w-4" />
                 休暇申請
               </Link>
               <Link
                 href="/reports"
-                className={`transition-colors ${isActive("/reports")}`}
+                className={`transition-colors ${isActive("/reports")} flex items-center gap-1`}
                 onClick={(e) => {
                   e.preventDefault()
                   router.push("/reports")
                 }}
               >
+                <FileText className="h-4 w-4" />
                 現場報告
               </Link>
             </div>

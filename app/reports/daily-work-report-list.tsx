@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DailyReportFormDialog } from "@/components/daily-report-form-dialog"
+import { DailyReportFormDialog } from "./daily-report-form-dialog"
 import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { formatDate } from "@/lib/utils"
@@ -12,11 +12,14 @@ import { formatDate } from "@/lib/utils"
 export function DailyWorkReportList() {
   const [reports, setReports] = useState([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [staffData, setStaffData] = useState([])
+  const [staffMap, setStaffMap] = useState({})
   const router = useRouter()
   const supabase = createClientComponentClient()
 
   useEffect(() => {
     fetchReports()
+    fetchStaffData()
   }, [])
 
   const fetchReports = async () => {
@@ -36,6 +39,44 @@ export function DailyWorkReportList() {
     })
 
     setReports(data || [])
+  }
+
+  const fetchStaffData = async () => {
+    console.log("スタッフデータを取得中...")
+    const { data, error } = await supabase.from("staff").select("*")
+
+    if (error) {
+      console.error("Error fetching staff data:", error)
+      return
+    }
+
+    console.log("取得したスタッフデータ:", data, error)
+    setStaffData(data || [])
+
+    // スタッフIDから名前へのマッピングを作成
+    const mapping = {}
+    data?.forEach((staff) => {
+      mapping[staff.id] = staff.full_name
+    })
+    console.log("作成されたスタッフマッピング:", mapping)
+    setStaffMap(mapping)
+  }
+
+  const handleDialogClose = (refresh = false) => {
+    setIsDialogOpen(false)
+    if (refresh) {
+      fetchReports()
+    }
+  }
+
+  const handleRowClick = (id) => {
+    router.push(`/reports/${id}`)
+  }
+
+  // 直接full_nameを表示する関数
+  const displayReporterName = (report) => {
+    // 直接full_nameを表示
+    return report.full_name || "不明な報告者"
   }
 
   return (
@@ -61,11 +102,11 @@ export function DailyWorkReportList() {
                 <TableRow
                   key={report.id}
                   className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => router.push(`/reports/${report.id}`)}
+                  onClick={() => handleRowClick(report.id)}
                 >
                   <TableCell>{formatDate(report.report_date)}</TableCell>
                   <TableCell>{report.custom_project_name || "タイトルなし"}</TableCell>
-                  <TableCell>{report.full_name || "不明な報告者"}</TableCell>
+                  <TableCell>{displayReporterName(report)}</TableCell>
                   <TableCell className="truncate max-w-xs">{report.work_description}</TableCell>
                 </TableRow>
               ))}
@@ -81,17 +122,7 @@ export function DailyWorkReportList() {
         </CardContent>
       </Card>
 
-      <DailyReportFormDialog
-        open={isDialogOpen}
-        onOpenChange={(open) => {
-          console.log("ダイアログの状態が変更されました:", open)
-          setIsDialogOpen(open)
-        }}
-        onSuccess={() => {
-          console.log("日報作成成功コールバックが呼び出されました")
-          fetchReports()
-        }}
-      />
+      <DailyReportFormDialog open={isDialogOpen} onClose={handleDialogClose} />
     </div>
   )
 }

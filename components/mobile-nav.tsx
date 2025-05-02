@@ -3,7 +3,21 @@
 import { useRouter, usePathname } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { X, Settings, User, LogOut } from "lucide-react"
+// Lucideアイコンをインポート
+import {
+  X,
+  Settings,
+  User,
+  LogOut,
+  LayoutDashboard,
+  Briefcase,
+  Users,
+  Truck,
+  Car,
+  Package,
+  Calendar,
+  FileText,
+} from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 
 interface MobileNavProps {
@@ -80,12 +94,14 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
           </div>
         )}
 
+        {/* モバイルナビゲーションボタンにアイコンを追加 */}
         <div className="grid gap-1 p-2">
           <Button
             variant="ghost"
             className={`flex w-full justify-start p-3 ${isActive("/dashboard")}`}
             onClick={() => handleNavigation("/dashboard")}
           >
+            <LayoutDashboard className="h-4 w-4 mr-2" />
             ダッシュボード
           </Button>
           <Button
@@ -93,6 +109,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
             className={`flex w-full justify-start p-3 ${isActive("/deals")}`}
             onClick={() => handleNavigation("/deals")}
           >
+            <Briefcase className="h-4 w-4 mr-2" />
             案件
           </Button>
           <Button
@@ -100,6 +117,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
             className={`flex w-full justify-start p-3 ${isActive("/master/staff")}`}
             onClick={() => handleNavigation("/master/staff")}
           >
+            <Users className="h-4 w-4 mr-2" />
             スタッフ
           </Button>
           <Button
@@ -107,6 +125,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
             className={`flex w-full justify-start p-3 ${isActive("/master/heavy")}`}
             onClick={() => handleNavigation("/master/heavy")}
           >
+            <Truck className="h-4 w-4 mr-2" />
             重機
           </Button>
           <Button
@@ -114,6 +133,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
             className={`flex w-full justify-start p-3 ${isActive("/master/vehicle")}`}
             onClick={() => handleNavigation("/master/vehicle")}
           >
+            <Car className="h-4 w-4 mr-2" />
             車両
           </Button>
           <Button
@@ -121,6 +141,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
             className={`flex w-full justify-start p-3 ${isActive("/tools")}`}
             onClick={() => handleNavigation("/tools")}
           >
+            <Package className="h-4 w-4 mr-2" />
             備品
           </Button>
           <Button
@@ -128,6 +149,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
             className={`flex w-full justify-start p-3 ${isActive("/leave")}`}
             onClick={() => handleNavigation("/leave")}
           >
+            <Calendar className="h-4 w-4 mr-2" />
             休暇申請
           </Button>
           <Button
@@ -135,6 +157,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
             className={`flex w-full justify-start p-3 ${isActive("/reports")}`}
             onClick={() => handleNavigation("/reports")}
           >
+            <FileText className="h-4 w-4 mr-2" />
             現場報告
           </Button>
         </div>

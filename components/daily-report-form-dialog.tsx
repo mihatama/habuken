@@ -754,7 +754,6 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
   }
 
   const handleSubmit = async () => {
-    console.log("保存ボタンがクリックされました")
     if (!supabase) {
       toast({
         title: "エラー",
@@ -774,7 +773,7 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
         })
         return
       }
-    } else if (!formData.projectId || formData.projectId === "placeholder") {
+    } else if (formData.projectId === "" || formData.projectId === "placeholder") {
       toast({
         title: "入力エラー",
         description: "案件を選択してください",
@@ -783,38 +782,16 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
       return
     }
 
-    // 必須項目の検証
-    if (!formData.userId || formData.userId === "placeholder") {
+    if (
+      !formData.userId ||
+      formData.userId === "placeholder" ||
+      !formData.workContentText ||
+      !formData.startTime ||
+      !formData.endTime
+    ) {
       toast({
         title: "入力エラー",
-        description: "登録者を選択してください",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!formData.workContentText) {
-      toast({
-        title: "入力エラー",
-        description: "作業内容を入力してください",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!formData.startTime) {
-      toast({
-        title: "入力エラー",
-        description: "作業開始時間を入力してください",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!formData.endTime) {
-      toast({
-        title: "入力エラー",
-        description: "作業終了時間を入力してください",
+        description: "必須項目を入力してください",
         variant: "destructive",
       })
       return
@@ -1275,14 +1252,7 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
           </div>
         )}
         <DialogFooter>
-          <Button
-            type="button"
-            onClick={() => {
-              console.log("保存ボタンがクリックされました")
-              handleSubmit()
-            }}
-            disabled={isSubmitting || loading || isCompressing}
-          >
+          <Button onClick={handleSubmit} disabled={isSubmitting || loading || isCompressing}>
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 保存中...

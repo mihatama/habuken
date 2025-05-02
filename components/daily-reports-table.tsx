@@ -46,6 +46,35 @@ export function DailyReportsTable() {
   const { toast } = useToast()
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [tableStructure, setTableStructure] = useState<any>(null)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+
+  // 現在のユーザー情報を取得
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      try {
+        const supabase = getClientSupabase()
+        const { data, error } = await supabase.auth.getSession()
+
+        if (error) {
+          console.error("セッション取得エラー:", error)
+          return
+        }
+
+        if (data.session?.user) {
+          setCurrentUser(data.session.user)
+          // 現在のユーザーをスタッフマップに追加
+          setStaffMap((prev) => ({
+            ...prev,
+            [data.session.user.id]: data.session.user.email || "現在のユーザー",
+          }))
+        }
+      } catch (err) {
+        console.error("ユーザー情報取得エラー:", err)
+      }
+    }
+
+    getCurrentUser()
+  }, [])
 
   // テーブル構造を取得する関数
   const fetchTableStructure = async () => {
@@ -114,13 +143,6 @@ export function DailyReportsTable() {
         throw staffError
       }
 
-      // ユーザーデータを取得
-      const { data: usersData, error: usersError } = await supabase.from("users").select("id, email, user_metadata")
-
-      if (usersError) {
-        console.warn("ユーザーデータの取得に失敗しました:", usersError)
-      }
-
       // スタッフマップを作成
       const staffMapping = {}
 
@@ -132,13 +154,25 @@ export function DailyReportsTable() {
         }
       })
 
-      // ユーザーデータからマッピングを作成
-      usersData?.forEach((user) => {
-        const userName = user.user_metadata?.name || user.user_metadata?.full_name || user.email
-        staffMapping[user.id] = userName
-      })
+      // プロフィールテーブルがあれば、そこからもユーザー情報を取得
+      try {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("id, full_name, email")
 
-      setStaffMap(staffMapping)
+        if (!profilesError && profilesData && profilesData.length > 0) {
+          profilesData.forEach((profile) => {
+            if (profile.id) {
+              staffMapping[profile.id] = profile.full_name || profile.email || "プロフィールユーザー"
+            }
+          })
+        }
+      } catch (profileErr) {
+        console.log("プロフィールデータ取得試行:", profileErr)
+        // プロフィールテーブルがない場合はエラーを無視
+      }
+
+      setStaffMap((prev) => ({ ...prev, ...staffMapping }))
 
       // 案件データを取得
       const { data: dealsData, error: dealsError } = await supabase.from("deals").select("id, name")
@@ -182,18 +216,35 @@ export function DailyReportsTable() {
   // 報告者名を取得する関数
   const getReporterName = (report: any) => {
     // 可能性のあるすべてのフィールドをチェック
-    const reporterId = report.submitted_by || report.created_by || report.staff_id || report.user_id
+
+    // 1. カスタム報告者名があればそれを使用
+    if (report.custom_reporter_name) {
+      return report.custom_reporter_name
+    }
+
+    // 2. staff_idがあり、マッピングに存在すればそれを使用
+    const reporterId = report.staff_id || report.user_id || report.submitted_by || report.created_by
 
     if (reporterId && staffMap[reporterId]) {
       return staffMap[reporterId]
     }
 
-    // 作業者情報から取得を試みる
+    // 3. 作業者情報から取得を試みる
     if (report.workers && Array.isArray(report.workers) && report.workers.length > 0) {
       const firstWorker = report.workers[0]
       if (firstWorker.name) {
         return firstWorker.name
       }
+    }
+
+    // 4. full_nameフィールドがあれば使用
+    if (report.full_name) {
+      return report.full_name
+    }
+
+    // 5. 関連するスタッフ情報があれば使用
+    if (report.staff && report.staff.full_name) {
+      return report.staff.full_name
     }
 
     return "不明なスタッフ"

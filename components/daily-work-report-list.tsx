@@ -41,6 +41,18 @@ const formatDate = (dateString: string | null | undefined): string => {
   }
 }
 
+// 報告者情報をデバッグする関数
+const debugReporterInfo = (report: any) => {
+  console.group(`日報ID: ${report.id}の報告者情報`)
+  console.log("staff_id:", report.staff_id)
+  console.log("user_id:", report.user_id)
+  console.log("submitted_by:", report.submitted_by)
+  console.log("created_by:", report.created_by)
+  console.log("custom_reporter_name:", report.custom_reporter_name)
+  console.log("workers:", report.workers)
+  console.groupEnd()
+}
+
 export function DailyWorkReportList() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [reports, setReports] = useState<any[]>([])
@@ -55,6 +67,7 @@ export function DailyWorkReportList() {
   const [selectedReport, setSelectedReport] = useState<any>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [formattedReports, setFormattedReports] = useState<any[]>([])
+  const [currentUser, setCurrentUser] = useState<any>(null)
 
   // 案件名の取得ヘルパー関数
   const getProjectName = (report: any, dealsMap: Record<string, string>) => {
@@ -69,6 +82,34 @@ export function DailyWorkReportList() {
     }
     return "不明な案件"
   }
+
+  // 現在のユーザー情報を取得
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      try {
+        const supabase = getClientSupabase()
+        const { data, error } = await supabase.auth.getSession()
+
+        if (error) {
+          console.error("セッション取得エラー:", error)
+          return
+        }
+
+        if (data.session?.user) {
+          setCurrentUser(data.session.user)
+          // 現在のユーザーをスタッフマップに追加
+          setStaffMap((prev) => ({
+            ...prev,
+            [data.session.user.id]: data.session.user.email || "現在のユーザー",
+          }))
+        }
+      } catch (err) {
+        console.error("ユーザー情報取得エラー:", err)
+      }
+    }
+
+    getCurrentUser()
+  }, [])
 
   const fetchReports = async () => {
     try {
@@ -119,30 +160,57 @@ export function DailyWorkReportList() {
         })
       }
 
-      // ユーザーテーブルも確認
-      const { data: usersData, error: usersError } = await supabase.from("users").select("id, email, user_metadata")
+      // プロフィールテーブルがあれば、そこからもユーザー情報を取得
+      try {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("id, full_name, email")
 
-      console.log("取得したユーザーデータ:", usersData, usersError)
-
-      if (!usersError && usersData && usersData.length > 0) {
-        usersData.forEach((user) => {
-          // ユーザーIDをキーとして使用
-          if (user.id && !staffMapping[user.id]) {
-            // user_metadataから名前を取得するか、なければメールアドレスを使用
-            const userName = user.user_metadata?.name || user.user_metadata?.full_name || user.email
-            staffMapping[user.id] = userName
-          }
-        })
+        if (!profilesError && profilesData && profilesData.length > 0) {
+          profilesData.forEach((profile) => {
+            if (profile.id) {
+              staffMapping[profile.id] = profile.full_name || profile.email || "プロフィールユーザー"
+            }
+          })
+        }
+      } catch (profileErr) {
+        console.log("プロフィールデータ取得試行:", profileErr)
+        // プロフィールテーブルがない場合はエラーを無視
       }
 
       console.log("作成されたスタッフマッピング:", staffMapping)
-      setStaffMap(staffMapping)
+      setStaffMap((prev) => ({ ...prev, ...staffMapping }))
+
+      // スタッフIDとユーザーIDのリストを作成
+      const staffIds = [...new Set(reportsData.map((report: any) => report.staff_id).filter(Boolean))]
+
+      console.log("取得する必要があるスタッフID:", staffIds)
+
+      // スタッフデータを取得（IDが一致するものだけ）
+      if (staffIds.length > 0) {
+        const { data: specificStaffData, error: specificStaffError } = await supabase
+          .from("staff")
+          .select("id, full_name, user_id")
+          .in("id", staffIds)
+
+        if (specificStaffError) {
+          console.error("特定のスタッフデータ取得エラー:", specificStaffError)
+        } else {
+          console.log("特定のスタッフデータ取得成功:", specificStaffData)
+          specificStaffData?.forEach((staff: any) => {
+            setStaffMap((prev) => ({ ...prev, [staff.id]: staff.full_name }))
+          })
+        }
+      }
 
       // データを整形
       const formattedData =
         reportsData?.map((report) => {
+          // デバッグ情報を出力
+          debugReporterInfo(report)
+
           // 報告者名を決定
-          let reporterName = "不明な報告者"
+          let reporterName = null
 
           // 1. カスタム報告者名があればそれを使用
           if (report.custom_reporter_name) {
@@ -150,25 +218,41 @@ export function DailyWorkReportList() {
             console.log(`日報 ${report.id}: カスタム報告者名を使用 - ${reporterName}`)
           }
           // 2. staff_idがあり、マッピングに存在すればそれを使用
-          else if (report.staff_id && staffMapping[report.staff_id]) {
-            reporterName = staffMapping[report.staff_id]
+          else if (report.staff_id && staffMap[report.staff_id]) {
+            reporterName = staffMap[report.staff_id]
             console.log(`日報 ${report.id}: staff_id ${report.staff_id} から報告者名を取得 - ${reporterName}`)
           }
           // 3. user_idがあり、マッピングに存在すればそれを使用
-          else if (report.user_id && staffMapping[report.user_id]) {
-            reporterName = staffMapping[report.user_id]
+          else if (report.user_id && staffMap[report.user_id]) {
+            reporterName = staffMap[report.user_id]
             console.log(`日報 ${report.id}: user_id ${report.user_id} から報告者名を取得 - ${reporterName}`)
           }
           // 4. submitted_byがあり、マッピングに存在すればそれを使用
-          else if (report.submitted_by && staffMapping[report.submitted_by]) {
-            reporterName = staffMapping[report.submitted_by]
+          else if (report.submitted_by && staffMap[report.submitted_by]) {
+            reporterName = staffMap[report.submitted_by]
             console.log(`日報 ${report.id}: submitted_by ${report.submitted_by} から報告者名を取得 - ${reporterName}`)
           }
           // 5. created_byがあり、マッピングに存在すればそれを使用
-          else if (report.created_by && staffMapping[report.created_by]) {
-            reporterName = staffMapping[report.created_by]
+          else if (report.created_by && staffMap[report.created_by]) {
+            reporterName = staffMap[report.created_by]
             console.log(`日報 ${report.id}: created_by ${report.created_by} から報告者名を取得 - ${reporterName}`)
+          }
+          // 6. workersから取得を試みる
+          else if (
+            report.workers &&
+            Array.isArray(report.workers) &&
+            report.workers.length > 0 &&
+            report.workers[0].name
+          ) {
+            reporterName = report.workers[0].name
+            console.log(`日報 ${report.id}: workers[0].name から報告者名を取得 - ${reporterName}`)
+          }
+          // 7. full_nameフィールドがあれば使用
+          else if (report.full_name) {
+            reporterName = report.full_name
+            console.log(`日報 ${report.id}: full_name から報告者名を取得 - ${reporterName}`)
           } else {
+            reporterName = "不明な報告者"
             console.log(
               `日報 ${report.id}: 報告者名を特定できませんでした - staff_id: ${report.staff_id}, user_id: ${report.user_id}, submitted_by: ${report.submitted_by}, created_by: ${report.created_by}`,
             )
@@ -503,7 +587,10 @@ function ReportCard({ report, getWeatherIcon, getWeatherText, isOwnReport, onSho
       </CardHeader>
       <CardContent className="pb-2">
         <div className="text-sm text-muted-foreground mb-2">
-          <span className="font-medium">報告者:</span> {report.reporterName}
+          <span className="font-medium">報告者:</span> {report.reporterName || "不明な報告者"}
+          {report.reporterName === "不明な報告者" && report.custom_reporter_name && (
+            <span> ({report.custom_reporter_name})</span>
+          )}
         </div>
         <div className="text-sm mb-2">
           <span className="font-medium">作業内容:</span>
