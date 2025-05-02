@@ -12,6 +12,34 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
+// 日付フォーマット関数
+const formatDate = (dateString: string | null | undefined): string => {
+  if (!dateString) return "日付なし"
+
+  try {
+    // YYYY-MM-DD形式の日付を処理
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateString)
+    if (match) {
+      const year = match[1]
+      const month = match[2]
+      const day = match[3]
+      return `${year}年${month}月${day}日`
+    }
+
+    // ISO形式の日付を処理
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) {
+      console.error("Invalid date:", dateString)
+      return "日付エラー"
+    }
+
+    return `${date.getFullYear()}年${(date.getMonth() + 1).toString().padStart(2, "0")}月${date.getDate().toString().padStart(2, "0")}日`
+  } catch (error) {
+    console.error("Date formatting error:", error)
+    return "日付エラー"
+  }
+}
+
 export function DailyWorkReportList() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [reports, setReports] = useState<any[]>([])
@@ -25,6 +53,29 @@ export function DailyWorkReportList() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedReport, setSelectedReport] = useState<any>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
+
+  // 案件名の取得ヘルパー関数
+  const getProjectName = (report: any, dealsMap: Record<string, string>) => {
+    if (report.deal_id && dealsMap[report.deal_id]) {
+      return dealsMap[report.deal_id]
+    }
+    if (report.project_id && dealsMap[report.project_id]) {
+      return dealsMap[report.project_id]
+    }
+    if (report.custom_project_name) {
+      return report.custom_project_name
+    }
+    return "不明な案件"
+  }
+
+  // 報告者名の取得ヘルパー関数
+  const getReporterName = (report: any, staffMap: Record<string, string>) => {
+    const reporterId = report.submitted_by || report.created_by
+    if (reporterId && staffMap[reporterId]) {
+      return staffMap[reporterId]
+    }
+    return "不明なスタッフ"
+  }
 
   const fetchReports = async () => {
     try {
@@ -155,29 +206,6 @@ export function DailyWorkReportList() {
       reportDate.includes(searchLower)
     )
   })
-
-  // 案件名の取得ヘルパー関数
-  const getProjectName = (report: any, dealsMap: Record<string, string>) => {
-    if (report.deal_id && dealsMap[report.deal_id]) {
-      return dealsMap[report.deal_id]
-    }
-    if (report.project_id && dealsMap[report.project_id]) {
-      return dealsMap[report.project_id]
-    }
-    if (report.custom_project_name) {
-      return report.custom_project_name
-    }
-    return "不明な案件"
-  }
-
-  // 報告者名の取得ヘルパー関数
-  const getReporterName = (report: any, staffMap: Record<string, string>) => {
-    const reporterId = report.submitted_by || report.created_by
-    if (reporterId && staffMap[reporterId]) {
-      return staffMap[reporterId]
-    }
-    return "不明なスタッフ"
-  }
 
   // 現在のユーザーIDを取得
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
@@ -413,34 +441,6 @@ interface ReportCardProps {
   getReporterName: (report: any, staffMap: Record<string, string>) => string
   isOwnReport: boolean
   onShowDetails: () => void
-}
-
-// 日付フォーマット関数
-const formatDate = (dateString: string | null | undefined): string => {
-  if (!dateString) return "日付なし"
-
-  try {
-    // YYYY-MM-DD形式の日付を処理
-    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateString)
-    if (match) {
-      const year = match[1]
-      const month = match[2]
-      const day = match[3]
-      return `${year}年${month}月${day}日`
-    }
-
-    // ISO形式の日付を処理
-    const date = new Date(dateString)
-    if (isNaN(date.getTime())) {
-      console.error("Invalid date:", dateString)
-      return "日付エラー"
-    }
-
-    return `${date.getFullYear()}年${(date.getMonth() + 1).toString().padStart(2, "0")}月${date.getDate().toString().padStart(2, "0")}日`
-  } catch (error) {
-    console.error("Date formatting error:", error)
-    return "日付エラー"
-  }
 }
 
 function ReportCard({
