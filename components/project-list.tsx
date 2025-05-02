@@ -368,7 +368,7 @@ export function ProjectList() {
       case "未着手":
         return <Badge className="bg-gray-500 hover:bg-gray-600">{status}</Badge>
       case "計画中":
-        return <Badge className="bg-blue-500 hover:bg-blue-600">{status}</Badge>
+        return <Badge variant="gold">{status}</Badge>
       case "進行中":
         return <Badge className="bg-green-500 hover:bg-green-600">{status}</Badge>
       case "完了":
@@ -421,7 +421,7 @@ export function ProjectList() {
           />
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button variant="gold">
                 <Plus className="mr-2 h-4 w-4" />
                 新規案件
               </Button>
@@ -812,7 +812,12 @@ export function ProjectList() {
                 >
                   キャンセル
                 </Button>
-                <Button type="submit" onClick={handleAddProject} disabled={createProjectMutation.isPending}>
+                <Button
+                  variant="gold"
+                  type="submit"
+                  onClick={handleAddProject}
+                  disabled={createProjectMutation.isPending}
+                >
                   {createProjectMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   追加
                 </Button>
@@ -864,6 +869,7 @@ export function ProjectList() {
                                 setCurrentProject(project)
                                 setIsEditDialogOpen(true)
                               }}
+                              className="border-gold text-gold hover:bg-gold/10"
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
@@ -980,6 +986,7 @@ export function ProjectList() {
                           size="icon"
                           onClick={() => handleDeleteProject(project.id)}
                           disabled={deleteProjectMutation.isPending}
+                          className="border-darkgray text-darkgray hover:bg-darkgray/10"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

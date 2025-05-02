@@ -1,20 +1,17 @@
-import { Suspense } from "react"
-import { DashboardClientPage } from "./DashboardClientPage"
-import { Loader2 } from "lucide-react"
+import { NavMenu } from "@/components/nav-menu"
+import { FontLoader } from "@/components/font-loader"
 
 export default function DashboardPage() {
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">ダッシュボード</h1>
-      <Suspense
-        fallback={
-          <div className="flex justify-center items-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin" />
-          </div>
-        }
-      >
-        <DashboardClientPage />
-      </Suspense>
-    </div>
+    <>
+      <FontLoader />
+      <div className="min-h-screen flex flex-col">
+        <NavMenu />
+        <main className="flex-1 p-4">
+          <h1 className="text-2xl font-bold mb-4">ダッシュボード</h1>
+          {/* ダッシュボードの内容 */}
+        </main>
+      </div>
+    </>
   )
 }

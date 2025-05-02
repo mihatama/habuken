@@ -34,13 +34,7 @@ import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
 import { Loader2, PlusCircle, Trash2, UserCog } from "lucide-react"
-import {
-  type User,
-  type UserRole,
-  type CreateUserPayload,
-  USER_ROLE_DISPLAY_NAMES,
-  USER_ROLE_BADGE_VARIANTS,
-} from "@/types/models/user"
+import { type User, type UserRole, type CreateUserPayload, USER_ROLE_DISPLAY_NAMES } from "@/types/models/user"
 
 // ユーザー作成フォームのバリデーションスキーマを修正
 const userFormSchema = z.object({
@@ -179,7 +173,18 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
 
   // ロールの色を取得
   function getRoleBadgeVariant(role: UserRole) {
-    return USER_ROLE_BADGE_VARIANTS[role] as any
+    switch (role) {
+      case "admin":
+        return "gold"
+      case "manager":
+        return "darkgray"
+      case "staff":
+        return "secondary"
+      case "user":
+        return "outline"
+      default:
+        return "default"
+    }
   }
 
   return (
@@ -188,7 +193,7 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
         <h2 className="text-2xl font-bold tracking-tight">ユーザー管理</h2>
         <Dialog open={openDialog} onOpenChange={setOpenDialog}>
           <DialogTrigger asChild>
-            <Button>
+            <Button variant="gold">
               <PlusCircle className="mr-2 h-4 w-4" />
               新規ユーザー作成
             </Button>
@@ -290,7 +295,7 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
                   )}
                 />
                 <DialogFooter>
-                  <Button type="submit" disabled={isCreating}>
+                  <Button type="submit" variant="gold" disabled={isCreating}>
                     {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     ユーザーを作成
                   </Button>
@@ -351,12 +356,18 @@ export function UserManagement({ initialUsers }: { initialUsers: User[] }) {
                           setSelectedUserForRole(user)
                           setRoleDialogOpen(true)
                         }}
+                        className="border-gold text-gold hover:bg-gold/10"
                       >
                         <UserCog className="h-4 w-4" />
                       </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="outline" size="icon" onClick={() => setSelectedUserId(user.id)}>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setSelectedUserId(user.id)}
+                            className="border-darkgray text-darkgray hover:bg-darkgray/10"
+                          >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </AlertDialogTrigger>

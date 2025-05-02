@@ -340,13 +340,13 @@ export function ToolList() {
   const getConditionBadge = (condition: string) => {
     switch (condition) {
       case "excellent":
-        return <Badge className="bg-green-500 hover:bg-green-600">優良</Badge>
+        return <Badge variant="gold">優良</Badge>
       case "good":
         return <Badge className="bg-blue-500 hover:bg-blue-600">良好</Badge>
       case "fair":
         return <Badge className="bg-yellow-500 hover:bg-yellow-600">普通</Badge>
       case "poor":
-        return <Badge className="bg-red-500 hover:bg-red-600">不良</Badge>
+        return <Badge variant="destructive">不良</Badge>
       default:
         return <Badge>{condition}</Badge>
     }
@@ -380,6 +380,7 @@ export function ToolList() {
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button
+                variant="gold"
                 onClick={(e) => {
                   e.preventDefault()
                   setIsAddDialogOpen(true)
@@ -476,7 +477,7 @@ export function ToolList() {
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={isLoading}>
                   キャンセル
                 </Button>
-                <Button type="button" onClick={() => addTool()} disabled={isLoading}>
+                <Button variant="gold" type="button" onClick={() => addTool()} disabled={isLoading}>
                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   追加
                 </Button>
@@ -570,6 +571,7 @@ export function ToolList() {
                                   setIsEditDialogOpen(true)
                                   setFormErrors({})
                                 }}
+                                className="border-gold text-gold hover:bg-gold/10"
                               >
                                 <Pencil className="h-4 w-4" />
                               </Button>
@@ -695,6 +697,7 @@ export function ToolList() {
                             size="icon"
                             onClick={() => deleteTool(tool.id)}
                             disabled={isLoading}
+                            className="border-darkgray text-darkgray hover:bg-darkgray/10"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

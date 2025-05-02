@@ -386,7 +386,9 @@ export function SafetyPatrolLog() {
           <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isRefreshing}>
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
           </Button>
-          <Button onClick={openForm}>新規作成</Button>
+          <Button variant="gold" onClick={openForm}>
+            新規作成
+          </Button>
         </div>
       </CardHeader>
       <CardContent>
@@ -553,7 +555,9 @@ export function SafetyPatrolLog() {
           )}
 
           <div className="flex justify-end mt-4">
-            <Button onClick={closeDetail}>閉じる</Button>
+            <Button variant="gold" onClick={closeDetail}>
+              閉じる
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -608,10 +612,15 @@ function PatrolCard({ log, getStatusIcon, formatDateString, countIssues, onShowD
             </CardDescription>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onShowDetails}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onShowDetails}
+              className="border-gold text-gold hover:bg-gold/10"
+            >
               詳細
             </Button>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" className="text-darkgray hover:bg-darkgray/10">
               編集
             </Button>
           </div>

@@ -13,24 +13,24 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 51 100% 50%;
+    --primary-foreground: 0 0% 31%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 0 0% 31%;
+    --secondary-foreground: 0 0% 98%;
 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 51 100% 50%;
+    --accent-foreground: 0 0% 31%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --ring: 51 100% 50%;
 
     --radius: 0.5rem;
   }
@@ -45,24 +45,24 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 51 100% 50%;
+    --primary-foreground: 0 0% 31%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 0 0% 31%;
+    --secondary-foreground: 0 0% 98%;
 
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 51 100% 50%;
+    --accent-foreground: 0 0% 31%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --ring: 51 100% 50%;
   }
 }
 
@@ -73,8 +73,116 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* 統一されたタイポグラフィ階層 */
+  h1,
+  .h1 {
+    @apply text-4xl font-bold tracking-tight md:text-5xl;
+  }
+
+  h2,
+  .h2 {
+    @apply text-3xl font-semibold tracking-tight md:text-4xl;
+  }
+
+  h3,
+  .h3 {
+    @apply text-2xl font-semibold tracking-tight md:text-3xl;
+  }
+
+  h4,
+  .h4 {
+    @apply text-xl font-semibold tracking-tight md:text-2xl;
+  }
+
+  h5,
+  .h5 {
+    @apply text-lg font-semibold md:text-xl;
+  }
+
+  h6,
+  .h6 {
+    @apply text-base font-semibold md:text-lg;
+  }
+
+  .lead {
+    @apply text-xl text-muted-foreground;
+  }
+
+  .large {
+    @apply text-lg font-semibold;
+  }
+
+  .small {
+    @apply text-sm font-medium leading-none;
+  }
+
+  .muted {
+    @apply text-sm text-muted-foreground;
+  }
 }
 
 .font-kaisho {
   font-family: var(--font-kaisho), serif;
+}
+
+/* ゴールドとダークグレーのユーティリティクラス */
+.bg-gold {
+  background-color: #ffd700;
+}
+
+.text-gold {
+  color: #ffd700;
+}
+
+.border-gold {
+  border-color: #ffd700;
+}
+
+.bg-darkgray {
+  background-color: #505050;
+}
+
+.text-darkgray {
+  color: #505050;
+}
+
+.border-darkgray {
+  border-color: #505050;
+}
+
+/* ホバー状態のスタイル */
+.hover-gold:hover {
+  background-color: #ffeb99;
+}
+
+.hover-darkgray:hover {
+  background-color: #707070;
+}
+
+/* レスポンシブユーティリティ */
+@layer utilities {
+  .container-responsive {
+    @apply container px-4 md:px-6 lg:px-8;
+  }
+
+  .flex-responsive {
+    @apply flex flex-col md:flex-row;
+  }
+
+  .grid-responsive {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3;
+  }
+
+  .text-responsive {
+    @apply text-sm md:text-base;
+  }
+
+  .hidden-mobile {
+    @apply hidden md:block;
+  }
+
+  .hidden-desktop {
+    @apply block md:hidden;
+  }
 }

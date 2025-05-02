@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/contexts/auth-context"
 import type { AuthUser } from "@/types/models/user"
+import { LogOut } from "lucide-react"
 
 interface UserNavProps {
   user: AuthUser
@@ -41,12 +42,22 @@ export function UserNav({ user }: UserNavProps) {
     router.push(path)
   }
 
+  const handleLogout = async () => {
+    await signOut()
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-          <Avatar className="h-10 w-10">
-            <AvatarFallback>{getInitials(user.user_metadata?.full_name || user.email)}</AvatarFallback>
+        <Button variant="ghost" className="relative h-8 w-8 rounded-full text-white hover:bg-darkgray-light">
+          <Avatar className="h-8 w-8">
+            <AvatarImage
+              src={user?.avatar_url || "/placeholder.svg"}
+              alt={user?.user_metadata?.full_name || "ユーザー"}
+            />
+            <AvatarFallback className="bg-gold text-darkgray">
+              {getInitials(user?.user_metadata?.full_name || "")}
+            </AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
@@ -63,7 +74,16 @@ export function UserNav({ user }: UserNavProps) {
           <DropdownMenuItem onClick={() => navigateTo("/settings")}>設定</DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut}>ログアウト</DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-red-500 hover:text-red-600"
+            onClick={handleLogout}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            <span>ログアウト</span>
+          </Button>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -205,9 +205,9 @@ export function StaffList() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "active":
-        return <Badge className="bg-green-500 hover:bg-green-600">在籍中</Badge>
+        return <Badge variant="gold">在籍中</Badge>
       case "inactive":
-        return <Badge className="bg-gray-500 hover:bg-gray-600">休職中</Badge>
+        return <Badge variant="darkgray">休職中</Badge>
       case "terminated":
         return <Badge className="bg-red-500 hover:bg-red-600">退職</Badge>
       default:
@@ -241,7 +241,7 @@ export function StaffList() {
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
           </Button>
           <>
-            <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Button variant="gold" onClick={() => setIsAddDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               新規スタッフ
             </Button>
@@ -312,7 +312,7 @@ export function StaffList() {
                   <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={isLoading}>
                     キャンセル
                   </Button>
-                  <Button type="button" onClick={addStaff} disabled={isLoading}>
+                  <Button variant="gold" type="button" onClick={addStaff} disabled={isLoading}>
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     追加
                   </Button>
@@ -384,6 +384,7 @@ export function StaffList() {
                                 setCurrentStaff(staff)
                                 setIsEditDialogOpen(true)
                               }}
+                              className="border-gold text-gold hover:bg-gold/10"
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
@@ -466,6 +467,7 @@ export function StaffList() {
                           size="icon"
                           onClick={() => deleteStaff(staff.id)}
                           disabled={isLoading}
+                          className="border-darkgray text-darkgray hover:bg-darkgray/10"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

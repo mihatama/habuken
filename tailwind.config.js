@@ -19,6 +19,7 @@ module.exports = {
     extend: {
       fontFamily: {
         kaisho: ["var(--font-kaisho)"],
+        mincho: ['"Noto Serif JP"', "serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -53,6 +54,19 @@ module.exports = {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        // 新しいカラーを追加
+        gold: {
+          DEFAULT: "#ffd700",
+          light: "#ffeb99",
+          dark: "#ccac00",
+          foreground: "#505050",
+        },
+        darkgray: {
+          DEFAULT: "#505050",
+          light: "#707070",
+          dark: "#303030",
+          foreground: "#ffffff",
         },
       },
       borderRadius: {

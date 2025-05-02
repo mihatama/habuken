@@ -272,7 +272,9 @@ export function DailyWorkReportList() {
             <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isRefreshing}>
               <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
             </Button>
-            <Button onClick={() => setIsDialogOpen(true)}>新規作成</Button>
+            <Button variant="gold" onClick={() => setIsDialogOpen(true)}>
+              新規作成
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -432,7 +434,7 @@ function ReportCard({
   }
 
   return (
-    <Card className={isOwnReport ? "border-l-4 border-l-blue-500" : ""}>
+    <Card className={isOwnReport ? "border-l-4 border-l-gold" : ""}>
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <div>
@@ -453,11 +455,16 @@ function ReportCard({
             </CardDescription>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onShowDetails}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onShowDetails}
+              className="border-gold text-gold hover:bg-gold/10"
+            >
               詳細
             </Button>
             {isOwnReport && (
-              <Button variant="ghost" size="sm" onClick={handleDelete}>
+              <Button variant="ghost" size="sm" onClick={handleDelete} className="text-darkgray hover:bg-darkgray/10">
                 削除
               </Button>
             )}
