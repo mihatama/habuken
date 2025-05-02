@@ -37,6 +37,9 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [tableExists, setTableExists] = useState<boolean | null>(null)
 
+  const [customProject, setCustomProject] = useState("")
+  const [showCustomInput, setShowCustomInput] = useState(false)
+
   const [formData, setFormData] = useState({
     projectId: "",
     inspectorId: "",
@@ -97,7 +100,26 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
   })
 
   const handleSubmit = async () => {
-    if (!formData.projectId || !formData.inspectorId) {
+    // 案件選択の検証
+    if (formData.projectId === "custom") {
+      if (!customProject.trim()) {
+        toast({
+          title: "入力エラー",
+          description: "案件名を入力してください",
+          variant: "destructive",
+        })
+        return
+      }
+    } else if (formData.projectId === "" || formData.projectId === "placeholder") {
+      toast({
+        title: "入力エラー",
+        description: "案件を選択してください",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!formData.inspectorId) {
       toast({
         title: "入力エラー",
         description: "必須項目を入力してください",
@@ -115,12 +137,24 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
       return
     }
 
+    // 選択した案件名を取得
+    let projectName = null
+    if (formData.projectId !== "custom" && formData.projectId !== "" && formData.projectId !== "placeholder") {
+      const selectedProject = projects.find((project) => project.id === formData.projectId)
+      if (selectedProject) {
+        projectName = selectedProject.name
+      }
+    } else if (formData.projectId === "custom") {
+      projectName = customProject
+    }
+
     try {
       setIsSubmitting(true)
 
       // 安全パトロールデータを追加
       await insertClientData("safety_patrols", {
-        project_id: formData.projectId,
+        project_id: formData.projectId !== "custom" ? formData.projectId : null,
+        custom_project_name: formData.projectId === "custom" ? customProject : null,
         inspector_id: formData.inspectorId,
         patrol_date: formData.patrolDate,
         checklist_json: formData.checklistJson,
@@ -201,22 +235,45 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="projectId">対象工事 *</Label>
-                <Select
-                  value={formData.projectId}
-                  onValueChange={(value) => setFormData({ ...formData, projectId: value })}
-                >
-                  <SelectTrigger id="projectId">
-                    <SelectValue placeholder="工事を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((project: any) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
+                <Label>案件名 *</Label>
+                <div className="space-y-2">
+                  <Select
+                    value={formData.projectId}
+                    onValueChange={(value) => {
+                      setFormData({ ...formData, projectId: value })
+                      setShowCustomInput(value === "custom")
+                      if (value === "custom") {
+                        setTimeout(() => document.getElementById("customProject")?.focus(), 100)
+                      } else {
+                        setCustomProject("")
+                      }
+                    }}
+                  >
+                    <SelectTrigger id="projectId">
+                      <SelectValue placeholder="案件を選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="placeholder" disabled>
+                        案件を選択してください
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      {projects.map((project: any) => (
+                        <SelectItem key={`project-${project.id}`} value={project.id}>
+                          {project.name}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="custom">その他（手入力）</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {showCustomInput && (
+                    <Input
+                      id="customProject"
+                      placeholder="案件名を入力"
+                      value={customProject}
+                      onChange={(e) => setCustomProject(e.target.value)}
+                    />
+                  )}
+                </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="inspectorId">巡視者 *</Label>
@@ -228,6 +285,9 @@ export function SafetyPatrolForm({ open, onOpenChange, onSuccess }: SafetyPatrol
                     <SelectValue placeholder="巡視者を選択" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="placeholder" disabled>
+                      巡視者を選択してください
+                    </SelectItem>
                     {staff.map((s: any) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.full_name}

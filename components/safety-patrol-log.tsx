@@ -1,18 +1,18 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Plus, Check, X, AlertTriangle, Calendar, ImageIcon, RefreshCw } from "lucide-react"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { RefreshCw, Search } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { SafetyPatrolForm } from "./safety-patrol-form"
 import { useToast } from "@/hooks/use-toast"
 import { fetchClientData, updateClientData, getClientSupabase } from "@/lib/supabase-utils"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { SafetyInspectionForm } from "./safety-inspection-form"
 
 // チェックリスト項目の定義
 const checklistItems = [
@@ -36,6 +36,31 @@ export function SafetyPatrolLog() {
   const [isCheckingTable, setIsCheckingTable] = useState(false)
   const { toast } = useToast()
   const queryClient = useQueryClient()
+
+  const [searchQuery, setSearchQuery] = useState("")
+  const [isFormOpen, setIsFormOpen] = useState(false)
+  const [logs, setLogs] = useState<any[]>([]) // 実際のデータ構造に合わせて型を定義する
+
+  // 検索クエリの変更を処理
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value)
+  }
+
+  // フォームを開く
+  const openForm = () => {
+    setIsFormOpen(true)
+  }
+
+  // フォームを閉じる
+  const closeForm = () => {
+    setIsFormOpen(false)
+  }
+
+  // 巡視日誌の保存が完了した時の処理
+  const handleFormSuccess = (newLog: any) => {
+    setLogs([...logs, newLog])
+    closeForm()
+  }
 
   // Check if safety_patrols table exists
   const checkTableExists = async () => {
@@ -236,231 +261,77 @@ export function SafetyPatrolLog() {
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>安全・環境巡視日誌</CardTitle>
-        <div className="flex items-center space-x-2">
-          <Input
-            placeholder="検索..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-[250px]"
-          />
-          <Button onClick={() => setIsAddDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            新規作成
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-bold">安全・環境巡視日誌</h2>
+        <div className="flex space-x-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+            <Input
+              type="search"
+              placeholder="検索..."
+              value={searchQuery}
+              onChange={handleSearchChange}
+              className="pl-8"
+            />
+          </div>
+          <Button onClick={openForm} className="bg-blue-900 hover:bg-blue-800">
+            <span className="mr-1">+</span> 新規作成
           </Button>
-          <SafetyPatrolForm
-            open={isAddDialogOpen}
-            onOpenChange={setIsAddDialogOpen}
-            onSuccess={handleAddPatrolSuccess}
-          />
         </div>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="mb-6">
-          <TabsList>
-            <TabsTrigger value="all">すべて</TabsTrigger>
-            <TabsTrigger value="pending">承認待ち</TabsTrigger>
-            <TabsTrigger value="approved">承認済</TabsTrigger>
-          </TabsList>
-          <TabsContent value={activeTab}>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>対象工事</TableHead>
-                  <TableHead>巡視日</TableHead>
-                  <TableHead>巡視者</TableHead>
-                  <TableHead>指摘事項</TableHead>
-                  <TableHead>コメント</TableHead>
-                  <TableHead>ステータス</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-4">
-                      読み込み中...
-                    </TableCell>
-                  </TableRow>
-                ) : filteredPatrols.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
-                      該当する巡視日誌はありません
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredPatrols.map((patrol) => {
-                    const { warningCount, dangerCount } = countIssues(patrol)
-                    return (
-                      <TableRow key={patrol.id}>
-                        <TableCell className="font-medium">{patrol.projectName}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center">
-                            <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                            <span>{new Date(patrol.patrol_date).toLocaleDateString()}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>{patrol.inspectorName}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            {dangerCount > 0 && (
-                              <Badge className="bg-red-500">
-                                <AlertTriangle className="h-3 w-3 mr-1" />
-                                危険: {dangerCount}
-                              </Badge>
-                            )}
-                            {warningCount > 0 && (
-                              <Badge className="bg-yellow-500">
-                                <AlertTriangle className="h-3 w-3 mr-1" />
-                                注意: {warningCount}
-                              </Badge>
-                            )}
-                            {dangerCount === 0 && warningCount === 0 && (
-                              <Badge className="bg-green-500">
-                                <Check className="h-3 w-3 mr-1" />
-                                良好
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="max-w-[200px] truncate">{patrol.comment}</TableCell>
-                        <TableCell>{getStatusBadge(patrol.status)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end space-x-2">
-                            <Dialog
-                              open={isViewDialogOpen && currentPatrol?.id === patrol.id}
-                              onOpenChange={(open) => {
-                                setIsViewDialogOpen(open)
-                                if (open) setCurrentPatrol(patrol)
-                              }}
-                            >
-                              <DialogTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  onClick={() => {
-                                    setCurrentPatrol(patrol)
-                                    setIsViewDialogOpen(true)
-                                  }}
-                                >
-                                  詳細
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="max-w-3xl">
-                                <DialogHeader>
-                                  <DialogTitle>安全・環境巡視日誌詳細</DialogTitle>
-                                </DialogHeader>
-                                {currentPatrol && (
-                                  <div className="grid gap-4 py-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                      <div className="border rounded-md p-4">
-                                        <h3 className="text-sm font-medium text-muted-foreground mb-1">対象工事</h3>
-                                        <p className="font-medium">{currentPatrol.projectName}</p>
-                                      </div>
-                                      <div className="border rounded-md p-4">
-                                        <h3 className="text-sm font-medium text-muted-foreground mb-1">巡視者</h3>
-                                        <p className="font-medium">{currentPatrol.inspectorName}</p>
-                                      </div>
-                                    </div>
-                                    <div className="border rounded-md p-4">
-                                      <h3 className="text-sm font-medium text-muted-foreground mb-1">巡視日</h3>
-                                      <p className="font-medium">
-                                        {new Date(currentPatrol.patrol_date).toLocaleDateString()}
-                                      </p>
-                                    </div>
-                                    <div className="border rounded-md p-4">
-                                      <h3 className="text-sm font-medium text-muted-foreground mb-1">チェックリスト</h3>
-                                      <div className="grid grid-cols-2 gap-4 mt-2">
-                                        {checklistItems.map((item) => (
-                                          <div key={item.id} className="flex justify-between items-center">
-                                            <span>{item.label}</span>
-                                            {getChecklistStatusBadge(
-                                              (currentPatrol.checklist_json as any)?.[item.id] || "good",
-                                            )}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                    <div className="border rounded-md p-4">
-                                      <h3 className="text-sm font-medium text-muted-foreground mb-1">コメント</h3>
-                                      <p>{currentPatrol.comment}</p>
-                                    </div>
-                                    <div className="border rounded-md p-4">
-                                      <h3 className="text-sm font-medium text-muted-foreground mb-1">添付写真</h3>
-                                      <div className="flex flex-wrap gap-2 mt-2">
-                                        {currentPatrol.photos && currentPatrol.photos.length > 0 ? (
-                                          currentPatrol.photos.map((photo: string, index: number) => (
-                                            <Badge key={index} variant="outline" className="flex items-center gap-1">
-                                              <ImageIcon className="h-3 w-3 mr-1" />
-                                              {photo}
-                                            </Badge>
-                                          ))
-                                        ) : (
-                                          <p className="text-sm text-muted-foreground">添付写真はありません</p>
-                                        )}
-                                      </div>
-                                    </div>
-                                    {currentPatrol.status === "pending" && (
-                                      <div className="flex justify-end space-x-2 mt-4">
-                                        <Button
-                                          variant="outline"
-                                          className="bg-red-50 hover:bg-red-100 text-red-600"
-                                          onClick={() => {
-                                            handleRejectPatrol(currentPatrol.id)
-                                            setIsViewDialogOpen(false)
-                                          }}
-                                        >
-                                          <X className="h-4 w-4 mr-2" />
-                                          差戻し
-                                        </Button>
-                                        <Button
-                                          className="bg-green-600 hover:bg-green-700"
-                                          onClick={() => {
-                                            handleApprovePatrol(currentPatrol.id)
-                                            setIsViewDialogOpen(false)
-                                          }}
-                                        >
-                                          <Check className="h-4 w-4 mr-2" />
-                                          承認
-                                        </Button>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </DialogContent>
-                            </Dialog>
-                            {patrol.status === "pending" && (
-                              <div className="flex space-x-2">
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  className="bg-red-50 hover:bg-red-100 text-red-600"
-                                  onClick={() => handleRejectPatrol(patrol.id)}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  className="bg-green-50 hover:bg-green-100 text-green-600"
-                                  onClick={() => handleApprovePatrol(patrol.id)}
-                                >
-                                  <Check className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+      </div>
+
+      <div className="border rounded-md">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-gray-50">
+                <th className="px-4 py-3 text-left font-medium">対象工事</th>
+                <th className="px-4 py-3 text-left font-medium">巡視日</th>
+                <th className="px-4 py-3 text-left font-medium">巡視者</th>
+                <th className="px-4 py-3 text-left font-medium">コメント</th>
+                <th className="px-4 py-3 text-left font-medium">ステータス</th>
+                <th className="px-4 py-3 text-left font-medium">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                    表示する巡視日誌はありません
+                  </td>
+                </tr>
+              ) : (
+                logs.map((log) => (
+                  <tr key={log.id} className="border-b">
+                    <td className="px-4 py-3">{log.projectName}</td>
+                    <td className="px-4 py-3">{log.inspectionDate}</td>
+                    <td className="px-4 py-3">{log.inspectorName}</td>
+                    <td className="px-4 py-3">{log.comment}</td>
+                    <td className="px-4 py-3">{log.status}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex space-x-2">
+                        <Button variant="outline" size="sm">
+                          詳細
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          編集
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <DialogContent className="max-w-3xl p-0 bg-transparent border-none shadow-none">
+          <SafetyInspectionForm onSuccess={handleFormSuccess} onCancel={closeForm} />
+        </DialogContent>
+      </Dialog>
+    </div>
   )
 }

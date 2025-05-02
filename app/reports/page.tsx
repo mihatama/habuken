@@ -23,7 +23,7 @@ export default function ReportsPage() {
       <Tabs defaultValue="daily" value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-4">
           <TabsTrigger value="daily">日報作成</TabsTrigger>
-          <TabsTrigger value="safety">安全パトロール</TabsTrigger>
+          <TabsTrigger value="safety">安全・環境巡視日誌</TabsTrigger>
         </TabsList>
         <TabsContent value="daily">
           <DailyWorkReportList />
