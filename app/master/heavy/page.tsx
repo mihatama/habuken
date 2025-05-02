@@ -2,8 +2,9 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent } from "@/components/ui/card"
-import { PenToolIcon as Tool, BarChart3, Calendar } from "lucide-react"
+import { PenToolIcon as Tool, Calendar } from "lucide-react"
 import { HeavyMachineryManagement } from "@/components/heavy-machinery-management"
+import { HeavyMachineryCostAnalysis } from "@/components/heavy-machinery-cost-analysis"
 
 export default function HeavyMachineryPage() {
   return (
@@ -38,17 +39,7 @@ export default function HeavyMachineryPage() {
               </Card>
             </TabsContent>
             <TabsContent value="cost" className="mt-4">
-              <Card>
-                <CardContent className="p-6">
-                  <div className="grid gap-4">
-                    <div className="text-center p-12">
-                      <BarChart3 className="mx-auto h-12 w-12 text-muted-foreground" />
-                      <h3 className="mt-4 text-lg font-medium">コスト分析</h3>
-                      <p className="mt-2 text-sm text-muted-foreground">重機ごとのコスト分析と収益性を確認できます。</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <HeavyMachineryCostAnalysis />
             </TabsContent>
             <TabsContent value="maintenance" className="mt-4">
               <Card>

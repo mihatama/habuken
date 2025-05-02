@@ -4,16 +4,18 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { RefreshCw, Search, Eye, Edit, CheckCircle, AlertTriangle, XCircle } from "lucide-react"
+import { RefreshCw, Search, CheckCircle, AlertTriangle, XCircle, Filter, Calendar, FileText } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { getClientSupabase } from "@/lib/supabase-utils"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { SafetyInspectionForm } from "./safety-inspection-form"
 import { format } from "date-fns"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // チェックリスト項目の定義
 const checklistItems = [
@@ -43,6 +45,8 @@ export function SafetyPatrolLog() {
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [selectedLog, setSelectedLog] = useState<any>(null)
   const [logs, setLogs] = useState<any[]>([]) // 実際のデータ構造に合わせて型を定義する
+  const [sortBy, setSortBy] = useState("newest") // "newest", "oldest"
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   // 検索クエリの変更を処理
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -112,20 +116,21 @@ export function SafetyPatrolLog() {
 
   // 安全パトロールデータを取得
   const { data: patrols = [], isLoading } = useQuery({
-    queryKey: ["safetyPatrols", tableExists],
+    queryKey: ["safetyPatrols", tableExists, sortBy],
     queryFn: async () => {
       if (!tableExists) return []
 
       try {
         console.log("安全巡視データの取得を開始します...")
         const supabase = getClientSupabase()
+        setIsRefreshing(true)
 
         // 安全巡視データを取得（リレーションシップを使用せず）
         console.log("安全巡視データをクエリ実行中...")
         const { data, error } = await supabase
           .from("safety_inspections")
           .select("*")
-          .order("created_at", { ascending: false })
+          .order("created_at", { ascending: sortBy === "oldest" })
 
         if (error) {
           console.error("安全巡視データの取得エラー:", error)
@@ -246,6 +251,7 @@ export function SafetyPatrolLog() {
 
         // logsステート変数を更新
         setLogs(formattedData)
+        setIsRefreshing(false)
 
         return formattedData
       } catch (error) {
@@ -255,6 +261,7 @@ export function SafetyPatrolLog() {
           description: "安全巡視データの取得に失敗しました",
           variant: "destructive",
         })
+        setIsRefreshing(false)
         return []
       }
     },
@@ -314,6 +321,11 @@ export function SafetyPatrolLog() {
     }
   }
 
+  // リフレッシュボタンのハンドラー
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["safetyPatrols"] })
+  }
+
   // If we're still checking if the table exists, show a loading state
   if (isCheckingTable) {
     return (
@@ -354,85 +366,86 @@ export function SafetyPatrolLog() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold">安全・環境巡視日誌</h2>
-        <div className="flex space-x-2">
+    <Card className="w-full">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>安全・環境巡視日誌</CardTitle>
+          <CardDescription>現場の安全・環境巡視記録を確認・管理できます</CardDescription>
+        </div>
+        <div className="flex items-center gap-2">
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
               placeholder="検索..."
+              className="pl-8 w-[200px] md:w-[300px]"
               value={searchQuery}
               onChange={handleSearchChange}
-              className="pl-8"
             />
           </div>
-          <Button onClick={openForm} className="bg-blue-900 hover:bg-blue-800">
-            <span className="mr-1">+</span> 新規作成
+          <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isRefreshing}>
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
           </Button>
+          <Button onClick={openForm}>新規作成</Button>
         </div>
-      </div>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="並び順" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">新しい順</SelectItem>
+                <SelectItem value="oldest">古い順</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
-      <div className="border rounded-md">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-gray-50">
-                <th className="px-4 py-3 text-left font-medium">対象工事</th>
-                <th className="px-4 py-3 text-left font-medium">巡視日</th>
-                <th className="px-4 py-3 text-left font-medium">巡視者</th>
-                <th className="px-4 py-3 text-left font-medium">コメント</th>
-                <th className="px-4 py-3 text-left font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                    <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2" />
-                    データを読み込み中...
-                  </td>
-                </tr>
-              ) : filteredLogs.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                    表示する巡視日誌はありません
-                  </td>
-                </tr>
-              ) : (
-                filteredLogs.map((log) => (
-                  <tr key={log.id} className="border-b hover:bg-gray-50">
-                    <td className="px-4 py-3">{log.projectName}</td>
-                    <td className="px-4 py-3">{formatDateString(log.inspectionDate)}</td>
-                    <td className="px-4 py-3">{log.inspectorName}</td>
-                    <td className="px-4 py-3">
-                      <div className="max-w-xs truncate">{log.comment || "コメントなし"}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex items-center gap-1"
-                          onClick={() => openDetail(log)}
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          <span>詳細</span>
-                        </Button>
-                        <Button variant="outline" size="sm" className="flex items-center gap-1">
-                          <Edit className="h-3.5 w-3.5" />
-                          <span>編集</span>
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+        {isLoading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Card key={i}>
+                <CardHeader className="pb-2">
+                  <Skeleton className="h-6 w-1/3" />
+                  <Skeleton className="h-4 w-1/2 mt-2" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-4 w-1/4 mb-2" />
+                  <Skeleton className="h-20 w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : filteredLogs.length === 0 ? (
+          <div className="text-center py-8">
+            {searchQuery ? "検索条件に一致する巡視日誌はありません" : "巡視日誌データがありません"}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredLogs.map((log) => (
+              <PatrolCard
+                key={log.id}
+                log={log}
+                getStatusIcon={getStatusIcon}
+                formatDateString={formatDateString}
+                countIssues={countIssues}
+                onShowDetails={() => openDetail(log)}
+              />
+            ))}
+          </div>
+        )}
+
+        {filteredLogs.length > 0 && (
+          <div className="mt-4 text-center text-sm text-muted-foreground">
+            {filteredLogs.length}件の巡視日誌が表示されています
+            {searchQuery && ` (検索条件: "${searchQuery}")`}
+          </div>
+        )}
+      </CardContent>
 
       {/* 新規作成フォームダイアログ */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
@@ -544,6 +557,88 @@ export function SafetyPatrolLog() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </Card>
+  )
+}
+
+// 巡視日誌カードコンポーネント
+interface PatrolCardProps {
+  log: any
+  getStatusIcon: (status: string) => React.ReactNode
+  formatDateString: (dateString: string | null | undefined) => string
+  countIssues: (patrol: any) => { warningCount: number; dangerCount: number }
+  onShowDetails: () => void
+}
+
+function PatrolCard({ log, getStatusIcon, formatDateString, countIssues, onShowDetails }: PatrolCardProps) {
+  const { warningCount, dangerCount } = countIssues(log)
+
+  // コメントの短縮表示用
+  const getShortenedComment = () => {
+    const content = log.comment || ""
+    return content.length > 100 ? content.substring(0, 100) + "..." : content
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-start">
+          <div>
+            <CardTitle className="text-lg flex items-center gap-2">{log.projectName}</CardTitle>
+            <CardDescription className="flex items-center gap-1 mt-1 flex-wrap">
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+              {formatDateString(log.inspectionDate)}
+              {(warningCount > 0 || dangerCount > 0) && (
+                <>
+                  <span className="mx-1">|</span>
+                  {warningCount > 0 && (
+                    <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      注意 {warningCount}件
+                    </Badge>
+                  )}
+                  {dangerCount > 0 && (
+                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 ml-1">
+                      <XCircle className="h-3 w-3 mr-1" />
+                      危険 {dangerCount}件
+                    </Badge>
+                  )}
+                </>
+              )}
+            </CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onShowDetails}>
+              詳細
+            </Button>
+            <Button variant="ghost" size="sm">
+              編集
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pb-2">
+        <div className="text-sm text-muted-foreground mb-2">
+          <span className="font-medium">巡視者:</span> {log.inspectorName}
+        </div>
+        <div className="text-sm mb-2">
+          <span className="font-medium">コメント:</span>
+        </div>
+        <div className="text-sm whitespace-pre-wrap">{getShortenedComment()}</div>
+
+        {log.photoUrls && log.photoUrls.length > 0 && (
+          <div className="mt-3 flex items-center gap-2">
+            <img src="/placeholder.svg" className="h-3.5 w-3.5 text-muted-foreground" alt="" />
+            <span className="text-xs text-muted-foreground">写真 {log.photoUrls.length}枚</span>
+          </div>
+        )}
+      </CardContent>
+      <CardFooter className="pt-0 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1">
+          <FileText className="h-3 w-3 text-muted-foreground" />
+          {formatDateString(log.createdAt)} 作成
+        </div>
+      </CardFooter>
+    </Card>
   )
 }
