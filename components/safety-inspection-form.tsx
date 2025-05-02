@@ -2,15 +2,27 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Textarea } from "@/components/ui/textarea"
 import { format } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
-import { X, ChevronDown, ChevronUp, Mic, MicOff } from "lucide-react"
+import { X, ChevronDown, ChevronUp, Mic, MicOff, ImageIcon, Camera, Plus, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { getClientSupabase } from "@/lib/supabase-utils"
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition"
+import { Badge } from "@/components/ui/badge"
+
+// バケット名を定数として定義
+const STORAGE_BUCKET_NAME = "dailyreports"
+const STORAGE_FOLDER_NAME = "public/safety_inspection_photos"
+
+// 画像圧縮の設定
+const IMAGE_COMPRESSION_SETTINGS = {
+  maxWidth: 1200,
+  maxHeight: 1200,
+  quality: 0.75, // JPEG品質 (0-1)
+}
 
 // チェックリスト項目の型定義
 type ChecklistItem = {
@@ -30,7 +42,7 @@ type FormData = {
   inspectionDate: string
   checklistItems: ChecklistItem[]
   comment: string
-  photoFile: File | null
+  photos: string[] // 写真URLの配列
 }
 
 // SafetyInspectionFormのプロパティ型定義
@@ -173,6 +185,92 @@ const checklistItems: ChecklistItem[] = [
 // カテゴリーのリスト
 const categories = ["作業員", "機械器具", "交通安全", "工事現場"]
 
+// 画像圧縮用のユーティリティ関数
+async function compressImage(file: File): Promise<{ file: File; originalSize: number; compressedSize: number }> {
+  return new Promise((resolve, reject) => {
+    const originalSize = file.size
+    const reader = new FileReader()
+
+    reader.onload = (readerEvent) => {
+      const img = new Image()
+
+      img.onload = () => {
+        // 画像のサイズを計算
+        let width = img.width
+        let height = img.height
+
+        // 最大サイズを超える場合はリサイズ
+        if (width > IMAGE_COMPRESSION_SETTINGS.maxWidth || height > IMAGE_COMPRESSION_SETTINGS.maxHeight) {
+          const ratio = Math.min(
+            IMAGE_COMPRESSION_SETTINGS.maxWidth / width,
+            IMAGE_COMPRESSION_SETTINGS.maxHeight / height,
+          )
+          width = Math.floor(width * ratio)
+          height = Math.floor(height * ratio)
+        }
+
+        // Canvasに描画して圧縮
+        const canvas = document.createElement("canvas")
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext("2d")
+
+        if (!ctx) {
+          reject(new Error("Canvas context could not be created"))
+          return
+        }
+
+        ctx.drawImage(img, 0, 0, width, height)
+
+        // 画像形式を決定（元の形式を維持するが、基本的にJPEGを推奨）
+        const mimeType = file.type === "image/png" ? "image/png" : "image/jpeg"
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("Blob could not be created"))
+              return
+            }
+
+            // 新しいファイル名を生成（元のファイル名を維持しつつ、圧縮されたことを示す）
+            const fileName = file.name.replace(/(\.[^.]+)$/, (match) => `-compressed${match}`)
+
+            // 新しいFileオブジェクトを作成
+            const compressedFile = new File([blob], fileName, {
+              type: mimeType,
+              lastModified: Date.now(),
+            })
+
+            resolve({
+              file: compressedFile,
+              originalSize,
+              compressedSize: compressedFile.size,
+            })
+          },
+          mimeType,
+          IMAGE_COMPRESSION_SETTINGS.quality,
+        )
+      }
+
+      img.onerror = () => {
+        reject(new Error("Failed to load image"))
+      }
+
+      if (typeof readerEvent.target?.result === "string") {
+        img.src = readerEvent.target.result
+      } else {
+        reject(new Error("Failed to read file"))
+      }
+    }
+
+    reader.onerror = () => {
+      reject(new Error("Failed to read file"))
+    }
+
+    reader.readAsDataURL(file)
+  })
+}
+
 export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFormProps) {
   // 状態管理
   const [formData, setFormData] = useState<FormData>({
@@ -182,7 +280,7 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
     inspectionDate: format(new Date(), "yyyy-MM-dd"),
     checklistItems: checklistItems,
     comment: "",
-    photoFile: null,
+    photos: [],
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -193,6 +291,12 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
   const [error, setError] = useState<string | null>(null)
   const [supabase, setSupabase] = useState<any>(null)
   const [showCustomInput, setShowCustomInput] = useState(false)
+  const [photoFiles, setPhotoFiles] = useState<File[]>([])
+  const [photoSizes, setPhotoSizes] = useState<{ [key: string]: { original: number; compressed: number } }>({})
+  const [isCompressing, setIsCompressing] = useState(false)
+  const [bucketExists, setBucketExists] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
   const { isRecording, activeId, startRecording, stopRecording } = useSpeechRecognition()
@@ -273,6 +377,109 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
         }
 
         getCurrentUser()
+
+        // バケットの存在を確認するだけ（作成は試みない）
+        const checkBucket = async () => {
+          try {
+            console.log(`${STORAGE_BUCKET_NAME}バケットを直接アクセスして確認中...`)
+
+            // バケット一覧を取得せず、直接バケットにアクセスを試みる
+            try {
+              // バケットのルートフォルダにアクセスを試みる
+              const { data, error: accessError } = await client.storage.from(STORAGE_BUCKET_NAME).list("", { limit: 1 })
+
+              if (accessError) {
+                console.warn("バケットアクセスエラー:", accessError)
+                console.warn("エラーコード:", accessError.code)
+                console.warn("エラーメッセージ:", accessError.message)
+
+                // バケットが存在しないエラーの場合
+                if (accessError.message.includes("does not exist") || accessError.code === "404") {
+                  console.log(`${STORAGE_BUCKET_NAME}バケットが存在しません`)
+                  toast({
+                    title: "情報",
+                    description: "写真保存用のストレージが設定されていません。写真機能は利用できません。",
+                    variant: "default",
+                  })
+                  setBucketExists(false)
+                  return
+                }
+
+                // その他のアクセスエラーの場合
+                toast({
+                  title: "警告",
+                  description: `ストレージへのアクセス権限に問題があります: ${accessError.message}`,
+                  variant: "warning",
+                })
+                setBucketExists(false)
+                return
+              }
+
+              // バケットにアクセスできた場合
+              console.log(`${STORAGE_BUCKET_NAME}バケットにアクセスできました:`, data)
+              setBucketExists(true)
+
+              // 次に特定のフォルダへのアクセスを確認
+              try {
+                console.log(`${STORAGE_FOLDER_NAME}フォルダのアクセス権限を確認中...`)
+                const { data: folderData, error: folderError } = await client.storage
+                  .from(STORAGE_BUCKET_NAME)
+                  .list(STORAGE_FOLDER_NAME, { limit: 1 })
+
+                if (folderError) {
+                  console.warn("フォルダアクセスエラー:", folderError)
+
+                  // フォルダが存在しない場合は作成を試みる
+                  if (folderError.message.includes("not found") || folderError.code === "404") {
+                    console.log(`${STORAGE_FOLDER_NAME}フォルダが存在しません。作成を試みます。`)
+
+                    try {
+                      // 空のファイルを作成してフォルダを作成
+                      const emptyBlob = new Blob([""], { type: "text/plain" })
+                      const placeholderFile = new File([emptyBlob], ".placeholder", { type: "text/plain" })
+
+                      const { error: uploadError } = await client.storage
+                        .from(STORAGE_BUCKET_NAME)
+                        .upload(`${STORAGE_FOLDER_NAME}/.placeholder`, placeholderFile)
+
+                      if (uploadError) {
+                        console.warn("フォルダ作成エラー:", uploadError)
+                      } else {
+                        console.log(`${STORAGE_FOLDER_NAME}フォルダを作成しました`)
+                      }
+                    } catch (createErr) {
+                      console.warn("フォルダ作成エラー:", createErr)
+                    }
+                  } else {
+                    // その他のフォルダアクセスエラー
+                    toast({
+                      title: "警告",
+                      description: `フォルダへのアクセス権限に問題があります: ${folderError.message}`,
+                      variant: "warning",
+                    })
+                  }
+                } else {
+                  console.log(`${STORAGE_FOLDER_NAME}フォルダにアクセスできました:`, folderData)
+                }
+              } catch (folderErr) {
+                console.warn("フォルダアクセス確認エラー:", folderErr)
+              }
+            } catch (err) {
+              console.error("バケットアクセスエラー:", err)
+              toast({
+                title: "警告",
+                description: "ストレージへのアクセスに問題があります。写真機能が制限されます。",
+                variant: "warning",
+              })
+              setBucketExists(false)
+            }
+          } catch (err) {
+            console.error("バケット確認処理エラー:", err)
+            setBucketExists(false)
+          }
+        }
+
+        checkBucket()
       } catch (err) {
         console.error("Supabaseクライアントの初期化に失敗しました:", err)
         setError("システム設定に問題があります。管理者にお問い合わせください。")
@@ -356,6 +563,170 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
     fetchData()
   }, [supabase, toast, formData.inspectorId])
 
+  // 画像を圧縮して追加する関数
+  const processAndAddImages = async (files: File[]) => {
+    if (files.length === 0) return
+
+    setIsCompressing(true)
+
+    try {
+      const compressedResults = await Promise.all(
+        files.map(async (file) => {
+          // 画像ファイルのみ圧縮
+          if (file.type.startsWith("image/")) {
+            try {
+              return await compressImage(file)
+            } catch (err) {
+              console.error(`画像「${file.name}」の圧縮に失敗しました:`, err)
+              // 圧縮に失敗した場合は元のファイルを使用
+              return { file, originalSize: file.size, compressedSize: file.size }
+            }
+          } else {
+            // 画像以外のファイルはそのまま
+            return { file, originalSize: file.size, compressedSize: file.size }
+          }
+        }),
+      )
+
+      // 圧縮結果を保存
+      const newPhotoSizes = { ...photoSizes }
+      compressedResults.forEach(({ file, originalSize, compressedSize }) => {
+        newPhotoSizes[file.name] = { original: originalSize, compressed: compressedSize }
+      })
+      setPhotoSizes(newPhotoSizes)
+
+      // 圧縮された画像をセット
+      const compressedFiles = compressedResults.map((result) => result.file)
+      setPhotoFiles((prevFiles) => [...prevFiles, ...compressedFiles])
+
+      // 圧縮率の高い画像があれば通知
+      const significantCompressions = compressedResults.filter(
+        ({ originalSize, compressedSize }) => (originalSize - compressedSize) / originalSize > 0.5,
+      )
+
+      if (significantCompressions.length > 0) {
+        const totalOriginal = significantCompressions.reduce((sum, { originalSize }) => sum + originalSize, 0)
+        const totalCompressed = significantCompressions.reduce((sum, { compressedSize }) => sum + compressedSize, 0)
+        const savingsPercent = Math.round(((totalOriginal - totalCompressed) / totalOriginal) * 100)
+
+        toast({
+          title: "画像を最適化しました",
+          description: `${significantCompressions.length}枚の画像を約${savingsPercent}%圧縮しました`,
+          variant: "default",
+        })
+      }
+    } catch (err) {
+      console.error("画像処理中にエラーが発生しました:", err)
+      toast({
+        title: "警告",
+        description: "一部の画像の処理に失敗しました。元のサイズで追加します。",
+        variant: "warning",
+      })
+    } finally {
+      setIsCompressing(false)
+    }
+  }
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files)
+      await processAndAddImages(newFiles)
+    }
+  }
+
+  const handleCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files)
+      await processAndAddImages(newFiles)
+    }
+  }
+
+  const removePhoto = (index: number) => {
+    setPhotoFiles((prevFiles) => {
+      const updatedFiles = [...prevFiles]
+      const removedFile = updatedFiles[index]
+
+      // 削除されたファイルのサイズ情報も削除
+      if (removedFile) {
+        setPhotoSizes((prev) => {
+          const updated = { ...prev }
+          delete updated[removedFile.name]
+          return updated
+        })
+      }
+
+      updatedFiles.splice(index, 1)
+      return updatedFiles
+    })
+  }
+
+  // ファイルをBase64に変換する関数
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = (error) => reject(error)
+    })
+  }
+
+  // 写真をアップロードする関数
+  const uploadPhotos = async (files: File[]): Promise<string[]> => {
+    if (!bucketExists || files.length === 0) {
+      return []
+    }
+
+    const uploadedUrls: string[] = []
+
+    try {
+      // 各ファイルをAPIルート経由でアップロード
+      for (const file of files) {
+        try {
+          // ファイルをBase64エンコード
+          const base64Image = await fileToBase64(file)
+
+          // APIルートを使用してアップロード
+          const response = await fetch("/api/upload-image", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              base64Image,
+              fileName: file.name,
+              contentType: file.type,
+            }),
+          })
+
+          if (!response.ok) {
+            const errorData = await response.json()
+            console.error("画像アップロードAPIエラー:", errorData)
+            toast({
+              title: "警告",
+              description: `写真「${file.name}」のアップロードに失敗しました。`,
+              variant: "warning",
+            })
+            continue // エラーがあっても次の写真を処理
+          }
+
+          const result = await response.json()
+
+          if (result.success && result.url) {
+            uploadedUrls.push(result.url)
+            console.log(`写真をアップロードしました: ${result.url}`)
+          }
+        } catch (err) {
+          console.error(`写真「${file.name}」のアップロード中にエラーが発生しました:`, err)
+        }
+      }
+
+      return uploadedUrls
+    } catch (err) {
+      console.error("画像アップロード処理中にエラーが発生しました:", err)
+      return []
+    }
+  }
+
   // チェックリスト項目のステータス更新
   const updateChecklistItemStatus = (id: string, status: "good" | "caution" | "danger") => {
     setFormData((prev) => ({
@@ -399,18 +770,6 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  // ファイル選択の処理
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFormData((prev) => ({ ...prev, photoFile: e.target.files![0] }))
-    }
-  }
-
-  // ファイルの削除
-  const removeFile = () => {
-    setFormData((prev) => ({ ...prev, photoFile: null }))
-  }
-
   // フォーム送信処理
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -448,8 +807,20 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
         return
       }
 
-      // ここでAPIに送信する処理を実装
-      console.log("送信データ:", formData)
+      // 写真のアップロード処理
+      let uploadedPhotoUrls: string[] = []
+
+      if (photoFiles.length > 0) {
+        if (!bucketExists) {
+          toast({
+            title: "情報",
+            description: "写真保存用のストレージが利用できないため、写真なしで保存します。",
+            variant: "default",
+          })
+        } else {
+          uploadedPhotoUrls = await uploadPhotos(photoFiles)
+        }
+      }
 
       // 選択した案件名を取得
       let projectName = null
@@ -485,7 +856,7 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
         inspectionDate: formData.inspectionDate,
         checklistItems: formData.checklistItems,
         comment: formData.comment,
-        photoFile: formData.photoFile,
+        photoUrls: uploadedPhotoUrls,
         status: "完了",
         createdAt: new Date().toISOString(),
       }
@@ -523,6 +894,17 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
       default:
         return ""
     }
+  }
+
+  // ファイルサイズを読みやすい形式に変換する関数
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return "0 B"
+
+    const k = 1024
+    const sizes = ["B", "KB", "MB", "GB"]
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+
+    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
   }
 
   // エラーがある場合はエラーメッセージを表示
@@ -774,33 +1156,87 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">写真添付</label>
-              {formData.photoFile ? (
-                <div className="flex items-center justify-between border rounded-md p-2">
-                  <span className="text-sm truncate">{formData.photoFile.name}</span>
-                  <button type="button" onClick={removeFile} className="text-gray-500 hover:text-gray-700">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : (
-                <div className="border border-dashed border-gray-300 rounded-md p-4">
-                  <input type="file" id="photoFile" accept="image/*" onChange={handleFileChange} className="hidden" />
-                  <label htmlFor="photoFile" className="flex flex-col items-center justify-center cursor-pointer">
-                    <span className="text-sm text-gray-500">ファイルは選択されていません</span>
-                    <span className="mt-1 text-sm text-blue-500">ファイルを選択</span>
-                  </label>
+            <div className="grid gap-2">
+              <label className="block text-sm font-medium text-gray-700">写真添付</label>
+              {!bucketExists && (
+                <div className="text-amber-500 text-sm mb-2">
+                  ※ 写真保存用のストレージが設定されていません。写真は保存されません。
                 </div>
               )}
+              <div className="flex flex-wrap gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleCameraCapture}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-1"
+                  disabled={!bucketExists || isCompressing}
+                >
+                  {isCompressing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus size={16} />} 写真を選択
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="flex items-center gap-1"
+                  disabled={!bucketExists || isCompressing}
+                >
+                  {isCompressing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Camera size={16} />}{" "}
+                  カメラで撮影
+                </Button>
+              </div>
+              {isCompressing && (
+                <div className="text-sm text-blue-600 animate-pulse mt-2">写真を最適化中... しばらくお待ちください</div>
+              )}
+              <div className="flex flex-wrap gap-2 mt-2">
+                {photoFiles.map((file, index) => (
+                  <Badge key={index} variant="outline" className="flex items-center gap-1 p-1">
+                    <ImageIcon className="h-3 w-3 mr-1" />
+                    <span className="max-w-[150px] truncate">{file.name}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 w-5 p-0 ml-1"
+                      onClick={() => removePhoto(index)}
+                    >
+                      <X size={12} />
+                    </Button>
+                  </Badge>
+                ))}
+              </div>
             </div>
 
             <div className="flex justify-end">
               <Button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isCompressing}
                 className="bg-black text-white px-4 py-2 rounded-md hover:bg-gray-800"
               >
-                {isSubmitting ? "保存中..." : "保存"}
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 保存中...
+                  </>
+                ) : (
+                  "保存"
+                )}
               </Button>
             </div>
           </div>
