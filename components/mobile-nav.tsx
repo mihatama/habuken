@@ -3,20 +3,7 @@
 import { useRouter, usePathname } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import {
-  Calendar,
-  Briefcase,
-  Users,
-  Truck,
-  Car,
-  Key,
-  ClipboardList,
-  FileText,
-  X,
-  Settings,
-  User,
-  LogOut,
-} from "lucide-react"
+import { X, Settings, User, LogOut } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 
 interface MobileNavProps {
@@ -55,8 +42,18 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
       <div className="fixed inset-y-0 right-0 w-full max-w-sm bg-darkgray shadow-lg overflow-y-auto">
         <div className="flex h-16 items-center justify-between px-4 border-b border-gold/30">
           <div className="flex items-center">
-            <Image src="/favicon.ico" alt="現助ロゴ" width={24} height={24} className="mr-2" />
-            <span className="text-xl font-bold text-gold font-mincho">現助</span>
+            <div className="mr-2 p-0.5">
+              <Image
+                src="/favicon.ico"
+                alt="現助ロゴ"
+                width={24}
+                height={24}
+                className="border-2 border-white rounded-full"
+              />
+            </div>
+            <span style={{ fontFamily: "'Noto Serif JP', serif" }} className="text-xl font-bold text-gold">
+              現助
+            </span>
           </div>
           <Button
             variant="ghost"
@@ -86,67 +83,59 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
         <div className="grid gap-1 p-2">
           <Button
             variant="ghost"
-            className={`flex w-full justify-start gap-3 p-3 ${isActive("/dashboard")}`}
+            className={`flex w-full justify-start p-3 ${isActive("/dashboard")}`}
             onClick={() => handleNavigation("/dashboard")}
           >
-            <Calendar className="h-5 w-5" />
-            <span>ダッシュボード</span>
+            ダッシュボード
           </Button>
           <Button
             variant="ghost"
-            className={`flex w-full justify-start gap-3 p-3 ${isActive("/deals")}`}
+            className={`flex w-full justify-start p-3 ${isActive("/deals")}`}
             onClick={() => handleNavigation("/deals")}
           >
-            <Briefcase className="h-5 w-5" />
-            <span>案件</span>
+            案件
           </Button>
           <Button
             variant="ghost"
-            className={`flex w-full justify-start gap-3 p-3 ${isActive("/master/staff")}`}
+            className={`flex w-full justify-start p-3 ${isActive("/master/staff")}`}
             onClick={() => handleNavigation("/master/staff")}
           >
-            <Users className="h-5 w-5" />
-            <span>スタッフ</span>
+            スタッフ
           </Button>
           <Button
             variant="ghost"
-            className={`flex w-full justify-start gap-3 p-3 ${isActive("/master/heavy")}`}
+            className={`flex w-full justify-start p-3 ${isActive("/master/heavy")}`}
             onClick={() => handleNavigation("/master/heavy")}
           >
-            <Truck className="h-5 w-5" />
-            <span>重機</span>
+            重機
           </Button>
           <Button
             variant="ghost"
-            className={`flex w-full justify-start gap-3 p-3 ${isActive("/master/vehicle")}`}
+            className={`flex w-full justify-start p-3 ${isActive("/master/vehicle")}`}
             onClick={() => handleNavigation("/master/vehicle")}
           >
-            <Car className="h-5 w-5" />
-            <span>車両</span>
+            車両
           </Button>
           <Button
             variant="ghost"
-            className={`flex w-full justify-start gap-3 p-3 ${isActive("/tools")}`}
+            className={`flex w-full justify-start p-3 ${isActive("/tools")}`}
             onClick={() => handleNavigation("/tools")}
           >
-            <Key className="h-5 w-5" />
-            <span>備品</span>
+            備品
           </Button>
           <Button
             variant="ghost"
-            className={`flex w-full justify-start gap-3 p-3 ${isActive("/leave")}`}
+            className={`flex w-full justify-start p-3 ${isActive("/leave")}`}
             onClick={() => handleNavigation("/leave")}
           >
-            <ClipboardList className="h-5 w-5" />
-            <span>休暇申請</span>
+            休暇申請
           </Button>
           <Button
             variant="ghost"
-            className={`flex w-full justify-start gap-3 p-3 ${isActive("/reports")}`}
+            className={`flex w-full justify-start p-3 ${isActive("/reports")}`}
             onClick={() => handleNavigation("/reports")}
           >
-            <FileText className="h-5 w-5" />
-            <span>現場報告</span>
+            現場報告
           </Button>
         </div>
 
