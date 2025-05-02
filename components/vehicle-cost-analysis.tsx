@@ -1,0 +1,287 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Loader2 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { getClientSupabase } from "@/lib/supabase-utils"
+import { calculateOptimalCost } from "@/utils/cost-calculation"
+
+export function VehicleCostAnalysis() {
+  const { toast } = useToast()
+  const supabase = getClientSupabase()
+
+  const [vehicles, setVehicles] = useState<any[]>([])
+  const [usageData, setUsageData] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  async function fetchData() {
+    try {
+      setIsLoading(true)
+
+      // 車両データを取得
+      const { data: vehicleData, error: vehicleError } = await supabase
+        .from("vehicles")
+        .select("*")
+        .order("name", { ascending: true })
+
+      if (vehicleError) throw vehicleError
+
+      // 使用実績データを取得（例：予約テーブルから）
+      // 注：実際のテーブル名やカラム名は環境に合わせて変更してください
+      const { data: usageData, error: usageError } = await supabase
+        .from("vehicle_reservations")
+        .select("*")
+        .order("start_date", { ascending: false })
+        .limit(100)
+
+      // 使用実績テーブルがない場合はダミーデータを使用
+      const finalUsageData =
+        usageError || !usageData || usageData.length === 0 ? generateDummyUsageData(vehicleData || []) : usageData
+
+      setVehicles(vehicleData || [])
+      setUsageData(finalUsageData)
+    } catch (error) {
+      console.error("データの取得に失敗しました:", error)
+      toast({
+        title: "エラー",
+        description: "データの取得に失敗しました",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // ダミーの使用実績データを生成（実際の環境では削除してください）
+  function generateDummyUsageData(vehicleList: any[]) {
+    const today = new Date()
+    const dummyData: any[] = []
+
+    vehicleList.forEach((vehicle) => {
+      // 過去3ヶ月のランダムな使用実績を生成
+      const usageCount = Math.floor(Math.random() * 5) + 1 // 1〜5件の使用実績
+
+      for (let i = 0; i < usageCount; i++) {
+        const daysAgo = Math.floor(Math.random() * 90) // 過去90日以内
+        const usageDays = Math.floor(Math.random() * 30) + 1 // 1〜30日間の使用
+
+        const startDate = new Date(today)
+        startDate.setDate(today.getDate() - daysAgo)
+
+        const endDate = new Date(startDate)
+        endDate.setDate(startDate.getDate() + usageDays - 1)
+
+        dummyData.push({
+          id: `dummy-${vehicle.id}-${i}`,
+          vehicle_id: vehicle.id,
+          project_name: `プロジェクト${Math.floor(Math.random() * 10) + 1}`,
+          start_date: startDate.toISOString(),
+          end_date: endDate.toISOString(),
+          days: usageDays,
+        })
+      }
+    })
+
+    return dummyData
+  }
+
+  // 車両ごとの使用実績とコスト分析を計算
+  const vehicleAnalysis = vehicles.map((vehicle) => {
+    // この車両の使用実績を取得
+    const vehicleUsage = usageData.filter((usage) => usage.vehicle_id === vehicle.id)
+
+    // 使用実績がない場合
+    if (vehicleUsage.length === 0) {
+      return {
+        ...vehicle,
+        totalUsageDays: 0,
+        totalCost: 0,
+        optimalCost: 0,
+        savings: 0,
+        usageDetails: [],
+      }
+    }
+
+    // 使用実績ごとのコスト計算
+    const usageDetails = vehicleUsage.map((usage) => {
+      const days =
+        usage.days ||
+        Math.ceil((new Date(usage.end_date).getTime() - new Date(usage.start_date).getTime()) / (1000 * 60 * 60 * 24)) +
+          1
+
+      const costAnalysis = calculateOptimalCost(days, vehicle.daily_rate, vehicle.weekly_rate, vehicle.monthly_rate)
+
+      return {
+        ...usage,
+        days,
+        costAnalysis,
+      }
+    })
+
+    // 合計使用日数
+    const totalUsageDays = usageDetails.reduce((sum, usage) => sum + usage.days, 0)
+
+    // 日額のみで計算した場合の合計コスト
+    const totalDailyOnlyCost = usageDetails.reduce((sum, usage) => sum + usage.costAnalysis.dailyOnlyCost, 0)
+
+    // 最適プランで計算した場合の合計コスト
+    const totalOptimalCost = usageDetails.reduce((sum, usage) => sum + usage.costAnalysis.totalCost, 0)
+
+    // 節約額
+    const totalSavings = totalDailyOnlyCost - totalOptimalCost
+
+    return {
+      ...vehicle,
+      totalUsageDays,
+      totalDailyOnlyCost,
+      totalOptimalCost,
+      totalSavings,
+      usageDetails,
+    }
+  })
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>車両コスト分析</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex justify-center items-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        ) : (
+          <>
+            <div className="mb-6">
+              <h3 className="text-lg font-medium mb-2">車両別コスト最適化分析</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                各車両の使用実績に基づいた最適なコスト計算結果です。日額・週額・月額の最適な組み合わせで計算しています。
+              </p>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>車両名</TableHead>
+                    <TableHead>総使用日数</TableHead>
+                    <TableHead>日額のみの場合</TableHead>
+                    <TableHead>最適プラン</TableHead>
+                    <TableHead>節約額</TableHead>
+                    <TableHead>料金設定（日/週/月）</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {vehicleAnalysis.length > 0 ? (
+                    vehicleAnalysis.map((vehicle) => (
+                      <TableRow key={vehicle.id}>
+                        <TableCell className="font-medium">{vehicle.name}</TableCell>
+                        <TableCell>{vehicle.totalUsageDays}日</TableCell>
+                        <TableCell>¥{vehicle.totalDailyOnlyCost?.toLocaleString() || 0}</TableCell>
+                        <TableCell>¥{vehicle.totalOptimalCost?.toLocaleString() || 0}</TableCell>
+                        <TableCell>
+                          <Badge variant={vehicle.totalSavings > 0 ? "success" : "outline"}>
+                            {vehicle.totalSavings > 0 ? `¥${vehicle.totalSavings.toLocaleString()} 節約` : "節約なし"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {vehicle.daily_rate ? `¥${vehicle.daily_rate.toLocaleString()}/日` : "-"}
+                            {vehicle.weekly_rate ? ` · ¥${vehicle.weekly_rate.toLocaleString()}/週` : ""}
+                            {vehicle.monthly_rate ? ` · ¥${vehicle.monthly_rate.toLocaleString()}/月` : ""}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
+                        車両データがありません
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-medium mb-2">使用実績詳細</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                各車両の使用実績と、それぞれの使用に対する最適なコスト計算の詳細です。
+              </p>
+
+              {vehicleAnalysis
+                .filter((v) => v.usageDetails?.length > 0)
+                .map((vehicle) => (
+                  <div key={`usage-${vehicle.id}`} className="mb-6">
+                    <h4 className="text-md font-medium mb-2">{vehicle.name}の使用実績</h4>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>プロジェクト</TableHead>
+                          <TableHead>期間</TableHead>
+                          <TableHead>日数</TableHead>
+                          <TableHead>最適コスト</TableHead>
+                          <TableHead>内訳</TableHead>
+                          <TableHead>節約額</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {vehicle.usageDetails.map((usage: any) => (
+                          <TableRow key={usage.id}>
+                            <TableCell>{usage.project_name || "不明"}</TableCell>
+                            <TableCell>
+                              {new Date(usage.start_date).toLocaleDateString("ja-JP")} 〜{" "}
+                              {new Date(usage.end_date).toLocaleDateString("ja-JP")}
+                            </TableCell>
+                            <TableCell>{usage.days}日</TableCell>
+                            <TableCell>¥{usage.costAnalysis.totalCost.toLocaleString()}</TableCell>
+                            <TableCell>
+                              <div className="text-xs">
+                                {usage.costAnalysis.breakdown.months > 0 &&
+                                  `${usage.costAnalysis.breakdown.months}ヶ月 (¥${usage.costAnalysis.breakdown.monthlyCost.toLocaleString()})`}
+                                {usage.costAnalysis.breakdown.months > 0 &&
+                                  (usage.costAnalysis.breakdown.weeks > 0 || usage.costAnalysis.breakdown.days > 0) &&
+                                  " + "}
+                                {usage.costAnalysis.breakdown.weeks > 0 &&
+                                  `${usage.costAnalysis.breakdown.weeks}週間 (¥${usage.costAnalysis.breakdown.weeklyCost.toLocaleString()})`}
+                                {usage.costAnalysis.breakdown.weeks > 0 &&
+                                  usage.costAnalysis.breakdown.days > 0 &&
+                                  " + "}
+                                {usage.costAnalysis.breakdown.days > 0 &&
+                                  `${usage.costAnalysis.breakdown.days}日 (¥${usage.costAnalysis.breakdown.dailyCost.toLocaleString()})`}
+                                {usage.costAnalysis.breakdown.months === 0 &&
+                                  usage.costAnalysis.breakdown.weeks === 0 &&
+                                  usage.costAnalysis.breakdown.days === 0 &&
+                                  "料金なし"}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {usage.costAnalysis.savings > 0 ? (
+                                <span className="text-green-600">¥{usage.costAnalysis.savings.toLocaleString()}</span>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ))}
+
+              {!vehicleAnalysis.some((v) => v.usageDetails?.length > 0) && (
+                <div className="text-center py-4 text-muted-foreground">使用実績データがありません</div>
+              )}
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
