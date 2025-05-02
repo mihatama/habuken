@@ -12,6 +12,7 @@ import { createClient } from "@supabase/supabase-js"
 import { toast } from "@/components/ui/use-toast"
 import { getDailyReportsData } from "@/lib/supabase-utils" // 修正: getDailyReportsData を使用
 import { DailyReportFormDialog } from "./daily-report-form-dialog"
+import Image from "next/image"
 
 export function DailyWorkReport() {
   const [reports, setReports] = useState<any[]>([])
@@ -287,6 +288,27 @@ export function DailyWorkReport() {
             )}
           </TableBody>
         </Table>
+        {/* report is not defined here. It should be currentReport */}
+        {currentReport?.photo_urls && currentReport?.photo_urls.length > 0 && (
+          <div className="mt-4">
+            <h3 className="text-lg font-semibold mb-2">添付画像</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {currentReport?.photo_urls.map((url, index) => (
+                <div key={index} className="relative aspect-square overflow-hidden rounded-md border border-gray-200">
+                  <a href={url} target="_blank" rel="noopener noreferrer">
+                    <Image
+                      src={url || "/placeholder.svg"}
+                      alt={`作業写真 ${index + 1}`}
+                      fill
+                      className="object-cover hover:opacity-80 transition-opacity"
+                      sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                    />
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </CardContent>
 
       {/* ダイアログを外部に配置 */}

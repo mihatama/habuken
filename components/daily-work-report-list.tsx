@@ -11,6 +11,7 @@ import { ImageIcon, FileText, Calendar, Clock, CloudSun, Search, RefreshCw, Filt
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { DailyReportDetail } from "@/components/daily-report-detail"
 
 // 日付フォーマット関数
 const formatDate = (dateString: string | null | undefined): string => {
@@ -356,75 +357,7 @@ export function DailyWorkReportList() {
           <DialogHeader>
             <DialogTitle>日報詳細</DialogTitle>
           </DialogHeader>
-          {selectedReport && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">案件名</h3>
-                  <p>{getProjectName(selectedReport, dealsMap)}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">報告者</h3>
-                  <p>{getReporterName(selectedReport, staffMap)}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">作業日</h3>
-                  <p>{formatDate(selectedReport.report_date)}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">天気</h3>
-                  <p>
-                    {getWeatherIcon(selectedReport.weather)} {getWeatherText(selectedReport.weather)}
-                  </p>
-                </div>
-                {selectedReport.start_time && selectedReport.end_time && (
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">作業時間</h3>
-                    <p>
-                      {selectedReport.start_time.substring(0, 5)} 〜 {selectedReport.end_time.substring(0, 5)}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">作業内容</h3>
-                <p className="whitespace-pre-wrap mt-1">
-                  {selectedReport.work_description || selectedReport.work_content}
-                </p>
-              </div>
-
-              {selectedReport.issues && (
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">課題・問題点</h3>
-                  <p className="whitespace-pre-wrap mt-1">{selectedReport.issues}</p>
-                </div>
-              )}
-
-              {selectedReport.photo_urls && selectedReport.photo_urls.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">写真</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
-                    {selectedReport.photo_urls.map((url: string, index: number) => (
-                      <a
-                        key={index}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block overflow-hidden rounded border border-gray-200"
-                      >
-                        <img
-                          src={url || "/placeholder.svg"}
-                          alt={`現場写真 ${index + 1}`}
-                          className="w-full h-32 object-cover"
-                        />
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          <DailyReportDetail report={selectedReport} />
         </DialogContent>
       </Dialog>
     </>

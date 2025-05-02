@@ -24,7 +24,7 @@ import { useSpeechRecognition } from "@/hooks/use-speech-recognition"
 
 // バケット名を定数として定義
 const STORAGE_BUCKET_NAME = "dailyreports"
-const STORAGE_FOLDER_NAME = "private/daily_report_photos"
+const STORAGE_FOLDER_NAME = "public/daily_report_photos"
 
 // 画像圧縮の設定
 const IMAGE_COMPRESSION_SETTINGS = {
@@ -535,80 +535,62 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
     const uploadedUrls: string[] = []
 
     try {
-      // フォルダが存在するか確認
-      const { data: folderExists, error: folderError } = await supabase.storage
-        .from(STORAGE_BUCKET_NAME)
-        .list(STORAGE_FOLDER_NAME)
-
-      // フォルダが存在しない場合は空ファイルをアップロードして作成
-      if (folderError) {
-        console.warn("フォルダ確認エラー:", folderError)
-        // フォルダ確認エラーがあっても続行を試みる
-      } else if (!folderExists || folderExists.length === 0) {
-        console.log(`${STORAGE_FOLDER_NAME}フォルダが存在しません。作成を試みます。`)
-
+      // 各ファイルをAPIルート経由でアップロード
+      for (const file of files) {
         try {
-          // 空のファイルを作成してフォルダを作成
-          const emptyBlob = new Blob([""], { type: "text/plain" })
-          const placeholderFile = new File([emptyBlob], ".placeholder", { type: "text/plain" })
+          // ファイルをBase64エンコード
+          const base64Image = await fileToBase64(file)
 
-          const { error: uploadError } = await supabase.storage
-            .from(STORAGE_BUCKET_NAME)
-            .upload(`${STORAGE_FOLDER_NAME}/.placeholder`, placeholderFile)
+          // APIルートを使用してアップロード
+          const response = await fetch("/api/upload-image", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              base64Image,
+              fileName: file.name,
+              contentType: file.type,
+            }),
+          })
 
-          if (uploadError) {
-            console.warn("フォルダ作成エラー:", uploadError)
-            // エラーがあっても続行を試みる
-          } else {
-            console.log(`${STORAGE_FOLDER_NAME}フォルダを作成しました`)
+          if (!response.ok) {
+            const errorData = await response.json()
+            console.error("画像アップロードAPIエラー:", errorData)
+            toast({
+              title: "警告",
+              description: `写真「${file.name}」のアップロードに失敗しました。`,
+              variant: "warning",
+            })
+            continue // エラーがあっても次の写真を処理
+          }
+
+          const result = await response.json()
+
+          if (result.success && result.url) {
+            uploadedUrls.push(result.url)
+            console.log(`写真をアップロードしました: ${result.url}`)
           }
         } catch (err) {
-          console.warn("フォルダ作成中にエラーが発生しました:", err)
-          // エラーがあっても続行を試みる
+          console.error(`写真「${file.name}」のアップロード中にエラーが発生しました:`, err)
         }
       }
+
+      return uploadedUrls
     } catch (err) {
-      console.warn("フォルダ確認/作成エラー:", err)
-      // エラーがあっても続行を試みる
+      console.error("画像アップロード処理中にエラーが発生しました:", err)
+      return []
     }
+  }
 
-    // 各ファイルをアップロード
-    for (const file of files) {
-      try {
-        // ファイル名を生成
-        const fileExt = file.name.split(".").pop()
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`
-        const filePath = `${STORAGE_FOLDER_NAME}/${fileName}`
-
-        // ファイルをアップロード
-        const { error: uploadError } = await supabase.storage.from(STORAGE_BUCKET_NAME).upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-        })
-
-        if (uploadError) {
-          console.error("写真のアップロードエラー:", uploadError)
-          toast({
-            title: "警告",
-            description: `写真「${file.name}」のアップロードに失敗しました。`,
-            variant: "warning",
-          })
-          continue // エラーがあっても次の写真を処理
-        }
-
-        // 公開URLを取得
-        const { data: urlData } = supabase.storage.from(STORAGE_BUCKET_NAME).getPublicUrl(filePath)
-
-        if (urlData?.publicUrl) {
-          uploadedUrls.push(urlData.publicUrl)
-          console.log(`写真をアップロードしました: ${urlData.publicUrl}`)
-        }
-      } catch (err) {
-        console.error(`写真「${file.name}」のアップロード中にエラーが発生しました:`, err)
-      }
-    }
-
-    return uploadedUrls
+  // ファイルをBase64に変換する関数を追加
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = (error) => reject(error)
+    })
   }
 
   const handleSubmit = async () => {
