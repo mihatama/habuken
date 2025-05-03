@@ -5,11 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getClientSupabase } from "@/lib/supabase-utils"
-import { Loader2, AlertCircle, Users, Truck, Car, Package } from "lucide-react"
+import { Loader2, AlertCircle, Users, Truck, Car, Package, Calendar } from "lucide-react"
 import { EnhancedCalendar, type CalendarEvent } from "@/components/enhanced-calendar"
 import { toast } from "@/components/ui/use-toast"
 
-type ResourceType = "all" | "staff" | "machinery" | "vehicles" | "tools"
+// ResourceTypeに「deals」を追加
+type ResourceType = "all" | "staff" | "machinery" | "vehicles" | "tools" | "deals"
 
 export function DealResourceCalendar() {
   const [events, setEvents] = useState<CalendarEvent[]>([])
@@ -67,10 +68,13 @@ export function DealResourceCalendar() {
           title: deal.name,
           start: new Date(deal.start_date),
           end: deal.end_date ? new Date(deal.end_date) : new Date(deal.start_date),
-          description: deal.description || "",
+          description: `案件: ${deal.name}${deal.description ? `\n${deal.description}` : ""}${deal.location ? `\n場所: ${deal.location}` : ""}${deal.client_name ? `\n顧客: ${deal.client_name}` : ""}`,
           category: "deal",
           dealId: deal.id,
-          resourceType: "deal",
+          resourceType: "deals",
+          allDay: true,
+          borderColor: "#000",
+          backgroundColor: "rgba(59, 130, 246, 0.2)", // 薄い青色で案件期間を表示
         })) || []
 
       // 各リソースの割り当てイベントを取得
@@ -193,6 +197,7 @@ export function DealResourceCalendar() {
     return resourceEvents
   }
 
+  // filterEvents関数内で、resourceType === "deals"の場合の処理を追加
   function filterEvents() {
     if (resourceType === "all" && resourceFilter === "all") {
       fetchDealsAndResources()
@@ -202,7 +207,9 @@ export function DealResourceCalendar() {
     fetchDealsAndResources().then(() => {
       setEvents((prev) => {
         return prev.filter((event) => {
-          if (resourceType !== "all" && event.resourceType !== resourceType) {
+          if (resourceType === "deals" && event.resourceType !== "deals") {
+            return false
+          } else if (resourceType !== "all" && resourceType !== "deals" && event.resourceType !== resourceType) {
             return false
           }
 
@@ -243,6 +250,7 @@ export function DealResourceCalendar() {
     }
   }
 
+  // categories配列に案件カテゴリを追加または修正
   const categories = [
     { value: "deal", label: "案件" },
     { value: "staff", label: "スタッフ" },
@@ -292,6 +300,10 @@ export function DealResourceCalendar() {
             <SelectContent>
               <SelectItem value="all" className="flex items-center gap-2">
                 すべてのリソース
+              </SelectItem>
+              <SelectItem value="deals" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-blue-500" />
+                案件期間
               </SelectItem>
               <SelectItem value="staff" className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-blue-500" />

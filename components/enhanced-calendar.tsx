@@ -585,6 +585,21 @@ export function EnhancedCalendar({
     let opacity = 0.8
 
     switch (event.category) {
+      case "deal":
+        backgroundColor = "rgba(59, 130, 246, 0.2)" // 薄い青色
+        opacity = 1
+        return {
+          style: {
+            backgroundColor,
+            borderRadius: "4px",
+            opacity,
+            color: "#1e40af", // 濃い青色のテキスト
+            border: "1px solid #3b82f6", // 青色のボーダー
+            display: "block",
+            fontStyle: "normal",
+            fontWeight: "bold",
+          },
+        }
       case "staff":
         backgroundColor = "#3182ce" // Blue
         break

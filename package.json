@@ -65,10 +65,10 @@
     "uuid": "latest",
     "@tanstack/react-query-devtools": "latest",
     "@supabase/auth-helpers-nextjs": "latest",
-    "react-big-calendar": "latest",
-    "moment": "latest",
     "@dnd-kit/sortable": "latest",
-    "@dnd-kit/utilities": "latest"
+    "@dnd-kit/utilities": "latest",
+    "react-big-calendar": "latest",
+    "moment": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
