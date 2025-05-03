@@ -285,7 +285,7 @@ export function DealResourceCalendar() {
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>リソースカレンダー</CardTitle>
+        <CardTitle>案件・リソースカレンダー</CardTitle>
         <div className="flex items-center gap-2">
           <Select
             value={resourceType}
