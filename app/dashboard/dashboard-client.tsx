@@ -7,27 +7,13 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { getClientSupabase } from "@/lib/supabase-utils"
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts"
-import {
-  Activity,
-  AlertTriangle,
-  BarChart3,
-  Clock,
-  Construction,
-  FileText,
-  RefreshCw,
-  Truck,
-  Users,
-  Wrench,
-} from "lucide-react"
+import { Activity, AlertTriangle, Clock, Construction, FileText, RefreshCw, Truck, Users, Wrench } from "lucide-react"
 import { KpiCard } from "./components/kpi-card"
 import { ResourceUtilizationChart } from "./components/resource-utilization-chart"
-// CostOptimizationPanelのインポートを削除
 import { ProjectProgressPanel } from "./components/project-progress-panel"
 import { StaffAllocationChart } from "./components/staff-allocation-chart"
-import { CalendarPanel } from "./components/calendar-panel"
 import { RecentActivitiesPanel } from "./components/recent-activities-panel"
-import { formatCurrency } from "@/utils/format-utils"
-import { CalendarView } from "@/components/calendar-view"
+import { DealResourceCalendar } from "@/components/deal-resource-calendar"
 
 export function DashboardClient() {
   const { toast } = useToast()
@@ -49,7 +35,6 @@ export function DashboardClient() {
     projectProgress: [],
     staffAllocation: [],
     recentActivities: [],
-    costSavings: 0,
   })
 
   useEffect(() => {
@@ -251,9 +236,6 @@ export function DashboardClient() {
         })
       }
 
-      // コスト最適化の計算（仮の値）
-      const costSavings = 150000
-
       // ダッシュボードデータの更新
       setDashboardData({
         activeProjects,
@@ -268,7 +250,6 @@ export function DashboardClient() {
         projectProgress,
         staffAllocation,
         recentActivities,
-        costSavings,
       })
 
       toast({
@@ -404,15 +385,15 @@ export function DashboardClient() {
           {/* コスト最適化パネルを削除し、案件カレンダーを表示 */}
           <Card>
             <CardHeader>
-              <CardTitle>案件カレンダー</CardTitle>
-              <CardDescription>進行中および予定されている案件のスケジュール</CardDescription>
+              <CardTitle>案件・リソースカレンダー</CardTitle>
+              <CardDescription>案件とリソース（スタッフ、重機、車両、工具）の割り当て状況</CardDescription>
             </CardHeader>
             <CardContent>
-              <CalendarView />
+              <DealResourceCalendar />
             </CardContent>
           </Card>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-1">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="space-y-1">
@@ -432,22 +413,6 @@ export function DashboardClient() {
                     ? "承認待ちの休暇申請があります。確認してください。"
                     : "承認待ちの休暇申請はありません。"}
                 </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="space-y-1">
-                  <CardTitle>コスト削減効果</CardTitle>
-                  <CardDescription>リソース最適化による削減効果</CardDescription>
-                </div>
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-green-700">
-                  <BarChart3 className="h-4 w-4" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(dashboardData.costSavings)}</div>
-                <p className="text-xs text-muted-foreground">リソースの最適な割り当てによる月間削減効果</p>
               </CardContent>
             </Card>
           </div>
@@ -529,11 +494,11 @@ export function DashboardClient() {
           {/* リソースタブのコスト最適化パネルも案件カレンダーに置き換え */}
           <Card>
             <CardHeader>
-              <CardTitle>案件カレンダー</CardTitle>
-              <CardDescription>進行中および予定されている案件のスケジュール</CardDescription>
+              <CardTitle>案件・リソースカレンダー</CardTitle>
+              <CardDescription>案件とリソース（スタッフ、重機、車両、工具）の割り当て状況</CardDescription>
             </CardHeader>
             <CardContent>
-              <CalendarView />
+              <DealResourceCalendar />
             </CardContent>
           </Card>
         </TabsContent>
@@ -662,7 +627,15 @@ export function DashboardClient() {
         </TabsContent>
 
         <TabsContent value="calendar" className="space-y-4">
-          <CalendarPanel />
+          <Card>
+            <CardHeader>
+              <CardTitle>案件・リソースカレンダー（詳細表示）</CardTitle>
+              <CardDescription>案件とリソースの詳細な割り当て状況</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <DealResourceCalendar />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
