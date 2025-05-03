@@ -34,7 +34,6 @@ export function VehicleCostAnalysis() {
       if (vehicleError) throw vehicleError
 
       // 案件に紐づく車両の使用実績データを取得
-      // deal_vehiclesとdealsテーブルを結合して日付情報を取得
       const { data: vehicleUsageData, error: usageError } = await supabase
         .from("deal_vehicles")
         .select(`
@@ -184,7 +183,7 @@ export function VehicleCostAnalysis() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>車両コスト分析</CardTitle>
+        <CardTitle>車両コスト最適化分析</CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading ? (

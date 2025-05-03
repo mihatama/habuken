@@ -34,7 +34,6 @@ export function HeavyMachineryCostAnalysis() {
       if (machineryError) throw machineryError
 
       // 案件に紐づく重機の使用実績データを取得
-      // deal_machineryとdealsテーブルを結合して日付情報を取得
       const { data: machineryUsageData, error: usageError } = await supabase
         .from("deal_machinery")
         .select(`
@@ -187,7 +186,7 @@ export function HeavyMachineryCostAnalysis() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>重機コスト分析</CardTitle>
+        <CardTitle>重機コスト最適化分析</CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading ? (

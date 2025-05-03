@@ -21,12 +21,13 @@ import {
 } from "lucide-react"
 import { KpiCard } from "./components/kpi-card"
 import { ResourceUtilizationChart } from "./components/resource-utilization-chart"
-import { CostOptimizationPanel } from "./components/cost-optimization-panel"
+// CostOptimizationPanelのインポートを削除
 import { ProjectProgressPanel } from "./components/project-progress-panel"
 import { StaffAllocationChart } from "./components/staff-allocation-chart"
 import { CalendarPanel } from "./components/calendar-panel"
 import { RecentActivitiesPanel } from "./components/recent-activities-panel"
 import { formatCurrency } from "@/utils/format-utils"
+import { CalendarView } from "@/components/calendar-view"
 
 export function DashboardClient() {
   const { toast } = useToast()
@@ -40,7 +41,11 @@ export function DashboardClient() {
     totalResources: 0,
     pendingLeaveRequests: 0,
     monthlyReports: 0,
-    resourceUtilization: [],
+    resourceUtilization: [
+      { name: "重機", 稼働中: 0, 利用可能: 0 },
+      { name: "車両", 稼働中: 0, 利用可能: 0 },
+      { name: "工具", 稼働中: 0, 利用可能: 0 },
+    ],
     projectProgress: [],
     staffAllocation: [],
     recentActivities: [],
@@ -396,13 +401,14 @@ export function DashboardClient() {
             </Card>
           </div>
 
+          {/* コスト最適化パネルを削除し、案件カレンダーを表示 */}
           <Card>
             <CardHeader>
-              <CardTitle>コスト最適化</CardTitle>
-              <CardDescription>リソース利用の最適化によるコスト削減の可能性</CardDescription>
+              <CardTitle>案件カレンダー</CardTitle>
+              <CardDescription>進行中および予定されている案件のスケジュール</CardDescription>
             </CardHeader>
             <CardContent>
-              <CostOptimizationPanel costSavings={dashboardData.costSavings} />
+              <CalendarView />
             </CardContent>
           </Card>
 
@@ -520,13 +526,14 @@ export function DashboardClient() {
             </Card>
           </div>
 
+          {/* リソースタブのコスト最適化パネルも案件カレンダーに置き換え */}
           <Card>
             <CardHeader>
-              <CardTitle>コスト最適化</CardTitle>
-              <CardDescription>リソース利用の最適化によるコスト削減の可能性</CardDescription>
+              <CardTitle>案件カレンダー</CardTitle>
+              <CardDescription>進行中および予定されている案件のスケジュール</CardDescription>
             </CardHeader>
             <CardContent>
-              <CostOptimizationPanel costSavings={dashboardData.costSavings} />
+              <CalendarView />
             </CardContent>
           </Card>
         </TabsContent>
