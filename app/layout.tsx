@@ -4,10 +4,9 @@ import type { Metadata } from "next"
 import { Inter, Noto_Serif_JP } from "next/font/google"
 import { AuthProvider } from "@/contexts/auth-context"
 import { Providers } from "./providers"
-import { Header } from "@/components/header"
 import { SplashProvider } from "@/contexts/splash-context"
 import { SplashScreen } from "@/components/splash-screen"
-import { OfflineIndicator } from "@/components/offline-indicator"
+import { AppShell } from "@/components/app-shell"
 import { PWARegister } from "./pwa-register"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -56,17 +55,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png" />
         <link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#4a90e2" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body className={`${inter.className} ${notoSerifJP.variable}`}>
         <Providers>
           <AuthProvider>
             <SplashProvider>
               <SplashScreen />
-              <div className="relative flex min-h-screen flex-col">
-                <Header />
-                <OfflineIndicator />
-                <div className="flex-1 pt-16">{children}</div>
-              </div>
+              <AppShell>{children}</AppShell>
               <PWARegister />
             </SplashProvider>
           </AuthProvider>

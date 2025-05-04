@@ -70,8 +70,8 @@
     "react-big-calendar": "latest",
     "moment": "latest",
     "framer-motion": "latest",
-    "next-pwa": "latest",
-    "idb": "latest"
+    "idb": "latest",
+    "next-pwa": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

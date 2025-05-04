@@ -2,93 +2,170 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Download, Share2, MoreVertical, Plus, MenuIcon } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { X, Download, Chrome, Apple, Smartphone } from "lucide-react"
 
 export function PWAInstallGuide() {
-  const [open, setOpen] = useState(false)
-  const [platform, setPlatform] = useState("chrome")
+  const [isOpen, setIsOpen] = useState(false)
+  const [isInstalled, setIsInstalled] = useState(false)
 
-  const isIOS = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent)
-  const isAndroid = typeof navigator !== "undefined" && /Android/.test(navigator.userAgent)
+  // PWAがすでにインストールされているかチェック
+  useState(() => {
+    if (typeof window !== "undefined") {
+      if (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true) {
+        setIsInstalled(true)
+      }
+    }
+  })
 
-  const defaultPlatform = isIOS ? "ios" : isAndroid ? "android" : "chrome"
+  if (isInstalled) return null
 
   return (
-    <>
-      <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => setOpen(true)}>
-        <Download className="h-4 w-4" />
-        <span className="hidden sm:inline">アプリをインストール</span>
-        <span className="sm:hidden">インストール</span>
-      </Button>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>現助アプリをインストール</DialogTitle>
-            <DialogDescription>ホーム画面に追加してオフラインでも使用できます</DialogDescription>
-          </DialogHeader>
-
-          <Tabs defaultValue={defaultPlatform} className="w-full" onValueChange={setPlatform}>
-            <TabsList className="grid grid-cols-3 mb-4">
-              <TabsTrigger value="chrome" className="flex items-center gap-1">
-                <Chrome className="h-4 w-4" />
-                <span>Chrome</span>
-              </TabsTrigger>
-              <TabsTrigger value="android" className="flex items-center gap-1">
-                <Smartphone className="h-4 w-4" />
-                <span>Android</span>
-              </TabsTrigger>
-              <TabsTrigger value="ios" className="flex items-center gap-1">
-                <Apple className="h-4 w-4" />
-                <span>iOS</span>
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="chrome" className="space-y-4">
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Chrome デスクトップでのインストール方法:</p>
-                <ol className="list-decimal list-inside text-sm space-y-2">
-                  <li>ブラウザのアドレスバー右側にある「インストール」アイコン（＋）をクリック</li>
-                  <li>または、メニュー（⋮）から「アプリをインストール」を選択</li>
-                  <li>表示されるダイアログで「インストール」をクリック</li>
-                </ol>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="hidden md:flex">
+          <Download className="h-4 w-4 mr-1" />
+          アプリをインストール
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>現助アプリをインストール</DialogTitle>
+          <DialogDescription>
+            ホーム画面に追加してオフラインでも使用できます。デバイスに合わせた手順でインストールしてください。
+          </DialogDescription>
+        </DialogHeader>
+        <Tabs defaultValue="android" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="android">Android</TabsTrigger>
+            <TabsTrigger value="ios">iOS</TabsTrigger>
+            <TabsTrigger value="desktop">PC</TabsTrigger>
+          </TabsList>
+          <TabsContent value="android" className="space-y-4 mt-4">
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 border-b pb-3">
+                <div className="bg-gray-100 dark:bg-gray-800 rounded-full p-2 mt-1">
+                  <MoreVertical className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-medium">方法1: Chromeメニューから</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">1. 画面右上の「︙」（メニュー）をタップ</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    2. 「アプリをインストール」または「ホーム画面に追加」を選択
+                  </p>
+                </div>
               </div>
-            </TabsContent>
 
-            <TabsContent value="android" className="space-y-4">
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Android でのインストール方法:</p>
-                <ol className="list-decimal list-inside text-sm space-y-2">
-                  <li>Chromeメニュー（⋮）をタップ</li>
-                  <li>「ホーム画面に追加」を選択</li>
-                  <li>「追加」をタップ</li>
-                </ol>
+              <div className="flex items-start gap-3 border-b pb-3">
+                <div className="bg-gray-100 dark:bg-gray-800 rounded-full p-2 mt-1">
+                  <Share2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-medium">方法2: 共有メニューから</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">1. 画面右上の「︙」（メニュー）をタップ</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">2. 「共有」を選択</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    3. 「ホーム画面に追加」または「インストール」を選択
+                  </p>
+                </div>
               </div>
-            </TabsContent>
 
-            <TabsContent value="ios" className="space-y-4">
-              <div className="space-y-2">
-                <p className="text-sm font-medium">iOS (iPhone/iPad) でのインストール方法:</p>
-                <ol className="list-decimal list-inside text-sm space-y-2">
-                  <li>Safariで現助アプリを開く（Chromeでは動作しません）</li>
-                  <li>共有ボタン（□↑）をタップ</li>
-                  <li>「ホーム画面に追加」をタップ</li>
-                  <li>右上の「追加」をタップ</li>
-                </ol>
+              <div className="flex items-start gap-3">
+                <div className="bg-gray-100 dark:bg-gray-800 rounded-full p-2 mt-1">
+                  <Plus className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-medium">方法3: アドレスバーから</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    1. アドレスバー右側に表示される「+」または「インストール」アイコンをタップ
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">2. 「インストール」を選択</p>
+                </div>
               </div>
-            </TabsContent>
-          </Tabs>
-
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
-              <X className="h-4 w-4 mr-1" />
+            </div>
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-md">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                <strong>表示されない場合:</strong>{" "}
+                ブラウザを最新バージョンに更新するか、別のブラウザ（Chrome推奨）で試してください。
+              </p>
+            </div>
+            <Button className="w-full" onClick={() => setIsOpen(false)}>
               閉じる
             </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+          </TabsContent>
+          <TabsContent value="ios" className="space-y-4 mt-4">
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="bg-gray-100 dark:bg-gray-800 rounded-full p-2 mt-1">
+                  <Share2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-medium">Safariから追加</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">1. Safariブラウザで現助アプリを開く</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    2. 画面下部の「共有」アイコン（□↑）をタップ
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">3. 「ホーム画面に追加」をタップ</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">4. 右上の「追加」をタップ</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-md">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                <strong>注意:</strong>{" "}
+                iOSではSafariブラウザからのみインストールできます。Chrome等の他のブラウザでは利用できません。
+              </p>
+            </div>
+            <Button className="w-full" onClick={() => setIsOpen(false)}>
+              閉じる
+            </Button>
+          </TabsContent>
+          <TabsContent value="desktop" className="space-y-4 mt-4">
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 border-b pb-3">
+                <div className="bg-gray-100 dark:bg-gray-800 rounded-full p-2 mt-1">
+                  <Plus className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-medium">Chrome/Edgeブラウザ</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    1. アドレスバー右側の「インストール」アイコンをクリック
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    2. 表示されるダイアログで「インストール」をクリック
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="bg-gray-100 dark:bg-gray-800 rounded-full p-2 mt-1">
+                  <MenuIcon className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-medium">メニューから</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    1. ブラウザの右上にある「︙」（メニュー）をクリック
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    2. 「アプリをインストール」または「現助をインストール」を選択
+                  </p>
+                </div>
+              </div>
+            </div>
+            <Button className="w-full" onClick={() => setIsOpen(false)}>
+              閉じる
+            </Button>
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
   )
 }
