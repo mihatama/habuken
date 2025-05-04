@@ -11,6 +11,7 @@ import { ja } from "date-fns/locale"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/components/ui/use-toast"
 import type { Deal } from "@/types/supabase"
+import { DealEditModal } from "@/components/deal-edit-modal"
 
 interface DealWithResources extends Deal {
   staff?: { id: string; full_name: string }[]
@@ -24,6 +25,7 @@ export function EnhancedDealsList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [expandedDeals, setExpandedDeals] = useState<Record<string, boolean>>({})
+  const [editingDealId, setEditingDealId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchDealsWithResources()
@@ -343,6 +345,9 @@ export function EnhancedDealsList() {
           </CardContent>
         </Card>
       ))}
+      {editingDealId && (
+        <DealEditModal dealId={editingDealId} isOpen={!!editingDealId} onClose={() => setEditingDealId(null)} />
+      )}
     </div>
   )
 }

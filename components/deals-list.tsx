@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import type { Deal } from "@/types/supabase"
+import { DealEditModal } from "@/components/deal-edit-modal"
 
 export function DealsList() {
   const [deals, setDeals] = useState<Deal[]>([])
@@ -31,6 +32,7 @@ export function DealsList() {
   const [dealToDelete, setDealToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [editingDealId, setEditingDealId] = useState<string | null>(null)
 
   const filteredDeals = deals.filter(
     (deal) =>
@@ -202,6 +204,17 @@ export function DealsList() {
                     <Trash2 className="h-4 w-4 mr-1" />
                     削除
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setEditingDealId(deal.id)
+                    }}
+                  >
+                    編集
+                  </Button>
                 </div>
               </div>
             </div>
@@ -226,6 +239,9 @@ export function DealsList() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {editingDealId && (
+        <DealEditModal dealId={editingDealId} isOpen={!!editingDealId} onClose={() => setEditingDealId(null)} />
+      )}
     </>
   )
 }

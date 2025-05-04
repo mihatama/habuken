@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { getClientSupabase } from "@/lib/supabase-utils"
 import { Loader2, ArrowLeft, Calendar, Users, Truck, Car, Package, FileText, Shield, Plus } from "lucide-react"
+import { DealEditModal } from "@/components/deal-edit-modal"
 
 // Helper function to validate UUID
 function isValidUUID(uuid: string) {
@@ -28,6 +29,7 @@ export function DealDetails({ id }: { id: string }) {
   const [dailyReports, setDailyReports] = useState<any[]>([])
   const [safetyReports, setSafetyReports] = useState<any[]>([])
   const [showDetails, setShowDetails] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
   useEffect(() => {
     async function fetchDealData() {
@@ -207,6 +209,9 @@ export function DealDetails({ id }: { id: string }) {
         </Button>
         <h1 className="text-2xl font-bold">{deal.name}</h1>
         <Badge className={`ml-auto ${getStatusBadgeClass(deal.status)}`}>{getStatusText(deal.status)}</Badge>
+        <Button variant="outline" size="sm" onClick={() => setIsEditModalOpen(true)} className="ml-2">
+          編集
+        </Button>
       </div>
 
       <div className="space-y-4">
@@ -644,6 +649,7 @@ export function DealDetails({ id }: { id: string }) {
           </Card>
         </TabsContent>
       </Tabs>
+      <DealEditModal dealId={id} isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} />
     </div>
   )
 }
