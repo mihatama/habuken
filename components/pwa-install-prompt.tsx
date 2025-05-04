@@ -9,11 +9,17 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>
 }
 
-export function PWAInstallPrompt() {
+// 自動表示を無効化するためのpropsを追加
+interface PWAInstallPromptProps {
+  autoShow?: boolean
+}
+
+export function PWAInstallPrompt({ autoShow = false }: PWAInstallPromptProps) {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [isInstallable, setIsInstallable] = useState(false)
   const [isDismissed, setIsDismissed] = useState(false)
   const [isPWA, setIsPWA] = useState(false)
+  const [showPrompt, setShowPrompt] = useState(false)
 
   useEffect(() => {
     // すでにPWAとして実行されているか確認
@@ -27,28 +33,10 @@ export function PWAInstallPrompt() {
       e.preventDefault()
       setInstallPrompt(e as BeforeInstallPromptEvent)
       setIsInstallable(true)
-    }
 
-    // PWAのインストール状態を確認
-    const checkInstallState = () => {
-      // iOS Safari用の判定（ホーム画面から起動されたかどうか）
-      if (navigator.standalone || window.matchMedia("(display-mode: standalone)").matches) {
-        setIsPWA(true)
-        return
-      }
-
-      // PWAがインストール可能かどうかの判定
-      if ("serviceWorker" in navigator) {
-        navigator.serviceWorker
-          .getRegistrations()
-          .then((registrations) => {
-            if (registrations.length > 0) {
-              setIsInstallable(true)
-            }
-          })
-          .catch(() => {
-            // エラーが発生しても致命的にならないよう無視
-          })
+      // autoShowがtrueの場合のみ自動表示
+      if (autoShow) {
+        setShowPrompt(true)
       }
     }
 
@@ -59,34 +47,30 @@ export function PWAInstallPrompt() {
       setIsPWA(true)
     })
 
-    // 初期状態をチェック
-    checkInstallState()
-
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt)
     }
-  }, [])
+  }, [autoShow])
 
-  // インストールプロンプトが表示されない場合のフォールバック
-  const handleManualInstall = () => {
-    // インストールプロンプトがある場合はそれを使用
+  const handleInstall = () => {
     if (installPrompt) {
       installPrompt.prompt()
-      return
+      installPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === "accepted") {
+          console.log("PWAがインストールされました")
+        }
+        setInstallPrompt(null)
+      })
     }
-
-    // インストールガイドページへ移動
-    window.location.href = "/install-guide"
   }
 
   const handleDismiss = () => {
     setIsDismissed(true)
-    // ローカルストレージに保存して一定期間表示しないようにする
-    localStorage.setItem("pwa-prompt-dismissed", Date.now().toString())
+    setShowPrompt(false)
   }
 
   // すでにPWAとして実行されている場合や、プロンプトが非表示の場合は何も表示しない
-  if (isPWA || isDismissed || !isInstallable) {
+  if (isPWA || isDismissed || !isInstallable || !showPrompt) {
     return null
   }
 
@@ -106,11 +90,68 @@ export function PWAInstallPrompt() {
           <X className="h-4 w-4 mr-1" />
           閉じる
         </Button>
-        <Button onClick={handleManualInstall} size="sm" className="flex items-center">
+        <Button onClick={handleInstall} size="sm" className="flex items-center">
           <Download className="h-4 w-4 mr-1" />
           インストール
         </Button>
       </div>
     </div>
+  )
+}
+
+// インストールボタンコンポーネントを追加
+export function InstallButton() {
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
+  const [isInstallable, setIsInstallable] = useState(false)
+  const [isPWA, setIsPWA] = useState(false)
+
+  useEffect(() => {
+    // すでにPWAとして実行されているか確認
+    if (window.matchMedia("(display-mode: standalone)").matches) {
+      setIsPWA(true)
+      return
+    }
+
+    // インストールプロンプトイベントを保存
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault()
+      setInstallPrompt(e as BeforeInstallPromptEvent)
+      setIsInstallable(true)
+    }
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt)
+    window.addEventListener("appinstalled", () => {
+      setInstallPrompt(null)
+      setIsInstallable(false)
+      setIsPWA(true)
+    })
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt)
+    }
+  }, [])
+
+  const handleInstall = () => {
+    if (installPrompt) {
+      installPrompt.prompt()
+      installPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === "accepted") {
+          console.log("PWAがインストールされました")
+        }
+        setInstallPrompt(null)
+      })
+    }
+  }
+
+  // すでにPWAとして実行されている場合や、インストール不可の場合は何も表示しない
+  if (isPWA || !isInstallable) {
+    return null
+  }
+
+  return (
+    <Button variant="outline" size="sm" onClick={handleInstall} className="flex items-center">
+      <Download className="h-4 w-4 mr-1" />
+      インストール
+    </Button>
   )
 }
