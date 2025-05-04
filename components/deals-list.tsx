@@ -189,7 +189,7 @@ export function DealsList() {
 
               <div className="flex justify-end items-center">
                 <div className="space-x-2">
-                  <Link href={`/deals/${deal.id}`}>
+                  <Link href={`/deals/${deal.id}/edit`}>
                     <Button variant="outline" size="sm">
                       <Edit className="h-4 w-4 mr-1" />
                       編集

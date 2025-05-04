@@ -52,14 +52,10 @@ export function DealEditForm({ dealId, onSuccess, onCancel }: DealEditFormProps)
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [selectedStaff, setSelectedStaff] = useState<{ id: string; startDate: string; endDate: string | null }[]>([])
-  const [selectedMachinery, setSelectedMachinery] = useState<
-    { id: string; startDate: string; endDate: string | null }[]
-  >([])
-  const [selectedVehicles, setSelectedVehicles] = useState<{ id: string; startDate: string; endDate: string | null }[]>(
-    [],
-  )
-  const [selectedTools, setSelectedTools] = useState<{ id: string; startDate: string; endDate: string | null }[]>([])
+  const [selectedStaff, setSelectedStaff] = useState<string[]>([])
+  const [selectedMachinery, setSelectedMachinery] = useState<string[]>([])
+  const [selectedVehicles, setSelectedVehicles] = useState<string[]>([])
+  const [selectedTools, setSelectedTools] = useState<string[]>([])
 
   // デフォルト値の設定
   const defaultValues: Partial<DealFormValues> = {
@@ -105,62 +101,38 @@ export function DealEditForm({ dealId, onSuccess, onCancel }: DealEditFormProps)
         // スタッフデータを取得
         const { data: staffData, error: staffError } = await supabase
           .from("deal_staff")
-          .select("staff_id, start_date, end_date")
+          .select("staff_id")
           .eq("deal_id", dealId)
 
         if (staffError) throw staffError
-        setSelectedStaff(
-          staffData?.map((item) => ({
-            id: item.staff_id,
-            startDate: item.start_date,
-            endDate: item.end_date,
-          })) || [],
-        )
+        setSelectedStaff(staffData?.map((item) => item.staff_id) || [])
 
         // 重機データを取得
         const { data: machineryData, error: machineryError } = await supabase
           .from("deal_machinery")
-          .select("machinery_id, start_date, end_date")
+          .select("machinery_id")
           .eq("deal_id", dealId)
 
         if (machineryError) throw machineryError
-        setSelectedMachinery(
-          machineryData?.map((item) => ({
-            id: item.machinery_id,
-            startDate: item.start_date,
-            endDate: item.end_date,
-          })) || [],
-        )
+        setSelectedMachinery(machineryData?.map((item) => item.machinery_id) || [])
 
         // 車両データを取得
         const { data: vehiclesData, error: vehiclesError } = await supabase
           .from("deal_vehicles")
-          .select("vehicle_id, start_date, end_date")
+          .select("vehicle_id")
           .eq("deal_id", dealId)
 
         if (vehiclesError) throw vehiclesError
-        setSelectedVehicles(
-          vehiclesData?.map((item) => ({
-            id: item.vehicle_id,
-            startDate: item.start_date,
-            endDate: item.end_date,
-          })) || [],
-        )
+        setSelectedVehicles(vehiclesData?.map((item) => item.vehicle_id) || [])
 
         // 備品データを取得
         const { data: toolsData, error: toolsError } = await supabase
           .from("deal_tools")
-          .select("tool_id, start_date, end_date")
+          .select("tool_id")
           .eq("deal_id", dealId)
 
         if (toolsError) throw toolsError
-        setSelectedTools(
-          toolsData?.map((item) => ({
-            id: item.tool_id,
-            startDate: item.start_date,
-            endDate: item.end_date,
-          })) || [],
-        )
+        setSelectedTools(toolsData?.map((item) => item.tool_id) || [])
       } catch (error) {
         console.error("案件データ取得エラー:", error)
         toast({
@@ -178,52 +150,13 @@ export function DealEditForm({ dealId, onSuccess, onCancel }: DealEditFormProps)
     }
   }, [dealId, form])
 
-  // 日付が変更されたときにリソースの日付を更新する関数
-  const updateResourceDates = () => {
-    const startDate = watchStartDate ? format(watchStartDate, "yyyy-MM-dd") : ""
-    const endDate = watchEndDate ? format(watchEndDate, "yyyy-MM-dd") : null
-
-    // 各リソースの日付を更新
-    if (startDate) {
-      setSelectedStaff((prev) =>
-        prev.map((item) => ({
-          ...item,
-          startDate: item.startDate || startDate,
-          endDate: item.endDate || endDate,
-        })),
-      )
-      setSelectedMachinery((prev) =>
-        prev.map((item) => ({
-          ...item,
-          startDate: item.startDate || startDate,
-          endDate: item.endDate || endDate,
-        })),
-      )
-      setSelectedVehicles((prev) =>
-        prev.map((item) => ({
-          ...item,
-          startDate: item.startDate || startDate,
-          endDate: item.endDate || endDate,
-        })),
-      )
-      setSelectedTools((prev) =>
-        prev.map((item) => ({
-          ...item,
-          startDate: item.startDate || startDate,
-          endDate: item.endDate || endDate,
-        })),
-      )
-    }
-  }
-
   // Helper function to handle resource assignments with error handling
   const handleResourceAssignment = async (
     supabase: any,
     tableName: string,
-    resources: any[],
+    resources: string[],
     dealId: string,
     resourceIdField: string,
-    includeStartEndDates = true,
   ) => {
     try {
       // 既存のリソース割り当てを削除
@@ -238,21 +171,10 @@ export function DealEditForm({ dealId, onSuccess, onCancel }: DealEditFormProps)
       if (resources.length === 0) return
 
       // 新しいリソース割り当てを追加
-      const assignments = resources.map((resource) => {
-        // Base assignment with just the IDs
-        const assignment: Record<string, any> = {
-          deal_id: dealId,
-          [resourceIdField]: resource.id,
-        }
-
-        // Only include dates if specified
-        if (includeStartEndDates) {
-          assignment.start_date = resource.startDate
-          assignment.end_date = resource.endDate
-        }
-
-        return assignment
-      })
+      const assignments = resources.map((resourceId) => ({
+        deal_id: dealId,
+        [resourceIdField]: resourceId,
+      }))
 
       const { error } = await supabase.from(tableName).insert(assignments)
 
@@ -307,16 +229,16 @@ export function DealEditForm({ dealId, onSuccess, onCancel }: DealEditFormProps)
 
       // リソースの割り当て - 各リソースタイプごとに処理
       // スタッフの割り当て
-      await handleResourceAssignment(supabase, "deal_staff", selectedStaff, dealId, "staff_id", true)
+      await handleResourceAssignment(supabase, "deal_staff", selectedStaff, dealId, "staff_id")
 
       // 重機の割り当て
-      await handleResourceAssignment(supabase, "deal_machinery", selectedMachinery, dealId, "machinery_id", true)
+      await handleResourceAssignment(supabase, "deal_machinery", selectedMachinery, dealId, "machinery_id")
 
       // 車両の割り当て
-      await handleResourceAssignment(supabase, "deal_vehicles", selectedVehicles, dealId, "vehicle_id", true)
+      await handleResourceAssignment(supabase, "deal_vehicles", selectedVehicles, dealId, "vehicle_id")
 
       // 備品の割り当て
-      await handleResourceAssignment(supabase, "deal_tools", selectedTools, dealId, "tool_id", true)
+      await handleResourceAssignment(supabase, "deal_tools", selectedTools, dealId, "tool_id")
 
       toast({
         title: "案件更新完了",
@@ -340,6 +262,37 @@ export function DealEditForm({ dealId, onSuccess, onCancel }: DealEditFormProps)
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // リソースセレクターのダミーデータ変換関数
+  const convertToResourceSelectorFormat = (
+    ids: string[],
+  ): { id: string; startDate: string; endDate: string | null }[] => {
+    const startDate = watchStartDate ? format(watchStartDate, "yyyy-MM-dd") : ""
+    const endDate = watchEndDate ? format(watchEndDate, "yyyy-MM-dd") : null
+
+    return ids.map((id) => ({
+      id,
+      startDate,
+      endDate,
+    }))
+  }
+
+  // ResourceSelectorからの更新を処理する関数
+  const handleStaffChange = (resources: { id: string; startDate: string; endDate: string | null }[]) => {
+    setSelectedStaff(resources.map((r) => r.id))
+  }
+
+  const handleMachineryChange = (resources: { id: string; startDate: string; endDate: string | null }[]) => {
+    setSelectedMachinery(resources.map((r) => r.id))
+  }
+
+  const handleVehiclesChange = (resources: { id: string; startDate: string; endDate: string | null }[]) => {
+    setSelectedVehicles(resources.map((r) => r.id))
+  }
+
+  const handleToolsChange = (resources: { id: string; startDate: string; endDate: string | null }[]) => {
+    setSelectedTools(resources.map((r) => r.id))
   }
 
   if (isLoading) {
@@ -405,7 +358,6 @@ export function DealEditForm({ dealId, onSuccess, onCancel }: DealEditFormProps)
                             <Button
                               variant={"outline"}
                               className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
-                              onClick={() => updateResourceDates()}
                             >
                               {field.value ? (
                                 format(field.value, "yyyy年MM月dd日", { locale: ja })
@@ -417,15 +369,7 @@ export function DealEditForm({ dealId, onSuccess, onCancel }: DealEditFormProps)
                           </FormControl>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={(date) => {
-                              field.onChange(date)
-                              updateResourceDates()
-                            }}
-                            initialFocus
-                          />
+                          <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
                         </PopoverContent>
                       </Popover>
                       <FormMessage />
@@ -445,7 +389,6 @@ export function DealEditForm({ dealId, onSuccess, onCancel }: DealEditFormProps)
                             <Button
                               variant={"outline"}
                               className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
-                              onClick={() => updateResourceDates()}
                             >
                               {field.value ? (
                                 format(field.value, "yyyy年MM月dd日", { locale: ja })
@@ -460,10 +403,7 @@ export function DealEditForm({ dealId, onSuccess, onCancel }: DealEditFormProps)
                           <Calendar
                             mode="single"
                             selected={field.value || undefined}
-                            onSelect={(date) => {
-                              field.onChange(date)
-                              updateResourceDates()
-                            }}
+                            onSelect={field.onChange}
                             disabled={(date) => {
                               const startDate = form.getValues("start_date")
                               return startDate && date < startDate
@@ -537,8 +477,8 @@ export function DealEditForm({ dealId, onSuccess, onCancel }: DealEditFormProps)
             <TabsContent value="staff" className="pt-4">
               <ResourceSelector
                 resourceType="staff"
-                selectedResources={selectedStaff}
-                onSelectedResourcesChange={setSelectedStaff}
+                selectedResources={convertToResourceSelectorFormat(selectedStaff)}
+                onSelectedResourcesChange={handleStaffChange}
                 startDate={watchStartDate ? format(watchStartDate, "yyyy-MM-dd") : ""}
                 endDate={watchEndDate ? format(watchEndDate, "yyyy-MM-dd") : null}
               />
@@ -547,8 +487,8 @@ export function DealEditForm({ dealId, onSuccess, onCancel }: DealEditFormProps)
             <TabsContent value="machinery" className="pt-4">
               <ResourceSelector
                 resourceType="machinery"
-                selectedResources={selectedMachinery}
-                onSelectedResourcesChange={setSelectedMachinery}
+                selectedResources={convertToResourceSelectorFormat(selectedMachinery)}
+                onSelectedResourcesChange={handleMachineryChange}
                 startDate={watchStartDate ? format(watchStartDate, "yyyy-MM-dd") : ""}
                 endDate={watchEndDate ? format(watchEndDate, "yyyy-MM-dd") : null}
               />
@@ -557,8 +497,8 @@ export function DealEditForm({ dealId, onSuccess, onCancel }: DealEditFormProps)
             <TabsContent value="vehicles" className="pt-4">
               <ResourceSelector
                 resourceType="vehicles"
-                selectedResources={selectedVehicles}
-                onSelectedResourcesChange={setSelectedVehicles}
+                selectedResources={convertToResourceSelectorFormat(selectedVehicles)}
+                onSelectedResourcesChange={handleVehiclesChange}
                 startDate={watchStartDate ? format(watchStartDate, "yyyy-MM-dd") : ""}
                 endDate={watchEndDate ? format(watchEndDate, "yyyy-MM-dd") : null}
               />
@@ -567,8 +507,8 @@ export function DealEditForm({ dealId, onSuccess, onCancel }: DealEditFormProps)
             <TabsContent value="tools" className="pt-4">
               <ResourceSelector
                 resourceType="tools"
-                selectedResources={selectedTools}
-                onSelectedResourcesChange={setSelectedTools}
+                selectedResources={convertToResourceSelectorFormat(selectedTools)}
+                onSelectedResourcesChange={handleToolsChange}
                 startDate={watchStartDate ? format(watchStartDate, "yyyy-MM-dd") : ""}
                 endDate={watchEndDate ? format(watchEndDate, "yyyy-MM-dd") : null}
               />

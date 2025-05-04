@@ -336,7 +336,7 @@ export function EnhancedDealsList() {
                   <Link href={`/deals/${deal.id}/edit`}>
                     <Button variant="outline" size="sm">
                       <Edit className="h-4 w-4 mr-1" />
-                      編集
+                      詳細を見る
                     </Button>
                   </Link>
                 </div>
