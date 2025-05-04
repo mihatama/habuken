@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 // Lucideアイコンをインポート
 import {
   X,
-  Settings,
   User,
   LogOut,
   LayoutDashboard,
@@ -170,14 +169,6 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
           >
             <User className="h-5 w-5" />
             <span>プロフィール</span>
-          </Button>
-          <Button
-            variant="ghost"
-            className="flex w-full justify-start gap-3 p-3 text-white hover:bg-darkgray-light hover:text-gold"
-            onClick={() => handleNavigation("/settings")}
-          >
-            <Settings className="h-5 w-5" />
-            <span>設定</span>
           </Button>
           <Button
             variant="ghost"

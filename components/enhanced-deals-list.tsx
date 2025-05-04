@@ -4,19 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { getClientSupabase } from "@/lib/supabase-utils"
-import {
-  Loader2,
-  Edit,
-  Eye,
-  Users,
-  Truck,
-  Car,
-  Package,
-  ChevronDown,
-  ChevronUp,
-  AlertCircle,
-  Calendar,
-} from "lucide-react"
+import { Loader2, Edit, Users, Truck, Car, Package, ChevronDown, ChevronUp, AlertCircle, Calendar } from "lucide-react"
 import Link from "next/link"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
@@ -342,13 +330,7 @@ export function EnhancedDealsList() {
                   )}
                 </div>
 
-                <div className="flex justify-between items-center mt-4">
-                  <Link href={`/deals/${deal.id}`}>
-                    <Button variant="outline" size="sm">
-                      <Eye className="h-4 w-4 mr-1" />
-                      詳細
-                    </Button>
-                  </Link>
+                <div className="flex justify-end items-center mt-4">
                   <Link href={`/deals/${deal.id}/edit`}>
                     <Button variant="outline" size="sm">
                       <Edit className="h-4 w-4 mr-1" />

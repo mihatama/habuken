@@ -71,7 +71,6 @@ export function UserNav({ user }: UserNavProps) {
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem onClick={() => navigateTo("/profile")}>プロフィール</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => navigateTo("/settings")}>設定</DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>

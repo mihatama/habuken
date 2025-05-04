@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { getClientSupabase } from "@/lib/supabase-utils"
-import { Loader2, Edit, Eye, Trash2, AlertCircle } from "lucide-react"
+import { Loader2, Edit, Trash2, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
@@ -185,15 +185,9 @@ export function DealsList() {
                 </p>
               </div>
 
-              <div className="flex justify-between items-center">
-                <Link href={`/deals/${deal.id}`}>
-                  <Button variant="outline" size="sm">
-                    <Eye className="h-4 w-4 mr-1" />
-                    詳細
-                  </Button>
-                </Link>
+              <div className="flex justify-end items-center">
                 <div className="space-x-2">
-                  <Link href={`/deals/${deal.id}/edit`}>
+                  <Link href={`/deals/${deal.id}`}>
                     <Button variant="outline" size="sm">
                       <Edit className="h-4 w-4 mr-1" />
                       編集
