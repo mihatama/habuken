@@ -2,8 +2,9 @@
   "name": "現助 - 建設プロジェクト管理",
   "short_name": "現助",
   "description": "建設現場の業務を効率化するプロジェクト管理アプリ",
-  "start_url": "/",
-  "display": "standalone",
+  "start_url": "/?fullscreen=true",
+  "display": "fullscreen",
+  "display_override": ["window-controls-overlay", "fullscreen", "standalone"],
   "background_color": "#ffffff",
   "theme_color": "#0f172a",
   "orientation": "any",
@@ -50,7 +51,7 @@
   "shortcuts": [
     {
       "name": "ダッシュボード",
-      "url": "/dashboard",
+      "url": "/dashboard?fullscreen=true",
       "icons": [
         {
           "src": "/icons/dashboard-icon.png",
@@ -61,7 +62,7 @@
     },
     {
       "name": "案件一覧",
-      "url": "/deals",
+      "url": "/deals?fullscreen=true",
       "icons": [
         {
           "src": "/icons/deals-icon.png",

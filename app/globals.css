@@ -246,12 +246,37 @@
 }
 
 /* アドレスバー非表示のためのハック */
-@media all and (display-mode: standalone) {
+@media all and (display-mode: browser) {
   html {
     height: 100vh;
-  }
-  body {
-    min-height: 100vh;
     overflow: hidden;
+  }
+
+  body {
+    height: 100vh;
+    overflow: auto;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* iOS Safari用 */
+  @supports (-webkit-touch-callout: none) {
+    body {
+      /* iOS 15以降のSafariでアドレスバーを隠すハック */
+      min-height: -webkit-fill-available;
+    }
+  }
+}
+
+/* PWAモード用のスタイル強化 */
+@media all and (display-mode: standalone), all and (display-mode: fullscreen), all and (display-mode: minimal-ui) {
+  body {
+    /* PWAモードでのスタイル */
+    background-color: var(--background);
+    overscroll-behavior: none;
   }
 }
