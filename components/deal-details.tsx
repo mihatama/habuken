@@ -27,6 +27,7 @@ export function DealDetails({ id }: { id: string }) {
   const [periods, setPeriods] = useState<any[]>([])
   const [dailyReports, setDailyReports] = useState<any[]>([])
   const [safetyReports, setSafetyReports] = useState<any[]>([])
+  const [showDetails, setShowDetails] = useState(false)
 
   useEffect(() => {
     async function fetchDealData() {
@@ -58,38 +59,38 @@ export function DealDetails({ id }: { id: string }) {
         // スタッフデータを取得
         const { data: staffData, error: staffError } = await supabase
           .from("deal_staff")
-          .select("staff_id, staff:staff_id(id, full_name, position, phone, email)")
+          .select("staff_id, start_date, end_date, staff:staff_id(id, full_name, position, phone, email)")
           .eq("deal_id", id)
 
         if (staffError) throw staffError
-        setStaff(staffData?.map((item) => item.staff) || [])
+        setStaff(staffData || [])
 
         // 重機データを取得
         const { data: machineryData, error: machineryError } = await supabase
           .from("deal_machinery")
-          .select("machinery_id, machinery:machinery_id(id, name, type, location)")
+          .select("machinery_id, start_date, end_date, machinery:machinery_id(id, name, type, location)")
           .eq("deal_id", id)
 
         if (machineryError) throw machineryError
-        setHeavyMachinery(machineryData?.map((item) => item.machinery) || [])
+        setHeavyMachinery(machineryData || [])
 
         // 車両データを取得
         const { data: vehiclesData, error: vehiclesError } = await supabase
           .from("deal_vehicles")
-          .select("vehicle_id, vehicle:vehicle_id(id, name, type, location)")
+          .select("vehicle_id, start_date, end_date, vehicle:vehicle_id(id, name, type, location)")
           .eq("deal_id", id)
 
         if (vehiclesError) throw vehiclesError
-        setVehicles(vehiclesData?.map((item) => item.vehicle) || [])
+        setVehicles(vehiclesData || [])
 
         // 備品データを取得
         const { data: toolsData, error: toolsError } = await supabase
           .from("deal_tools")
-          .select("tool_id, tool:tool_id(id, name, storage_location, condition)")
+          .select("tool_id, start_date, end_date, tool:tool_id(id, name, storage_location, condition)")
           .eq("deal_id", id)
 
         if (toolsError) throw toolsError
-        setTools(toolsData?.map((item) => item.tool) || [])
+        setTools(toolsData || [])
 
         // 日報データを取得
         const { data: reportsData, error: reportsError } = await supabase
@@ -164,6 +165,16 @@ export function DealDetails({ id }: { id: string }) {
     }).format(amount)
   }
 
+  const formatDateRange = (startDate: string | null, endDate: string | null) => {
+    if (!startDate) return "-"
+
+    const start = new Date(startDate).toLocaleDateString("ja-JP")
+    if (!endDate) return `${start} ~`
+
+    const end = new Date(endDate).toLocaleDateString("ja-JP")
+    return `${start} ~ ${end}`
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -196,6 +207,134 @@ export function DealDetails({ id }: { id: string }) {
         </Button>
         <h1 className="text-2xl font-bold">{deal.name}</h1>
         <Badge className={`ml-auto ${getStatusBadgeClass(deal.status)}`}>{getStatusText(deal.status)}</Badge>
+      </div>
+
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm text-muted-foreground">クライアント: {deal.client_name}</p>
+            <p className="text-sm text-muted-foreground">
+              期間: {deal.start_date ? new Date(deal.start_date).toLocaleDateString("ja-JP") : "-"} ~
+              {deal.end_date ? new Date(deal.end_date).toLocaleDateString("ja-JP") : ""}
+            </p>
+            <p className="text-sm text-muted-foreground">場所: {deal.location || "-"}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1">
+              <Users className="h-4 w-4 text-blue-500" /> {staff.length}
+            </span>
+            <span className="flex items-center gap-1">
+              <Truck className="h-4 w-4 text-yellow-500" /> {heavyMachinery.length}
+            </span>
+            <span className="flex items-center gap-1">
+              <Car className="h-4 w-4 text-green-500" /> {vehicles.length}
+            </span>
+            <span className="flex items-center gap-1">
+              <Package className="h-4 w-4 text-purple-500" /> {tools.length}
+            </span>
+          </div>
+        </div>
+
+        <div className="border rounded-lg">
+          <button
+            className="w-full flex items-center justify-center py-2 text-sm font-medium border-b"
+            onClick={() => setShowDetails(!showDetails)}
+          >
+            {showDetails ? "詳細を隠す" : "詳細を表示する"}
+          </button>
+
+          {showDetails && (
+            <div className="p-4 space-y-6">
+              <div>
+                <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
+                  <Users className="h-4 w-4 text-blue-500" /> スタッフ
+                </h3>
+                <div className="space-y-2">
+                  {staff.length > 0 ? (
+                    staff.map((item) => (
+                      <div key={item.staff_id} className="bg-gray-50 p-2 rounded-md">
+                        <div className="flex flex-col">
+                          <span className="font-medium">{item.staff.full_name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            期間: {formatDateRange(item.start_date, item.end_date)}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">スタッフは登録されていません。</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
+                  <Truck className="h-4 w-4 text-yellow-500" /> 重機
+                </h3>
+                <div className="space-y-2">
+                  {heavyMachinery.length > 0 ? (
+                    heavyMachinery.map((item) => (
+                      <div key={item.machinery_id} className="bg-gray-50 p-2 rounded-md">
+                        <div className="flex flex-col">
+                          <span className="font-medium">{item.machinery.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            期間: {formatDateRange(item.start_date, item.end_date)}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">重機は登録されていません。</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
+                  <Car className="h-4 w-4 text-green-500" /> 車両
+                </h3>
+                <div className="space-y-2">
+                  {vehicles.length > 0 ? (
+                    vehicles.map((item) => (
+                      <div key={item.vehicle_id} className="bg-gray-50 p-2 rounded-md">
+                        <div className="flex flex-col">
+                          <span className="font-medium">{item.vehicle.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            期間: {formatDateRange(item.start_date, item.end_date)}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">車両は登録されていません。</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
+                  <Package className="h-4 w-4 text-purple-500" /> 備品
+                </h3>
+                <div className="space-y-2">
+                  {tools.length > 0 ? (
+                    tools.map((item) => (
+                      <div key={item.tool_id} className="bg-gray-50 p-2 rounded-md">
+                        <div className="flex flex-col">
+                          <span className="font-medium">{item.tool.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            期間: {formatDateRange(item.start_date, item.end_date)}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">備品は登録されていません。</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
@@ -301,12 +440,15 @@ export function DealDetails({ id }: { id: string }) {
             <CardContent>
               {staff.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {staff.map((person) => (
-                    <div key={person.id} className="border p-4 rounded-md">
-                      <h3 className="font-medium">{person.full_name}</h3>
-                      <p className="text-sm text-muted-foreground">{person.position || "役職なし"}</p>
-                      {person.phone && <p className="text-sm">電話: {person.phone}</p>}
-                      {person.email && <p className="text-sm">メール: {person.email}</p>}
+                  {staff.map((item) => (
+                    <div key={item.staff_id} className="border p-4 rounded-md">
+                      <h3 className="font-medium">{item.staff.full_name}</h3>
+                      <p className="text-sm text-muted-foreground">{item.staff.position || "役職なし"}</p>
+                      <p className="text-sm text-muted-foreground">
+                        期間: {formatDateRange(item.start_date, item.end_date)}
+                      </p>
+                      {item.staff.phone && <p className="text-sm">電話: {item.staff.phone}</p>}
+                      {item.staff.email && <p className="text-sm">メール: {item.staff.email}</p>}
                     </div>
                   ))}
                 </div>
@@ -326,11 +468,14 @@ export function DealDetails({ id }: { id: string }) {
             <CardContent>
               {heavyMachinery.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {heavyMachinery.map((machine) => (
-                    <div key={machine.id} className="border p-4 rounded-md">
-                      <h3 className="font-medium">{machine.name}</h3>
-                      <p className="text-sm text-muted-foreground">{machine.type || "種類なし"}</p>
-                      {machine.location && <p className="text-sm">場所: {machine.location}</p>}
+                  {heavyMachinery.map((item) => (
+                    <div key={item.machinery_id} className="border p-4 rounded-md">
+                      <h3 className="font-medium">{item.machinery.name}</h3>
+                      <p className="text-sm text-muted-foreground">{item.machinery.type || "種類なし"}</p>
+                      <p className="text-sm text-muted-foreground">
+                        期間: {formatDateRange(item.start_date, item.end_date)}
+                      </p>
+                      {item.machinery.location && <p className="text-sm">場所: {item.machinery.location}</p>}
                     </div>
                   ))}
                 </div>
@@ -350,11 +495,14 @@ export function DealDetails({ id }: { id: string }) {
             <CardContent>
               {vehicles.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {vehicles.map((vehicle) => (
-                    <div key={vehicle.id} className="border p-4 rounded-md">
-                      <h3 className="font-medium">{vehicle.name}</h3>
-                      <p className="text-sm text-muted-foreground">{vehicle.type || "種類なし"}</p>
-                      {vehicle.location && <p className="text-sm">場所: {vehicle.location}</p>}
+                  {vehicles.map((item) => (
+                    <div key={item.vehicle_id} className="border p-4 rounded-md">
+                      <h3 className="font-medium">{item.vehicle.name}</h3>
+                      <p className="text-sm text-muted-foreground">{item.vehicle.type || "種類なし"}</p>
+                      <p className="text-sm text-muted-foreground">
+                        期間: {formatDateRange(item.start_date, item.end_date)}
+                      </p>
+                      {item.vehicle.location && <p className="text-sm">場所: {item.vehicle.location}</p>}
                     </div>
                   ))}
                 </div>
@@ -374,11 +522,14 @@ export function DealDetails({ id }: { id: string }) {
             <CardContent>
               {tools.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {tools.map((tool) => (
-                    <div key={tool.id} className="border p-4 rounded-md">
-                      <h3 className="font-medium">{tool.name}</h3>
-                      {tool.storage_location && <p className="text-sm">保管場所: {tool.storage_location}</p>}
-                      {tool.condition && <p className="text-sm">状態: {tool.condition}</p>}
+                  {tools.map((item) => (
+                    <div key={item.tool_id} className="border p-4 rounded-md">
+                      <h3 className="font-medium">{item.tool.name}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        期間: {formatDateRange(item.start_date, item.end_date)}
+                      </p>
+                      {item.tool.storage_location && <p className="text-sm">保管場所: {item.tool.storage_location}</p>}
+                      {item.tool.condition && <p className="text-sm">状態: {item.tool.condition}</p>}
                     </div>
                   ))}
                 </div>

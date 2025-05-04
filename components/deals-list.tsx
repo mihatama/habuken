@@ -165,6 +165,12 @@ export function DealsList() {
                 <Badge variant={getStatusBadgeVariant(deal.status) as any}>{deal.status}</Badge>
               </div>
 
+              <div className="text-sm text-muted-foreground mt-1">
+                <span className="font-medium">期間:</span>{" "}
+                {deal.start_date ? new Date(deal.start_date).toLocaleDateString("ja-JP") : "-"}{" "}
+                {deal.end_date ? `~ ${new Date(deal.end_date).toLocaleDateString("ja-JP")}` : ""}
+              </div>
+
               <div className="space-y-2 mb-4">
                 <p className="text-sm text-muted-foreground">
                   <span className="font-medium">クライアント:</span> {deal.client_name || "未設定"}

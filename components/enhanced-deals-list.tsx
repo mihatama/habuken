@@ -4,7 +4,19 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { getClientSupabase } from "@/lib/supabase-utils"
-import { Loader2, Edit, Eye, Users, Truck, Car, Package, ChevronDown, ChevronUp, AlertCircle } from "lucide-react"
+import {
+  Loader2,
+  Edit,
+  Eye,
+  Users,
+  Truck,
+  Car,
+  Package,
+  ChevronDown,
+  ChevronUp,
+  AlertCircle,
+  Calendar,
+} from "lucide-react"
 import Link from "next/link"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
@@ -166,6 +178,11 @@ export function EnhancedDealsList() {
               <h3 className="text-lg font-semibold line-clamp-2">{deal.name}</h3>
               <Badge variant={getStatusBadgeVariant(deal.status) as any}>{deal.status}</Badge>
             </div>
+            <div className="text-sm text-muted-foreground mt-1">
+              <Calendar className="h-3.5 w-3.5 inline-block mr-1" />
+              {deal.start_date ? new Date(deal.start_date).toLocaleDateString("ja-JP") : "-"}{" "}
+              {deal.end_date ? `~ ${new Date(deal.end_date).toLocaleDateString("ja-JP")}` : ""}
+            </div>
 
             <div className="space-y-2 mb-4">
               <p className="text-sm text-muted-foreground">
@@ -228,11 +245,18 @@ export function EnhancedDealsList() {
                     スタッフ
                   </h4>
                   {deal.staff && deal.staff.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="grid gap-2">
                       {deal.staff.map((staff) => (
-                        <Badge key={staff.id} variant="outline" className="bg-blue-50">
-                          {staff.full_name}
-                        </Badge>
+                        <div
+                          key={staff.id}
+                          className="flex justify-between items-center bg-blue-50 rounded-md px-3 py-1.5 text-sm"
+                        >
+                          <span className="font-medium">{staff.full_name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {deal.start_date && new Date(deal.start_date).toLocaleDateString("ja-JP")}
+                            {deal.end_date ? ` 〜 ${new Date(deal.end_date).toLocaleDateString("ja-JP")}` : ""}
+                          </span>
+                        </div>
                       ))}
                     </div>
                   ) : (
@@ -247,11 +271,18 @@ export function EnhancedDealsList() {
                     重機
                   </h4>
                   {deal.machinery && deal.machinery.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="grid gap-2">
                       {deal.machinery.map((machine) => (
-                        <Badge key={machine.id} variant="outline" className="bg-amber-50">
-                          {machine.name}
-                        </Badge>
+                        <div
+                          key={machine.id}
+                          className="flex justify-between items-center bg-amber-50 rounded-md px-3 py-1.5 text-sm"
+                        >
+                          <span className="font-medium">{machine.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {deal.start_date && new Date(deal.start_date).toLocaleDateString("ja-JP")}
+                            {deal.end_date ? ` 〜 ${new Date(deal.end_date).toLocaleDateString("ja-JP")}` : ""}
+                          </span>
+                        </div>
                       ))}
                     </div>
                   ) : (
@@ -266,11 +297,18 @@ export function EnhancedDealsList() {
                     車両
                   </h4>
                   {deal.vehicles && deal.vehicles.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="grid gap-2">
                       {deal.vehicles.map((vehicle) => (
-                        <Badge key={vehicle.id} variant="outline" className="bg-green-50">
-                          {vehicle.name}
-                        </Badge>
+                        <div
+                          key={vehicle.id}
+                          className="flex justify-between items-center bg-green-50 rounded-md px-3 py-1.5 text-sm"
+                        >
+                          <span className="font-medium">{vehicle.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {deal.start_date && new Date(deal.start_date).toLocaleDateString("ja-JP")}
+                            {deal.end_date ? ` 〜 ${new Date(deal.end_date).toLocaleDateString("ja-JP")}` : ""}
+                          </span>
+                        </div>
                       ))}
                     </div>
                   ) : (
@@ -285,11 +323,18 @@ export function EnhancedDealsList() {
                     備品
                   </h4>
                   {deal.tools && deal.tools.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="grid gap-2">
                       {deal.tools.map((tool) => (
-                        <Badge key={tool.id} variant="outline" className="bg-purple-50">
-                          {tool.name}
-                        </Badge>
+                        <div
+                          key={tool.id}
+                          className="flex justify-between items-center bg-purple-50 rounded-md px-3 py-1.5 text-sm"
+                        >
+                          <span className="font-medium">{tool.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {deal.start_date && new Date(deal.start_date).toLocaleDateString("ja-JP")}
+                            {deal.end_date ? ` 〜 ${new Date(deal.end_date).toLocaleDateString("ja-JP")}` : ""}
+                          </span>
+                        </div>
                       ))}
                     </div>
                   ) : (
