@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 // Lucideアイコンをインポート
 import { Menu, LayoutDashboard, Briefcase, Users, Truck, Car, Package, Calendar, FileText } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { PWAInstallGuide } from "@/components/pwa-install-guide"
 
 export function Header() {
   const router = useRouter()
@@ -164,7 +165,10 @@ export function Header() {
               <div className="mr-4">
                 <ThemeToggle />
               </div>
-              <UserNav user={user} />
+              <div className="flex items-center gap-2">
+                <PWAInstallGuide />
+                <UserNav user={user} />
+              </div>
             </div>
           </nav>
         )}

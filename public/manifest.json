@@ -2,11 +2,29 @@
   "name": "現助 - 建設業向け業務管理システム",
   "short_name": "現助",
   "description": "スケジュール管理、シフト管理、日報・安全パトロール記録など、建設業に特化した業務管理システム",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
+  "id": "/?source=pwa",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#4a90e2",
   "orientation": "portrait",
+  "categories": ["business", "productivity", "utilities"],
+  "screenshots": [
+    {
+      "src": "/screenshots/dashboard.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "ダッシュボード画面"
+    },
+    {
+      "src": "/screenshots/mobile-dashboard.png",
+      "sizes": "750x1334",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "モバイルダッシュボード"
+    }
+  ],
   "icons": [
     {
       "src": "/icons/icon-72x72.png",
@@ -57,5 +75,23 @@
       "purpose": "any maskable"
     }
   ],
+  "shortcuts": [
+    {
+      "name": "ダッシュボード",
+      "short_name": "ダッシュボード",
+      "description": "ダッシュボードを表示",
+      "url": "/dashboard?source=pwa",
+      "icons": [{ "src": "/icons/dashboard-icon.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "日報作成",
+      "short_name": "日報",
+      "description": "日報を作成",
+      "url": "/reports?source=pwa",
+      "icons": [{ "src": "/icons/report-icon.png", "sizes": "192x192" }]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
   "splash_pages": null
 }

@@ -1,26 +1,44 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { WifiOff, RefreshCw } from "lucide-react"
 import Link from "next/link"
 
 export default function OfflinePage() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] px-4 text-center">
-      <WifiOff className="h-16 w-16 text-gray-400 mb-6" />
-      <h1 className="text-3xl font-bold mb-2">オフラインです</h1>
-      <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md">
-        インターネット接続がありません。一部の機能は引き続き使用できますが、最新のデータを取得するにはネットワーク接続が必要です。
-      </p>
-      <div className="flex flex-col sm:flex-row gap-4">
-        <Button onClick={() => window.location.reload()} className="flex items-center">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          再読み込み
-        </Button>
-        <Button variant="outline" asChild>
-          <Link href="/dashboard">ダッシュボードへ</Link>
-        </Button>
-      </div>
+    <div className="container flex items-center justify-center min-h-[80vh] px-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4 bg-gray-100 dark:bg-gray-800 p-3 rounded-full w-16 h-16 flex items-center justify-center">
+            <WifiOff className="h-8 w-8 text-gray-500" />
+          </div>
+          <CardTitle className="text-xl">インターネット接続がありません</CardTitle>
+          <CardDescription>現在オフラインモードで表示しています。一部の機能が制限されています。</CardDescription>
+        </CardHeader>
+        <CardContent className="text-center">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            インターネット接続が回復したら、自動的に通常モードに戻ります。
+            または、下のボタンをクリックして再読み込みしてください。
+          </p>
+        </CardContent>
+        <CardFooter className="flex justify-center gap-4">
+          <Button
+            variant="outline"
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                window.location.reload()
+              }
+            }}
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            再読み込み
+          </Button>
+          <Button asChild>
+            <Link href="/">ホームに戻る</Link>
+          </Button>
+        </CardFooter>
+      </Card>
     </div>
   )
 }

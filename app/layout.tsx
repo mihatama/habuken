@@ -8,6 +8,7 @@ import { Header } from "@/components/header"
 import { SplashProvider } from "@/contexts/splash-context"
 import { SplashScreen } from "@/components/splash-screen"
 import { OfflineIndicator } from "@/components/offline-indicator"
+import { PWARegister } from "./pwa-register"
 
 const inter = Inter({ subsets: ["latin"] })
 const notoSerifJP = Noto_Serif_JP({
@@ -66,6 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <OfflineIndicator />
                 <div className="flex-1 pt-16">{children}</div>
               </div>
+              <PWARegister />
             </SplashProvider>
           </AuthProvider>
         </Providers>
