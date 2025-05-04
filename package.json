@@ -58,17 +58,18 @@
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.6",
     "zod": "latest",
-    "@tanstack/react-query": "latest",
     "@supabase/supabase-js": "latest",
     "@dnd-kit/core": "latest",
+    "@emotion/is-prop-valid": "latest",
     "@tanstack/react-table": "latest",
+    "@tanstack/react-query": "latest",
     "uuid": "latest",
-    "@tanstack/react-query-devtools": "latest",
     "@supabase/auth-helpers-nextjs": "latest",
     "@dnd-kit/sortable": "latest",
     "@dnd-kit/utilities": "latest",
     "react-big-calendar": "latest",
-    "moment": "latest"
+    "moment": "latest",
+    "framer-motion": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

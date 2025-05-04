@@ -4,7 +4,19 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { getClientSupabase } from "@/lib/supabase-utils"
-import { Loader2, Edit, Users, Truck, Car, Package, ChevronDown, ChevronUp, AlertCircle, Calendar } from "lucide-react"
+import {
+  Loader2,
+  Edit,
+  Users,
+  Truck,
+  Car,
+  Package,
+  ChevronDown,
+  ChevronUp,
+  AlertCircle,
+  Calendar,
+  Trash2,
+} from "lucide-react"
 import Link from "next/link"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
@@ -12,6 +24,16 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "@/components/ui/use-toast"
 import type { Deal } from "@/types/supabase"
 import { DealEditModal } from "@/components/deal-edit-modal"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface DealWithResources extends Deal {
   staff?: { id: string; full_name: string }[]
@@ -26,6 +48,11 @@ export function EnhancedDealsList() {
   const [error, setError] = useState<string | null>(null)
   const [expandedDeals, setExpandedDeals] = useState<Record<string, boolean>>({})
   const [editingDealId, setEditingDealId] = useState<string | null>(null)
+
+  // Add state variables for delete dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [dealToDelete, setDealToDelete] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     fetchDealsWithResources()
@@ -122,6 +149,47 @@ export function EnhancedDealsList() {
         return "destructive"
       default:
         return "outline"
+    }
+  }
+
+  // Add the handleDeleteClick function
+  const handleDeleteClick = (dealId: string) => {
+    setDealToDelete(dealId)
+    setDeleteDialogOpen(true)
+  }
+
+  // Add the confirmDelete function
+  const confirmDelete = async () => {
+    if (!dealToDelete) return
+
+    try {
+      setIsDeleting(true)
+      const supabase = getClientSupabase()
+
+      // 案件の削除
+      const { error } = await supabase.from("deals").delete().eq("id", dealToDelete)
+
+      if (error) throw error
+
+      // 成功メッセージ
+      toast({
+        title: "削除完了",
+        description: "案件が正常に削除されました。",
+      })
+
+      // 案件リストを更新
+      setDeals(deals.filter((deal) => deal.id !== dealToDelete))
+    } catch (err: any) {
+      console.error("案件削除エラー:", err)
+      toast({
+        title: "エラー",
+        description: `案件の削除に失敗しました: ${err.message || "不明なエラー"}`,
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(false)
+      setDeleteDialogOpen(false)
+      setDealToDelete(null)
     }
   }
 
@@ -332,11 +400,20 @@ export function EnhancedDealsList() {
                   )}
                 </div>
 
-                <div className="flex justify-end items-center mt-4">
+                <div className="flex justify-end items-center gap-2 mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-red-500 hover:text-red-700"
+                    onClick={() => handleDeleteClick(deal.id)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    削除
+                  </Button>
                   <Link href={`/deals/${deal.id}/edit`}>
                     <Button variant="outline" size="sm">
                       <Edit className="h-4 w-4 mr-1" />
-                      詳細を見る
+                      編集
                     </Button>
                   </Link>
                 </div>
@@ -345,6 +422,23 @@ export function EnhancedDealsList() {
           </CardContent>
         </Card>
       ))}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>案件を削除しますか？</AlertDialogTitle>
+            <AlertDialogDescription>
+              この操作は元に戻せません。案件に関連するすべてのデータ（スタッフ割り当て、重機割り当てなど）も削除されます。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>キャンセル</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} disabled={isDeleting} className="bg-red-500 hover:bg-red-600">
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              削除する
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {editingDealId && (
         <DealEditModal dealId={editingDealId} isOpen={!!editingDealId} onClose={() => setEditingDealId(null)} />
       )}

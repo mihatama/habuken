@@ -2,7 +2,14 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { DealRegistrationForm } from "@/components/deal-registration-form"
 
 export function DealRegistrationModal() {
@@ -33,6 +40,9 @@ export function DealRegistrationModal() {
       <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>新規案件登録</DialogTitle>
+          <DialogDescription>
+            新しい案件の情報を入力してください。必須項目を全て入力すると登録できます。
+          </DialogDescription>
         </DialogHeader>
         <DealRegistrationForm onSuccess={() => setOpen(false)} />
       </DialogContent>

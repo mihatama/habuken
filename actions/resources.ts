@@ -1,6 +1,33 @@
 "use server"
 
 import { getServerSupabase } from "../lib/supabase-utils"
+import { fetchDataInParallel } from "../lib/supabase-rpc"
+
+// 全リソースを一度に取得する最適化関数
+export async function getAllResources() {
+  try {
+    // 並列でデータを取得
+    const [staff, heavyMachinery, vehicles, tools] = await fetchDataInParallel([
+      () => getStaff(),
+      () => getHeavyMachinery(),
+      () => getVehicles(),
+      () => getTools(),
+    ])
+
+    return {
+      success: true,
+      data: {
+        staff: staff.success ? staff.data : [],
+        heavyMachinery: heavyMachinery.success ? heavyMachinery.data : [],
+        vehicles: vehicles.success ? vehicles.data : [],
+        tools: tools.success ? tools.data : [],
+      },
+    }
+  } catch (error: any) {
+    console.error("リソース一括取得エラー:", error)
+    return { success: false, error: error.message }
+  }
+}
 
 // スタッフ一覧を取得
 export async function getStaff() {

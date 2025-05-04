@@ -2,7 +2,14 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -95,6 +102,7 @@ export function VehicleForm({ open, onOpenChange, onSuccess }: VehicleFormProps)
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>車両の追加</DialogTitle>
+          <DialogDescription>車両の詳細情報を入力してください。車両名と登録番号は必須です。</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-2 gap-4">

@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { Skeleton } from "@/components/ui/skeleton"
 // Lucideアイコンをインポート
 import { Menu, LayoutDashboard, Briefcase, Users, Truck, Car, Package, Calendar, FileText } from "lucide-react"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 export function Header() {
   const router = useRouter()
@@ -160,6 +161,9 @@ export function Header() {
               </Link>
             </div>
             <div className="flex items-center">
+              <div className="mr-4">
+                <ThemeToggle />
+              </div>
               <UserNav user={user} />
             </div>
           </nav>

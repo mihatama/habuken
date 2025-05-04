@@ -5,6 +5,8 @@ import { Inter, Noto_Serif_JP } from "next/font/google"
 import { AuthProvider } from "@/contexts/auth-context"
 import { Providers } from "./providers"
 import { Header } from "@/components/header"
+import { SplashProvider } from "@/contexts/splash-context"
+import { SplashScreen } from "@/components/splash-screen"
 
 const inter = Inter({ subsets: ["latin"] })
 const notoSerifJP = Noto_Serif_JP({
@@ -25,10 +27,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${inter.className} ${notoSerifJP.variable}`}>
         <Providers>
           <AuthProvider>
-            <div className="relative flex min-h-screen flex-col">
-              <Header />
-              <div className="flex-1 pt-16">{children}</div>
-            </div>
+            <SplashProvider>
+              <SplashScreen />
+              <div className="relative flex min-h-screen flex-col">
+                <Header />
+                <div className="flex-1 pt-16">{children}</div>
+              </div>
+            </SplashProvider>
           </AuthProvider>
         </Providers>
       </body>

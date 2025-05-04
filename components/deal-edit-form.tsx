@@ -219,7 +219,7 @@ export function DealEditForm({ dealId, onSuccess, onCancel }: DealEditFormProps)
           status: data.status || "計画中", // 未選択の場合はデフォルト値を使用
           description: data.description || "",
           updated_at: new Date().toISOString(),
-          updated_by: user.id,
+          // updated_by field removed as it doesn't exist in the schema
         })
         .eq("id", dealId)
 

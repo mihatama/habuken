@@ -1,112 +1,45 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { getClientSupabase } from "@/lib/supabase-utils"
-import { format } from "date-fns"
-import { ja } from "date-fns/locale"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Loader2, ChevronDown, ChevronUp, User, Truck, Wrench, PenToolIcon as Tool } from "lucide-react"
+import { Loader2, AlertCircle, Calendar, FileText, ClipboardList, MapPin, Building, DollarSign } from "lucide-react"
 import Link from "next/link"
-import type { Deal } from "@/types/supabase"
+import { callClientRpc } from "@/lib/supabase-rpc"
 
 interface DealDetailsProps {
-  dealId: string
+  id: string
 }
 
-export function DealDetails({ dealId }: DealDetailsProps) {
-  const [deal, setDeal] = useState<Deal | null>(null)
+export function DealDetails({ id }: DealDetailsProps) {
+  const [dealData, setDealData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showDetails, setShowDetails] = useState(false)
-  const [staffData, setStaffData] = useState<any[]>([])
-  const [machineryData, setMachineryData] = useState<any[]>([])
-  const [vehicleData, setVehicleData] = useState<any[]>([])
-  const [toolData, setToolData] = useState<any[]>([])
 
   useEffect(() => {
-    fetchDealData()
-  }, [dealId])
+    async function fetchDealDetails() {
+      try {
+        console.log("案件詳細を取得中...", id)
+        const startTime = performance.now()
 
-  async function fetchDealData() {
-    try {
-      setLoading(true)
-      const supabase = getClientSupabase()
+        // RPCを使用して案件詳細を取得
+        const data = await callClientRpc("get_project_details", { project_id: id })
 
-      // 案件データの取得
-      const { data: dealData, error: dealError } = await supabase.from("deals").select("*").eq("id", dealId).single()
+        const endTime = performance.now()
+        console.log(`案件詳細取得完了: ${Math.round(endTime - startTime)}ms`)
 
-      if (dealError) throw dealError
-
-      setDeal(dealData)
-
-      // スタッフデータの取得
-      const { data: staffAssignments, error: staffError } = await supabase
-        .from("deal_staff")
-        .select("*, staff:staff_id(*)")
-        .eq("deal_id", dealId)
-
-      if (staffError) throw staffError
-
-      setStaffData(staffAssignments || [])
-
-      // 重機データの取得
-      const { data: machineryAssignments, error: machineryError } = await supabase
-        .from("deal_machinery")
-        .select("*, machinery:machinery_id(*)")
-        .eq("deal_id", dealId)
-
-      if (machineryError) throw machineryError
-
-      setMachineryData(machineryAssignments || [])
-
-      // 車両データの取得
-      const { data: vehicleAssignments, error: vehicleError } = await supabase
-        .from("deal_vehicles")
-        .select("*, vehicle:vehicle_id(*)")
-        .eq("deal_id", dealId)
-
-      if (vehicleError) throw vehicleError
-
-      setVehicleData(vehicleAssignments || [])
-
-      // 工具データの取得
-      const { data: toolAssignments, error: toolError } = await supabase
-        .from("deal_tools")
-        .select("*, tool:tool_id(*)")
-        .eq("deal_id", dealId)
-
-      if (toolError) throw toolError
-
-      setToolData(toolAssignments || [])
-    } catch (err: any) {
-      console.error("案件データの取得エラー:", err)
-      setError("案件データの取得中にエラーが発生しました。")
-    } finally {
-      setLoading(false)
+        setDealData(data)
+      } catch (error) {
+        console.error("案件詳細取得エラー:", error)
+        setError("案件データの読み込み中にエラーが発生しました。")
+      } finally {
+        setLoading(false)
+      }
     }
-  }
 
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case "計画中":
-        return "outline"
-      case "準備中":
-        return "secondary"
-      case "進行中":
-        return "default"
-      case "完了":
-        return "success"
-      case "中断":
-        return "warning"
-      case "キャンセル":
-        return "destructive"
-      default:
-        return "outline"
-    }
-  }
+    fetchDealDetails()
+  }, [id])
 
   if (loading) {
     return (
@@ -116,197 +49,229 @@ export function DealDetails({ dealId }: DealDetailsProps) {
     )
   }
 
-  if (error || !deal) {
+  if (error || !dealData || !dealData.project) {
     return (
       <Card>
-        <CardContent className="p-6">
-          <div className="text-center">
-            <p className="text-red-500">{error || "案件データが見つかりません。"}</p>
-            <Button asChild className="mt-4">
-              <Link href="/deals">案件一覧に戻る</Link>
-            </Button>
-          </div>
+        <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+          <AlertCircle className="h-8 w-8 text-red-500 mb-2" />
+          <p>{error || "案件データが見つかりませんでした。"}</p>
+          <Button onClick={() => window.location.reload()} className="mt-4">
+            再読み込み
+          </Button>
         </CardContent>
       </Card>
     )
   }
 
+  const { project, resources, daily_reports } = dealData
+
   return (
     <div className="space-y-6">
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex justify-between items-start mb-4">
-            <h2 className="text-2xl font-bold">{deal.name}</h2>
-            <Badge variant={getStatusBadgeVariant(deal.status) as any}>{deal.status}</Badge>
+      <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">{project.name}</h1>
+          <div className="flex items-center text-muted-foreground mt-1">
+            <MapPin className="h-4 w-4 mr-1" />
+            <span>{project.location || "場所未設定"}</span>
+            <span className="mx-2">•</span>
+            <Building className="h-4 w-4 mr-1" />
+            <span>{project.client_name || "顧客未設定"}</span>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                <span className="font-medium">クライアント:</span> {deal.client_name || "未設定"}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                <span className="font-medium">期間:</span>{" "}
-                {format(new Date(deal.start_date), "yyyy年MM月dd日", { locale: ja })}
-                {deal.end_date && ` 〜 ${format(new Date(deal.end_date), "yyyy年MM月dd日", { locale: ja })}`}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                <span className="font-medium">場所:</span> {deal.location || "未設定"}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">
-                <span className="font-medium">作成日:</span>{" "}
-                {format(new Date(deal.created_at), "yyyy年MM月dd日", { locale: ja })}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                <span className="font-medium">最終更新:</span>{" "}
-                {deal.updated_at ? format(new Date(deal.updated_at), "yyyy年MM月dd日", { locale: ja }) : "更新なし"}
-              </p>
-            </div>
-          </div>
-
-          <Button
-            variant="outline"
-            onClick={() => setShowDetails(!showDetails)}
-            className="w-full flex items-center justify-center"
-          >
-            {showDetails ? (
-              <>
-                <ChevronUp className="h-4 w-4 mr-2" />
-                詳細を閉じる
-              </>
-            ) : (
-              <>
-                <ChevronDown className="h-4 w-4 mr-2" />
-                編集
-              </>
-            )}
-          </Button>
-
-          {showDetails && (
-            <div className="mt-4">
-              <Tabs defaultValue="staff">
-                <TabsList className="grid grid-cols-4 mb-4">
-                  <TabsTrigger value="staff" className="flex items-center">
-                    <User className="h-4 w-4 mr-2" />
-                    スタッフ
-                  </TabsTrigger>
-                  <TabsTrigger value="machinery" className="flex items-center">
-                    <Truck className="h-4 w-4 mr-2" />
-                    重機
-                  </TabsTrigger>
-                  <TabsTrigger value="vehicles" className="flex items-center">
-                    <Wrench className="h-4 w-4 mr-2" />
-                    車両
-                  </TabsTrigger>
-                  <TabsTrigger value="tools" className="flex items-center">
-                    <Tool className="h-4 w-4 mr-2" />
-                    工具
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="staff">
-                  {staffData.length > 0 ? (
-                    <div className="space-y-2">
-                      {staffData.map((assignment) => (
-                        <div key={assignment.id} className="p-2 border rounded-md">
-                          <p className="font-medium">{assignment.staff?.name || "不明なスタッフ"}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {assignment.start_date &&
-                              format(new Date(assignment.start_date), "yyyy年MM月dd日", { locale: ja })}
-                            {assignment.end_date &&
-                              ` 〜 ${format(new Date(assignment.end_date), "yyyy年MM月dd日", {
-                                locale: ja,
-                              })}`}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-center text-muted-foreground py-4">スタッフの割り当てはありません</p>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="machinery">
-                  {machineryData.length > 0 ? (
-                    <div className="space-y-2">
-                      {machineryData.map((assignment) => (
-                        <div key={assignment.id} className="p-2 border rounded-md">
-                          <p className="font-medium">{assignment.machinery?.name || "不明な重機"}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {assignment.start_date &&
-                              format(new Date(assignment.start_date), "yyyy年MM月dd日", { locale: ja })}
-                            {assignment.end_date &&
-                              ` 〜 ${format(new Date(assignment.end_date), "yyyy年MM月dd日", {
-                                locale: ja,
-                              })}`}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-center text-muted-foreground py-4">重機の割り当てはありません</p>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="vehicles">
-                  {vehicleData.length > 0 ? (
-                    <div className="space-y-2">
-                      {vehicleData.map((assignment) => (
-                        <div key={assignment.id} className="p-2 border rounded-md">
-                          <p className="font-medium">{assignment.vehicle?.name || "不明な車両"}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {assignment.start_date &&
-                              format(new Date(assignment.start_date), "yyyy年MM月dd日", { locale: ja })}
-                            {assignment.end_date &&
-                              ` 〜 ${format(new Date(assignment.end_date), "yyyy年MM月dd日", {
-                                locale: ja,
-                              })}`}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-center text-muted-foreground py-4">車両の割り当てはありません</p>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="tools">
-                  {toolData.length > 0 ? (
-                    <div className="space-y-2">
-                      {toolData.map((assignment) => (
-                        <div key={assignment.id} className="p-2 border rounded-md">
-                          <p className="font-medium">{assignment.tool?.name || "不明な工具"}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {assignment.start_date &&
-                              format(new Date(assignment.start_date), "yyyy年MM月dd日", { locale: ja })}
-                            {assignment.end_date &&
-                              ` 〜 ${format(new Date(assignment.end_date), "yyyy年MM月dd日", {
-                                locale: ja,
-                              })}`}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-center text-muted-foreground py-4">工具の割り当てはありません</p>
-                  )}
-                </TabsContent>
-              </Tabs>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="flex justify-between">
-        <Button asChild variant="outline">
-          <Link href="/deals">案件一覧に戻る</Link>
-        </Button>
-        <Button asChild>
-          <Link href={`/deals/${dealId}/edit`}>編集する</Link>
-        </Button>
+        </div>
+        <div className="flex gap-2">
+          <Link href={`/deals/${id}/daily-report`}>
+            <Button variant="outline" size="sm">
+              <FileText className="h-4 w-4 mr-2" />
+              日報作成
+            </Button>
+          </Link>
+          <Link href={`/deals/${id}/edit`}>
+            <Button size="sm">編集</Button>
+          </Link>
+        </div>
       </div>
+
+      <Tabs defaultValue="details">
+        <TabsList>
+          <TabsTrigger value="details">案件詳細</TabsTrigger>
+          <TabsTrigger value="resources">リソース</TabsTrigger>
+          <TabsTrigger value="reports">日報</TabsTrigger>
+        </TabsList>
+        <TabsContent value="details" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>案件情報</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h3 className="font-medium text-sm text-muted-foreground">ステータス</h3>
+                  <p>{project.status || "未設定"}</p>
+                </div>
+                <div>
+                  <h3 className="font-medium text-sm text-muted-foreground">予算</h3>
+                  <p className="flex items-center">
+                    <DollarSign className="h-4 w-4 mr-1" />
+                    {project.budget ? `¥${project.budget.toLocaleString()}` : "未設定"}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-medium text-sm text-muted-foreground">開始日</h3>
+                  <p className="flex items-center">
+                    <Calendar className="h-4 w-4 mr-1" />
+                    {project.start_date ? new Date(project.start_date).toLocaleDateString() : "未設定"}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-medium text-sm text-muted-foreground">終了日</h3>
+                  <p className="flex items-center">
+                    <Calendar className="h-4 w-4 mr-1" />
+                    {project.end_date ? new Date(project.end_date).toLocaleDateString() : "未設定"}
+                  </p>
+                </div>
+              </div>
+              <div>
+                <h3 className="font-medium text-sm text-muted-foreground">説明</h3>
+                <p className="whitespace-pre-wrap">{project.description || "説明はありません"}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="resources">
+          <Card>
+            <CardHeader>
+              <CardTitle>割り当てリソース</CardTitle>
+              <CardDescription>この案件に割り当てられているリソース</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {resources && resources.length > 0 ? (
+                <div className="space-y-4">
+                  {/* スタッフ */}
+                  <div>
+                    <h3 className="font-medium mb-2">スタッフ</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {resources
+                        .filter((r: any) => r.resource_type === "staff")
+                        .map((resource: any) => (
+                          <div key={resource.id} className="p-2 border rounded-md">
+                            <p className="font-medium">{resource.details?.full_name || "名前なし"}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(resource.start_date).toLocaleDateString()} -
+                              {resource.end_date ? new Date(resource.end_date).toLocaleDateString() : "未定"}
+                            </p>
+                          </div>
+                        ))}
+                      {resources.filter((r: any) => r.resource_type === "staff").length === 0 && (
+                        <p className="text-muted-foreground">スタッフの割り当てはありません</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 重機 */}
+                  <div>
+                    <h3 className="font-medium mb-2">重機</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {resources
+                        .filter((r: any) => r.resource_type === "heavy_machinery")
+                        .map((resource: any) => (
+                          <div key={resource.id} className="p-2 border rounded-md">
+                            <p className="font-medium">{resource.details?.name || "名前なし"}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(resource.start_date).toLocaleDateString()} -
+                              {resource.end_date ? new Date(resource.end_date).toLocaleDateString() : "未定"}
+                            </p>
+                          </div>
+                        ))}
+                      {resources.filter((r: any) => r.resource_type === "heavy_machinery").length === 0 && (
+                        <p className="text-muted-foreground">重機の割り当てはありません</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 車両 */}
+                  <div>
+                    <h3 className="font-medium mb-2">車両</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {resources
+                        .filter((r: any) => r.resource_type === "vehicle")
+                        .map((resource: any) => (
+                          <div key={resource.id} className="p-2 border rounded-md">
+                            <p className="font-medium">{resource.details?.name || "名前なし"}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(resource.start_date).toLocaleDateString()} -
+                              {resource.end_date ? new Date(resource.end_date).toLocaleDateString() : "未定"}
+                            </p>
+                          </div>
+                        ))}
+                      {resources.filter((r: any) => r.resource_type === "vehicle").length === 0 && (
+                        <p className="text-muted-foreground">車両の割り当てはありません</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-muted-foreground">リソースの割り当てはありません</p>
+              )}
+            </CardContent>
+            <CardFooter>
+              <Link href={`/deals/${id}/edit`}>
+                <Button variant="outline" size="sm">
+                  リソース割り当てを編集
+                </Button>
+              </Link>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="reports">
+          <Card>
+            <CardHeader>
+              <CardTitle>日報一覧</CardTitle>
+              <CardDescription>この案件に関連する日報</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {daily_reports && daily_reports.length > 0 ? (
+                <div className="space-y-2">
+                  {daily_reports.map((report: any) => (
+                    <div key={report.id} className="p-3 border rounded-md hover:bg-muted">
+                      <div className="flex justify-between">
+                        <p className="font-medium">{new Date(report.date).toLocaleDateString()}</p>
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full ${
+                            report.status === "approved"
+                              ? "bg-green-100 text-green-800"
+                              : report.status === "pending"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-gray-100 text-gray-800"
+                          }`}
+                        >
+                          {report.status === "approved"
+                            ? "承認済"
+                            : report.status === "pending"
+                              ? "承認待ち"
+                              : "下書き"}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">作成者: {report.created_by?.name || "不明"}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground">日報はまだありません</p>
+              )}
+            </CardContent>
+            <CardFooter>
+              <Link href={`/deals/${id}/daily-report`}>
+                <Button size="sm">
+                  <ClipboardList className="h-4 w-4 mr-2" />
+                  新規日報作成
+                </Button>
+              </Link>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

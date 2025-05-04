@@ -4,7 +4,7 @@ import { CalendarView } from "@/components/calendar-view"
 import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Loader2, AlertCircle } from "lucide-react"
-import { fetchClientData } from "@/lib/supabase-utils"
+import { callClientRpc } from "@/lib/supabase-rpc"
 
 // 型定義
 interface Project {
@@ -27,10 +27,28 @@ interface Tool {
   [key: string]: any
 }
 
+interface DashboardSummary {
+  projects: {
+    total: number
+    active: number
+    completed: number
+    recent: Project[]
+  }
+  staff: {
+    total: number
+    available: number
+    recent: Staff[]
+  }
+  resources: {
+    heavy_machinery: number
+    vehicles: number
+    tools: number
+  }
+  daily_reports: number
+}
+
 export function DashboardClientPage() {
-  const [projects, setProjects] = useState<Project[]>([])
-  const [staff, setStaff] = useState<Staff[]>([])
-  const [tools, setTools] = useState<Tool[]>([])
+  const [dashboardData, setDashboardData] = useState<DashboardSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -40,34 +58,16 @@ export function DashboardClientPage() {
       setError(null)
 
       try {
-        console.log("ダッシュボードデータ取得開始")
+        console.log("ダッシュボードデータ取得開始 (RPC使用)")
+        const startTime = performance.now()
 
-        // プロジェクトデータの取得
-        const projectsData = await fetchClientData<Project>("projects", {
-          order: { column: "created_at", ascending: false },
-          limit: 5,
-        })
+        // RPCを使用してダッシュボードサマリーを取得
+        const summaryData = await callClientRpc<DashboardSummary>("get_dashboard_summary")
 
-        // スタッフデータの取得
-        const staffData = await fetchClientData<Staff>("staff", {
-          limit: 5,
-        })
+        const endTime = performance.now()
+        console.log(`ダッシュボードデータ取得完了: ${Math.round(endTime - startTime)}ms`)
 
-        // ツールデータの取得
-        const toolsData = await fetchClientData<Tool>("resources", {
-          filters: { type: "工具" },
-          limit: 5,
-        })
-
-        console.log("データ取得完了:", {
-          projects: projectsData?.length,
-          staff: staffData?.length,
-          tools: toolsData?.length,
-        })
-
-        setProjects(projectsData || [])
-        setStaff(staffData || [])
-        setTools(toolsData || [])
+        setDashboardData(summaryData)
       } catch (error) {
         console.error("ダッシュボードデータ取得エラー:", error)
         setError("データの読み込み中にエラーが発生しました。再度お試しください。")
@@ -108,9 +108,9 @@ export function DashboardClientPage() {
             <Card>
               <CardContent className="p-4">
                 <h2 className="text-xl font-bold mb-3">最近のプロジェクト</h2>
-                {projects.length > 0 ? (
+                {dashboardData?.projects.recent && dashboardData.projects.recent.length > 0 ? (
                   <ul className="space-y-2">
-                    {projects.map((project) => (
+                    {dashboardData.projects.recent.map((project) => (
                       <li key={project.id} className="p-2 hover:bg-muted rounded">
                         {project.name}
                       </li>
@@ -125,9 +125,9 @@ export function DashboardClientPage() {
             <Card>
               <CardContent className="p-4">
                 <h2 className="text-xl font-bold mb-3">スタッフ</h2>
-                {staff.length > 0 ? (
+                {dashboardData?.staff.recent && dashboardData.staff.recent.length > 0 ? (
                   <ul className="space-y-2">
-                    {staff.map((person) => (
+                    {dashboardData.staff.recent.map((person) => (
                       <li key={person.id} className="p-2 hover:bg-muted rounded">
                         {person.full_name}
                       </li>
@@ -141,17 +141,16 @@ export function DashboardClientPage() {
 
             <Card>
               <CardContent className="p-4">
-                <h2 className="text-xl font-bold mb-3">工具</h2>
-                {tools.length > 0 ? (
+                <h2 className="text-xl font-bold mb-3">リソース概要</h2>
+                {dashboardData?.resources ? (
                   <ul className="space-y-2">
-                    {tools.map((tool) => (
-                      <li key={tool.id} className="p-2 hover:bg-muted rounded">
-                        {tool.name}
-                      </li>
-                    ))}
+                    <li className="p-2 hover:bg-muted rounded">重機: {dashboardData.resources.heavy_machinery}台</li>
+                    <li className="p-2 hover:bg-muted rounded">車両: {dashboardData.resources.vehicles}台</li>
+                    <li className="p-2 hover:bg-muted rounded">工具: {dashboardData.resources.tools}点</li>
+                    <li className="p-2 hover:bg-muted rounded">過去30日の日報: {dashboardData.daily_reports}件</li>
                   </ul>
                 ) : (
-                  <p className="text-muted-foreground">工具がありません</p>
+                  <p className="text-muted-foreground">データがありません</p>
                 )}
               </CardContent>
             </Card>

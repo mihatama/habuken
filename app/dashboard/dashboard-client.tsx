@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { getClientSupabase } from "@/lib/supabase-utils"
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts"
-import { Activity, AlertTriangle, Clock, Construction, FileText, RefreshCw, Truck, Users, Wrench } from "lucide-react"
+import { Activity, Clock, Construction, FileText, RefreshCw, Truck, Users, Wrench } from "lucide-react"
 import { KpiCard } from "./components/kpi-card"
 import { ResourceUtilizationChart } from "./components/resource-utilization-chart"
 import { ProjectProgressPanel } from "./components/project-progress-panel"
@@ -392,30 +392,6 @@ export function DashboardClient() {
               <DealResourceCalendar />
             </CardContent>
           </Card>
-
-          <div className="grid gap-4 md:grid-cols-1">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="space-y-1">
-                  <CardTitle>承認待ち休暇申請</CardTitle>
-                  <CardDescription>承認待ちの休暇申請の数</CardDescription>
-                </div>
-                {dashboardData.pendingLeaveRequests > 0 && (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-amber-700">
-                    <AlertTriangle className="h-4 w-4" />
-                  </div>
-                )}
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{dashboardData.pendingLeaveRequests}件</div>
-                <p className="text-xs text-muted-foreground">
-                  {dashboardData.pendingLeaveRequests > 0
-                    ? "承認待ちの休暇申請があります。確認してください。"
-                    : "承認待ちの休暇申請はありません。"}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
         </TabsContent>
 
         <TabsContent value="resources" className="space-y-4">
@@ -594,33 +570,6 @@ export function DashboardClient() {
               </CardHeader>
               <CardContent>
                 <StaffAllocationChart data={dashboardData.staffAllocation} />
-              </CardContent>
-            </Card>
-
-            <Card className="col-span-3">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="space-y-1">
-                  <CardTitle>承認待ち休暇申請</CardTitle>
-                  <CardDescription>承認待ちの休暇申請の数</CardDescription>
-                </div>
-                {dashboardData.pendingLeaveRequests > 0 && (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-amber-700">
-                    <AlertTriangle className="h-4 w-4" />
-                  </div>
-                )}
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{dashboardData.pendingLeaveRequests}件</div>
-                <p className="text-xs text-muted-foreground">
-                  {dashboardData.pendingLeaveRequests > 0
-                    ? "承認待ちの休暇申請があります。確認してください。"
-                    : "承認待ちの休暇申請はありません。"}
-                </p>
-                {dashboardData.pendingLeaveRequests > 0 && (
-                  <Button variant="outline" className="mt-4 w-full" size="sm">
-                    休暇申請を確認
-                  </Button>
-                )}
               </CardContent>
             </Card>
           </div>

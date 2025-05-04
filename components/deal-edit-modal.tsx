@@ -1,5 +1,5 @@
 "use client"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { DealEditForm } from "@/components/deal-edit-form"
 
 interface DealEditModalProps {
@@ -14,6 +14,9 @@ export function DealEditModal({ dealId, isOpen, onClose }: DealEditModalProps) {
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>案件を編集</DialogTitle>
+          <DialogDescription>
+            案件の詳細情報を編集できます。変更内容を保存するには「保存」ボタンをクリックしてください。
+          </DialogDescription>
         </DialogHeader>
         <DealEditForm dealId={dealId} onSuccess={onClose} onCancel={onClose} />
       </DialogContent>

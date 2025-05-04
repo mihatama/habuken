@@ -2,24 +2,32 @@
 
 import { getServerSupabase } from "../lib/supabase-utils"
 import { revalidatePath } from "next/cache"
+import { callServerRpc } from "../lib/supabase-rpc"
 
-// プロジェクト一覧を取得
+// プロジェクト一覧を取得（最適化版）
 export async function getProjects() {
-  const supabase = getServerSupabase()
-
   try {
-    console.log("Server: Fetching projects from Supabase...")
-    const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false })
+    console.log("Server: RPCを使用してプロジェクトとリソースを取得中...")
+    const data = await callServerRpc<any[]>("get_projects_with_resources")
 
-    if (error) {
-      console.error("Server: Error fetching projects:", error)
-      throw error
-    }
-
-    console.log("Server: Projects fetched successfully:", data?.length || 0, "projects")
+    console.log("Server: プロジェクトとリソースの取得に成功:", data?.length || 0, "件")
     return { success: true, data }
   } catch (error: any) {
-    console.error("Server: Failed to fetch projects:", error)
+    console.error("Server: プロジェクト取得エラー:", error)
+    return { success: false, error: error.message }
+  }
+}
+
+// プロジェクト詳細を取得（新規追加）
+export async function getProjectDetails(projectId: string) {
+  try {
+    console.log("Server: プロジェクト詳細を取得中:", projectId)
+    const data = await callServerRpc<any>("get_project_details", { project_id: projectId })
+
+    console.log("Server: プロジェクト詳細の取得に成功")
+    return { success: true, data }
+  } catch (error: any) {
+    console.error("Server: プロジェクト詳細取得エラー:", error)
     return { success: false, error: error.message }
   }
 }
