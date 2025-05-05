@@ -18,8 +18,12 @@ const notoSerifJP = Noto_Serif_JP({
 })
 
 export const metadata: Metadata = {
-  title: "現助 - 建設業向け業務管理システム",
-  description: "スケジュール管理、シフト管理、日報・安全パトロール記録など、建設業に特化した業務管理システムです。",
+  title: "Habuken - Project Management",
+  description: "Construction project management system",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/habuken-logo.png",
+  },
   manifest: "/manifest.json",
   themeColor: "#4a90e2",
   appleWebApp: {
