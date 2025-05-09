@@ -6,6 +6,9 @@ import { useToast } from "@/hooks/use-toast"
 import { getClientSupabase } from "@/lib/supabase-utils"
 import { EnhancedCalendar, type CalendarEvent } from "@/components/enhanced-calendar"
 
+// Import the Box icon at the top of the file
+import { Box } from "lucide-react"
+
 export function ToolCalendar() {
   const { toast } = useToast()
   const [events, setEvents] = useState<CalendarEvent[]>([])
@@ -228,7 +231,9 @@ export function ToolCalendar() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>備品カレンダー</CardTitle>
+        <CardTitle>
+          備品カレンダー <Box className="h-5 w-5" />
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <EnhancedCalendar

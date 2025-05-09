@@ -4,19 +4,7 @@ import { useRouter, usePathname } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 // Lucideアイコンをインポート
-import {
-  X,
-  User,
-  LogOut,
-  LayoutDashboard,
-  Briefcase,
-  Users,
-  Truck,
-  Car,
-  Package,
-  Calendar,
-  FileText,
-} from "lucide-react"
+import { X, User, LogOut, LayoutDashboard, Briefcase, Users, Truck, Car, Calendar, FileText, Box } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { ThemeToggle } from "@/components/theme-toggle"
 
@@ -138,7 +126,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
             className={`flex w-full justify-start p-3 ${isActive("/tools")}`}
             onClick={() => handleNavigation("/tools")}
           >
-            <Package className="h-4 w-4 mr-2" />
+            <Box className="h-5 w-5 mr-2" />
             備品
           </Button>
           <Button

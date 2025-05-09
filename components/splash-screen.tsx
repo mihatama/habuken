@@ -4,51 +4,42 @@ import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useSplash } from "@/contexts/splash-context"
 import Image from "next/image"
-// auth contextからユーザー情報を取得
 import { useAuth } from "@/contexts/auth-context"
 
 export function SplashScreen() {
-  const { isVisible, setIsVisible } = useSplash()
-  const { user } = useAuth()
-
-  // ユーザーがログインしている場合はスプラッシュスクリーンを表示しない
-  if (!isVisible || user) {
-    return null
-  }
-
   const { showSplash, hideSplash } = useSplash()
+  const { user } = useAuth()
   const [isLoaded, setIsLoaded] = useState(false)
+  const [shouldShowSplash, setShouldShowSplash] = useState(showSplash && !user)
 
+  // First useEffect - update shouldShowSplash when dependencies change
   useEffect(() => {
-    setIsLoaded(true)
+    setShouldShowSplash(showSplash && !user)
+  }, [showSplash, user])
 
-    // 現在のパスを取得
-    const currentPath = window.location.pathname
+  // Second useEffect - handle splash screen timing and cleanup
+  useEffect(() => {
+    if (shouldShowSplash) {
+      setIsLoaded(true)
 
-    // ログインページの場合は即座に非表示にする
-    if (currentPath === "/login") {
-      hideSplash()
-      return
+      // 3秒後に自動的に非表示にする
+      const timer = setTimeout(() => {
+        hideSplash()
+      }, 3000)
+
+      return () => clearTimeout(timer)
     }
-
-    // 3秒後に自動的に非表示にする
-    const timer = setTimeout(() => {
-      hideSplash()
-    }, 3000)
-
-    return () => clearTimeout(timer)
-  }, [hideSplash])
+  }, [shouldShowSplash, hideSplash])
 
   // タップでスキップする機能
   const handleSkip = () => {
     hideSplash()
   }
 
-  if (!showSplash) return null
-
+  // Render splash screen only if shouldShowSplash is true
   return (
     <AnimatePresence>
-      {showSplash && (
+      {shouldShowSplash && (
         <motion.div
           className="fixed inset-0 z-50 flex items-center justify-center bg-background"
           initial={{ opacity: 0 }}

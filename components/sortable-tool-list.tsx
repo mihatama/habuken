@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+// Import the Box icon at the top of the file
+import { Box } from "lucide-react"
 
 export function SortableToolList() {
   const { data: tools, isLoading, refetch } = useTools()
@@ -111,7 +113,8 @@ export function SortableToolList() {
                 <SortableItem key={tool.id} id={tool.id}>
                   <div className="flex-1 flex items-center justify-between">
                     <div>
-                      <p className="font-medium">{tool.name}</p>
+                      <Box className="h-5 w-5 mr-2 inline-block" />
+                      <p className="font-medium inline-block">{tool.name}</p>
                       <p className="text-sm text-muted-foreground">{tool.location || "場所未設定"}</p>
                     </div>
                     <Badge variant={tool.status === "利用可能" ? "success" : "secondary"}>{tool.status}</Badge>

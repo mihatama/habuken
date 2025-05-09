@@ -17,6 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast"
 import { getClientSupabase } from "@/lib/supabase-utils"
 import { useAuth } from "@/hooks/use-auth"
+// Import the Box icon at the top of the file
+import { Box } from "lucide-react"
 
 interface ToolFormProps {
   open: boolean
@@ -153,7 +155,10 @@ export function ToolForm({ open, onOpenChange, onSuccess }: ToolFormProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>備品の追加</DialogTitle>
+          <DialogTitle>
+            備品の追加
+            <Box className="h-5 w-5 inline-block ml-2" />
+          </DialogTitle>
           <DialogDescription>備品の詳細情報を入力してください。備品名は必須項目です。</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">

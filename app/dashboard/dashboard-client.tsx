@@ -8,7 +8,7 @@ import { CalendarPanel } from "./components/calendar-panel"
 import { WeatherForecastPanel } from "./components/weather-forecast-panel"
 import { StaffAllocationChart } from "./components/staff-allocation-chart"
 import { getClientSupabase } from "@/lib/supabase-utils"
-import { Users, Truck, Car, PenToolIcon as Tool, AlertTriangle } from "lucide-react"
+import { Users, Truck, Car, BoxIcon, AlertTriangle } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 
 export function DashboardClient() {
@@ -164,7 +164,7 @@ export function DashboardClient() {
         <KpiCard
           title="備品"
           value={dashboardData.kpis.toolsCount}
-          icon={<Tool />}
+          icon={<BoxIcon />}
           description="登録済み備品数"
           trend={3}
         />

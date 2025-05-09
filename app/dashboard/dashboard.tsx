@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { RefreshCw, Calendar, Users, Truck, Car, PenToolIcon as Tool } from "lucide-react"
+import { RefreshCw, Calendar, Users, Truck, Car, BoxIcon } from "lucide-react"
 import { StaffCalendar } from "@/components/staff-calendar"
 import { HeavyMachineryCalendar } from "@/components/heavy-machinery-calendar"
 import { ToolCalendar } from "@/components/tool-calendar"
@@ -69,7 +69,7 @@ export default function Dashboard() {
                   車両カレンダー
                 </TabsTrigger>
                 <TabsTrigger value="tools" className="flex items-center">
-                  <Tool className="h-4 w-4 mr-2" />
+                  <BoxIcon className="h-4 w-4 mr-2" />
                   備品カレンダー
                 </TabsTrigger>
               </TabsList>
