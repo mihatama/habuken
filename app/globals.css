@@ -313,3 +313,18 @@ html {
   background: rgba(204, 172, 0, 0.7);
   color: #505050;
 }
+
+@keyframes fadeInBlur {
+  0% {
+    opacity: 0;
+    filter: blur(10px);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0px);
+  }
+}
+
+.animate-fade-in-blur {
+  animation: fadeInBlur 1.5s ease-out forwards;
+}

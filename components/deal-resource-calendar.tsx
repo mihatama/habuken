@@ -12,7 +12,11 @@ import { toast } from "@/components/ui/use-toast"
 // ResourceTypeに「deals」を追加
 type ResourceType = "all" | "staff" | "machinery" | "vehicles" | "tools" | "deals"
 
-export function DealResourceCalendar() {
+interface DealResourceCalendarProps {
+  embedded?: boolean
+}
+
+export function DealResourceCalendar({ embedded = false }: DealResourceCalendarProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -87,9 +91,11 @@ export function DealResourceCalendar() {
       setError("データの取得中にエラーが発生しました。")
       toast({
         title: "エラー",
-        description: "カレンダーデータの取得に失敗しました",
+        description: "カレンダーデータの取得に失敗しました: " + (err.message || "不明なエラー"),
         variant: "destructive",
       })
+      // エラーが発生しても空の配列を設定して表示を維持
+      setEvents([])
     } finally {
       setLoading(false)
     }
@@ -283,7 +289,7 @@ export function DealResourceCalendar() {
   }
 
   return (
-    <Card className="w-full">
+    <Card className={embedded ? "w-full border-0 shadow-none" : "w-full"}>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>現場・リソースカレンダー</CardTitle>
         <div className="flex items-center gap-2">

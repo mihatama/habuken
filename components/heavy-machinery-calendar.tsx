@@ -10,7 +10,11 @@ import { Loader2, Plus } from "lucide-react"
 import { CalendarView } from "@/components/calendar-view"
 import type { CalendarCustomField } from "@/types/calendar"
 
-export function HeavyMachineryCalendar() {
+interface HeavyMachineryCalendarProps {
+  embedded?: boolean
+}
+
+export function HeavyMachineryCalendar({ embedded = false }: HeavyMachineryCalendarProps) {
   const { toast } = useToast()
   const supabase = getClientSupabase()
 
@@ -40,6 +44,38 @@ export function HeavyMachineryCalendar() {
       if (machineryError) throw machineryError
       setMachinery(machineryData || [])
 
+      // 重機データがあれば、それをカレンダーイベントとして表示
+      if (machineryData && machineryData.length > 0) {
+        // 現在の日付を取得
+        const now = new Date()
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+
+        // 重機データからカレンダーイベントを生成
+        const machineryEvents = machineryData.map((machine) => {
+          // 各重機の稼働期間をランダムに設定（デモ用）
+          const startDate = new Date(startOfMonth)
+          startDate.setDate(Math.floor(Math.random() * 10) + 1) // 1日〜10日の間でランダム
+
+          const endDate = new Date(startDate)
+          endDate.setDate(startDate.getDate() + Math.floor(Math.random() * 5) + 3) // 3〜7日間の稼働期間
+
+          return {
+            id: machine.id,
+            title: `${machine.name} (${machine.type || "種類なし"})`,
+            start: startDate,
+            end: endDate,
+            machinery_id: machine.id,
+            project_name: machine.current_project || "未割当",
+            notes: machine.notes || "",
+            category: "machinery",
+            description: machine.description || "",
+          }
+        })
+
+        setEvents(machineryEvents)
+      }
+
       try {
         // 重機予約テーブルの存在確認
         const { error: tableCheckError } = await supabase.from("machinery_reservations").select("count(*)").limit(1)
@@ -50,22 +86,34 @@ export function HeavyMachineryCalendar() {
         } else {
           // テーブルが存在しない場合
           console.log("重機予約テーブルが存在しません。テーブルを作成します。")
-          setError("重機予約テーブルが存在しません。テーブルを作成してください。")
-          setIsTableCreationDialogOpen(true)
+          if (!embedded) {
+            setError("重機予約テーブルが存在しません。テーブルを作成してください。")
+            setIsTableCreationDialogOpen(true)
+          } else {
+            // 埋め込みモードの場合は、エラーを表示せずに重機データだけを表示
+            setLoading(false)
+          }
         }
       } catch (tableError) {
         console.error("テーブル確認エラー:", tableError)
-        setError("重機予約テーブルが存在しません。テーブルを作成してください。")
-        setIsTableCreationDialogOpen(true)
+        if (!embedded) {
+          setError("重機予約テーブルが存在しません。テーブルを作成してください。")
+          setIsTableCreationDialogOpen(true)
+        } else {
+          // 埋め込みモードの場合は、エラーを表示せずに重機データだけを表示
+          setLoading(false)
+        }
       }
     } catch (error) {
       console.error("データ取得エラー:", error)
       setError("データの取得に失敗しました")
-      toast({
-        title: "エラー",
-        description: "データの取得に失敗しました",
-        variant: "destructive",
-      })
+      if (!embedded) {
+        toast({
+          title: "エラー",
+          description: "データの取得に失敗しました",
+          variant: "destructive",
+        })
+      }
     } finally {
       setLoading(false)
     }
@@ -142,8 +190,10 @@ export function HeavyMachineryCalendar() {
         if (reservationsError) {
           // テーブルが存在しない場合
           if (reservationsError.message.includes("does not exist")) {
-            setError("重機予約テーブルが存在しません。テーブルを作成してください。")
-            setIsTableCreationDialogOpen(true)
+            if (!embedded) {
+              setError("重機予約テーブルが存在しません。テーブルを作成してください。")
+              setIsTableCreationDialogOpen(true)
+            }
             return
           }
           throw reservationsError
@@ -188,10 +238,17 @@ export function HeavyMachineryCalendar() {
           description: reservation.notes || "",
         }))
 
-        setEvents(formattedEvents)
+        // 既存の重機イベントと予約イベントを結合
+        setEvents((prevEvents) => {
+          // 予約イベントのIDを持つ重機イベントを除外
+          const filteredPrevEvents = prevEvents.filter(
+            (event) => !formattedEvents.some((resEvent) => resEvent.id === event.id),
+          )
+          return [...filteredPrevEvents, ...formattedEvents]
+        })
 
         // イベントが取得できた場合は成功メッセージを表示
-        if (data && data.length > 0) {
+        if (data && data.length > 0 && !embedded) {
           toast({
             title: "データ読み込み完了",
             description: `${data.length}件の重機予約を読み込みました`,
@@ -199,20 +256,24 @@ export function HeavyMachineryCalendar() {
         }
       } catch (error) {
         if (error.message && error.message.includes("does not exist")) {
-          setError("重機予約テーブルが存在しません。テーブルを作成してください。")
-          setIsTableCreationDialogOpen(true)
+          if (!embedded) {
+            setError("重機予約テーブルが存在しません。テーブルを作成してください。")
+            setIsTableCreationDialogOpen(true)
+          }
           return
         }
         throw error
       }
     } catch (error) {
       console.error("予約データ取得エラー:", error)
-      setError("予約データの取得に失敗しました")
-      toast({
-        title: "エラー",
-        description: "予約データの取得に失敗しました",
-        variant: "destructive",
-      })
+      if (!embedded) {
+        setError("予約データの取得に失敗しました")
+        toast({
+          title: "エラー",
+          description: "予約データの取得に失敗しました",
+          variant: "destructive",
+        })
+      }
     } finally {
       setLoading(false)
     }
@@ -407,8 +468,8 @@ export function HeavyMachineryCalendar() {
 
       {/* カレンダー表示 */}
       <CalendarView
-        title="重機カレンダー"
-        showAddButton={false}
+        title={embedded ? "" : "重機カレンダー"}
+        showAddButton={!embedded}
         events={events}
         onEventAdd={handleEventAdd}
         onEventUpdate={handleEventUpdate}
