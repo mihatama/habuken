@@ -34,14 +34,14 @@ export function DealRegistrationModal() {
             <path d="M5 12h14" />
             <path d="M12 5v14" />
           </svg>
-          新規案件
+          新規現場
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>新規案件登録</DialogTitle>
+          <DialogTitle>新規現場登録</DialogTitle>
           <DialogDescription>
-            新しい案件の情報を入力してください。必須項目を全て入力すると登録できます。
+            新しい現場の情報を入力してください。必須項目を全て入力すると登録できます。
           </DialogDescription>
         </DialogHeader>
         <DealRegistrationForm onSuccess={() => setOpen(false)} />

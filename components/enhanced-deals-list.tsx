@@ -114,11 +114,11 @@ export function EnhancedDealsList() {
 
       setDeals(dealsWithResources)
     } catch (err: any) {
-      console.error("案件データの取得エラー:", err)
-      setError("案件データの取得中にエラーが発生しました。")
+      console.error("現場データの取得エラー:", err)
+      setError("現場データの取得中にエラーが発生しました。")
       toast({
         title: "エラー",
-        description: "案件データの取得に失敗しました",
+        description: "現場データの取得に失敗しました",
         variant: "destructive",
       })
     } finally {
@@ -177,16 +177,16 @@ export function EnhancedDealsList() {
       // 成功メッセージ
       toast({
         title: "削除完了",
-        description: "案件が正常に削除されました。",
+        description: "現場が正常に削除されました。",
       })
 
       // 案件リストを更新
       setDeals(deals.filter((deal) => deal.id !== dealToDelete))
     } catch (err: any) {
-      console.error("案件削除エラー:", err)
+      console.error("現場削除エラー:", err)
       toast({
         title: "エラー",
-        description: `案件の削除に失敗しました: ${err.message || "不明なエラー"}`,
+        description: `現場の削除に失敗しました: ${err.message || "不明なエラー"}`,
         variant: "destructive",
       })
     } finally {
@@ -223,8 +223,8 @@ export function EnhancedDealsList() {
     return (
       <Card className="p-6">
         <div className="flex flex-col items-center justify-center py-8 text-center">
-          <h3 className="text-xl font-semibold mb-2">案件がありません</h3>
-          <p className="text-muted-foreground mb-4">新しい案件を登録してください</p>
+          <h3 className="text-xl font-semibold mb-2">現場がありません</h3>
+          <p className="text-muted-foreground mb-4">新しい現場を登録してください</p>
         </div>
       </Card>
     )
@@ -429,9 +429,9 @@ export function EnhancedDealsList() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>案件を削除しますか？</AlertDialogTitle>
+            <AlertDialogTitle>現場を削除しますか？</AlertDialogTitle>
             <AlertDialogDescription>
-              この操作は元に戻せません。案件に関連するすべてのデータ（スタッフ割り当て、重機割り当てなど）も削除されます。
+              この操作は元に戻せません。現場に関連するすべてのデータ（スタッフ割り当て、重機割り当てなど）も削除されます。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

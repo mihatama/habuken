@@ -13,9 +13,9 @@ export function DealEditModal({ dealId, isOpen, onClose }: DealEditModalProps) {
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>案件を編集</DialogTitle>
+          <DialogTitle>現場を編集</DialogTitle>
           <DialogDescription>
-            案件の詳細情報を編集できます。変更内容を保存するには「保存」ボタンをクリックしてください。
+            現場の詳細情報を編集できます。変更内容を保存するには「保存」ボタンをクリックしてください。
           </DialogDescription>
         </DialogHeader>
         <DealEditForm dealId={dealId} onSuccess={onClose} onCancel={onClose} />

@@ -68,7 +68,7 @@ export function DealResourceCalendar() {
           title: deal.name,
           start: new Date(deal.start_date),
           end: deal.end_date ? new Date(deal.end_date) : new Date(deal.start_date),
-          description: `案件: ${deal.name}${deal.description ? `\n${deal.description}` : ""}${deal.location ? `\n場所: ${deal.location}` : ""}${deal.client_name ? `\n顧客: ${deal.client_name}` : ""}`,
+          description: `現場: ${deal.name}${deal.description ? `\n${deal.description}` : ""}${deal.location ? `\n場所: ${deal.location}` : ""}${deal.client_name ? `\n顧客: ${deal.client_name}` : ""}`,
           category: "deal",
           dealId: deal.id,
           resourceType: "deals",
@@ -285,7 +285,7 @@ export function DealResourceCalendar() {
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>案件・リソースカレンダー</CardTitle>
+        <CardTitle>現場・リソースカレンダー</CardTitle>
         <div className="flex items-center gap-2">
           <Select
             value={resourceType}
@@ -303,7 +303,7 @@ export function DealResourceCalendar() {
               </SelectItem>
               <SelectItem value="deals" className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-blue-500" />
-                案件期間
+                現場期間
               </SelectItem>
               <SelectItem value="staff" className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-blue-500" />

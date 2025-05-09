@@ -9,7 +9,7 @@ export function DealsTabs() {
 
   const tabs = [
     {
-      name: "案件リスト",
+      name: "現場リスト",
       href: "/deals",
       icon: "📋",
       current: pathname === "/deals",
@@ -21,7 +21,7 @@ export function DealsTabs() {
       current: pathname === "/deals/calendar",
     },
     {
-      name: "案件登録",
+      name: "現場登録",
       href: "/deals/register",
       icon: "✏️",
       current: pathname === "/deals/register",

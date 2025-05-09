@@ -62,6 +62,10 @@ const dealFormSchema = z.object({
   location: z.string().optional(), // 場所を任意に変更
   status: z.string().optional(), // ステータスを任意に変更
   description: z.string().default(""),
+  contract_amount: z
+    .string()
+    .optional()
+    .transform((val) => (val ? Number.parseFloat(val) : null)),
 })
 
 type DealFormValues = z.infer<typeof dealFormSchema>
@@ -89,6 +93,7 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
     status: "未選択",
     description: "",
     location: "",
+    contract_amount: "",
   }
 
   const form = useForm<DealFormValues>({
@@ -216,6 +221,7 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
           location: data.location || "", // nullではなく空文字列を使用
           status: data.status || "計画中", // 未選択の場合はデフォルト値を使用
           description: data.description || "",
+          contract_amount: data.contract_amount,
           created_by: user.id,
         })
         .select()
@@ -239,8 +245,8 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
       await handleResourceAssignment(supabase, "deal_tools", selectedTools, deal.id, "tool_id", true)
 
       toast({
-        title: "案件登録完了",
-        description: "案件情報が正常に登録されました。",
+        title: "現場登録完了",
+        description: "現場情報が正常に登録されました。",
       })
 
       // フォームをリセット
@@ -258,10 +264,10 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
       // 画面を更新
       router.refresh()
     } catch (error: any) {
-      console.error("案件登録エラー:", error)
+      console.error("現場登録エラー:", error)
       toast({
         title: "エラー",
-        description: `案件の登録に失敗しました: ${error.message || "不明なエラー"}`,
+        description: `現場の登録に失敗しました: ${error.message || "不明なエラー"}`,
         variant: "destructive",
       })
     } finally {
@@ -289,7 +295,7 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>案件名 *</FormLabel>
+                      <FormLabel>現場名 *</FormLabel>
                       <FormControl>
                         <Input placeholder="例: ○○ビル建設工事" {...field} />
                       </FormControl>
@@ -426,6 +432,21 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
 
                 <FormField
                   control={form.control}
+                  name="contract_amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>請負金額（税込）</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="例: 1000000" {...field} />
+                      </FormControl>
+                      <FormDescription>円単位で入力してください（カンマなし）</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
                   name="status"
                   render={({ field }) => (
                     <FormItem>
@@ -457,9 +478,9 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>案件詳細</FormLabel>
+                    <FormLabel>現場詳細</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="案件の詳細情報を入力してください" className="min-h-[120px]" {...field} />
+                      <Textarea placeholder="現場の詳細情報を入力してください" className="min-h-[120px]" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

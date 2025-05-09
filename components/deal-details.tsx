@@ -20,19 +20,19 @@ export function DealDetails({ id }: DealDetailsProps) {
   useEffect(() => {
     async function fetchDealDetails() {
       try {
-        console.log("案件詳細を取得中...", id)
+        console.log("現場詳細を取得中...", id)
         const startTime = performance.now()
 
         // RPCを使用して案件詳細を取得
         const data = await callClientRpc("get_project_details", { project_id: id })
 
         const endTime = performance.now()
-        console.log(`案件詳細取得完了: ${Math.round(endTime - startTime)}ms`)
+        console.log(`現場詳細取得完了: ${Math.round(endTime - startTime)}ms`)
 
         setDealData(data)
       } catch (error) {
-        console.error("案件詳細取得エラー:", error)
-        setError("案件データの読み込み中にエラーが発生しました。")
+        console.error("現場詳細取得エラー:", error)
+        setError("現場データの読み込み中にエラーが発生しました。")
       } finally {
         setLoading(false)
       }
@@ -54,7 +54,7 @@ export function DealDetails({ id }: DealDetailsProps) {
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-8 text-center">
           <AlertCircle className="h-8 w-8 text-red-500 mb-2" />
-          <p>{error || "案件データが見つかりませんでした。"}</p>
+          <p>{error || "現場データが見つかりませんでした。"}</p>
           <Button onClick={() => window.location.reload()} className="mt-4">
             再読み込み
           </Button>
@@ -93,14 +93,14 @@ export function DealDetails({ id }: DealDetailsProps) {
 
       <Tabs defaultValue="details">
         <TabsList>
-          <TabsTrigger value="details">案件詳細</TabsTrigger>
+          <TabsTrigger value="details">現場詳細</TabsTrigger>
           <TabsTrigger value="resources">リソース</TabsTrigger>
           <TabsTrigger value="reports">日報</TabsTrigger>
         </TabsList>
         <TabsContent value="details" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>案件情報</CardTitle>
+              <CardTitle>現場情報</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -113,6 +113,13 @@ export function DealDetails({ id }: DealDetailsProps) {
                   <p className="flex items-center">
                     <DollarSign className="h-4 w-4 mr-1" />
                     {project.budget ? `¥${project.budget.toLocaleString()}` : "未設定"}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-medium text-sm text-muted-foreground">請負金額（税込）</h3>
+                  <p className="flex items-center">
+                    <DollarSign className="h-4 w-4 mr-1" />
+                    {project.contract_amount ? `¥${project.contract_amount.toLocaleString()}` : "未設定"}
                   </p>
                 </div>
                 <div>

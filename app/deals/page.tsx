@@ -2,14 +2,14 @@ import { DealsTabs } from "@/components/deals-tabs"
 import { EnhancedDealsList } from "@/components/enhanced-deals-list"
 
 export const metadata = {
-  title: "案件管理",
-  description: "案件リスト",
+  title: "現場管理",
+  description: "現場リスト",
 }
 
 export default function DealsPage() {
   return (
     <div className="container mx-auto py-6">
-      <h1 className="text-2xl font-bold mb-6">案件管理</h1>
+      <h1 className="text-2xl font-bold mb-6">現場管理</h1>
 
       <DealsTabs />
 

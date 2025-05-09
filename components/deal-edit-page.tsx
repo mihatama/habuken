@@ -36,7 +36,7 @@ export function DealEditPage({ id }: DealEditPageProps) {
           setDealExists(false)
         }
       } catch (error) {
-        console.error("案件確認エラー:", error)
+        console.error("現場確認エラー:", error)
         setDealExists(false)
       } finally {
         setLoading(false)
@@ -49,7 +49,7 @@ export function DealEditPage({ id }: DealEditPageProps) {
   const handleSuccess = () => {
     toast({
       title: "更新完了",
-      description: "案件情報が正常に更新されました。",
+      description: "現場情報が正常に更新されました。",
     })
     router.push("/deals")
   }
@@ -69,9 +69,9 @@ export function DealEditPage({ id }: DealEditPageProps) {
   if (!dealExists) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-2xl font-bold mb-4">案件が見つかりません</h2>
-        <p className="mb-6">指定された案件は存在しないか、アクセス権限がありません。</p>
-        <Button onClick={() => router.push("/deals")}>案件一覧に戻る</Button>
+        <h2 className="text-2xl font-bold mb-4">現場が見つかりません</h2>
+        <p className="mb-6">指定された現場は存在しないか、アクセス権限がありません。</p>
+        <Button onClick={() => router.push("/deals")}>現場一覧に戻る</Button>
       </div>
     )
   }
@@ -84,7 +84,7 @@ export function DealEditPage({ id }: DealEditPageProps) {
             <ArrowLeft className="h-4 w-4 mr-2" />
             詳細に戻る
           </Button>
-          <h1 className="text-2xl font-bold">案件を編集</h1>
+          <h1 className="text-2xl font-bold">現場を編集</h1>
         </div>
       </div>
 

@@ -15,11 +15,11 @@ export function DealRegistrationTabs() {
       <TabsList className="grid grid-cols-3 mb-8">
         <TabsTrigger value="register" className="flex items-center gap-2">
           <PenSquare className="h-4 w-4" />
-          案件登録
+          現場登録
         </TabsTrigger>
         <TabsTrigger value="list" className="flex items-center gap-2">
           <ClipboardList className="h-4 w-4" />
-          案件リスト
+          現場リスト
         </TabsTrigger>
         <TabsTrigger value="calendar" className="flex items-center gap-2">
           <CalendarDays className="h-4 w-4" />

@@ -47,10 +47,10 @@ export function DealDailyReportForm({ dealId }: DealDailyReportFormProps) {
         if (error) throw error
         setDeal(data)
       } catch (error) {
-        console.error("案件データ取得エラー:", error)
+        console.error("現場データ取得エラー:", error)
         toast({
           title: "エラー",
-          description: "案件データの取得ができませんでした",
+          description: "現場データの取得ができませんでした",
           variant: "destructive",
         })
       }
