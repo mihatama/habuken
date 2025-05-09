@@ -188,7 +188,11 @@ export function Header() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
+              onClick={() => {
+                // 既に開いていたら無視
+                if (isMobileNavOpen) return
+                setIsMobileNavOpen(true)
+              }}
               className="text-white hover:bg-darkgray-light hover:text-gold"
             >
               <span className="sr-only">メニューを開く</span>
