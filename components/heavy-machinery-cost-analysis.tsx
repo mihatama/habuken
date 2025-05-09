@@ -184,7 +184,7 @@ export function HeavyMachineryCostAnalysis() {
   })
 
   return (
-    <Card>
+    <Card className="w-full">
       <CardHeader>
         <CardTitle>重機コスト最適化分析</CardTitle>
       </CardHeader>

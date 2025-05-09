@@ -367,18 +367,18 @@ export function SafetyPatrolLog() {
 
   return (
     <Card className="w-full">
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
           <CardTitle>安全・環境巡視日誌</CardTitle>
           <CardDescription>現場の安全・環境巡視記録を確認・管理できます</CardDescription>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+          <div className="relative w-full sm:w-auto">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
               placeholder="検索..."
-              className="pl-8 w-[200px] md:w-[300px]"
+              className="pl-8 w-full sm:w-[200px] md:w-[300px]"
               value={searchQuery}
               onChange={handleSearchChange}
             />

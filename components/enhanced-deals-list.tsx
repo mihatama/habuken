@@ -230,7 +230,7 @@ export function EnhancedDealsList() {
   return (
     <div className="space-y-6">
       {deals.map((deal) => (
-        <Card key={deal.id} className="overflow-hidden">
+        <Card key={deal.id} className="w-full overflow-hidden">
           <CardContent className="p-6">
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-lg font-semibold line-clamp-2">{deal.name}</h3>

@@ -227,15 +227,15 @@ export function StaffList() {
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+    <Card className="w-full">
+      <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <CardTitle>スタッフ一覧</CardTitle>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 w-full sm:w-auto">
           <Input
             placeholder="検索..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-[250px]"
+            className="w-full sm:w-[250px]"
           />
           <Button variant="outline" size="icon" onClick={fetchStaff} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />

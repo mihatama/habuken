@@ -281,7 +281,7 @@ export function DailyReportsTable() {
   }
 
   return (
-    <Card>
+    <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
           <CardTitle>日報データテーブル</CardTitle>

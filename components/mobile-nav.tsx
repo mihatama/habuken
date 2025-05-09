@@ -52,7 +52,10 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm md:hidden">
+    <div
+      className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm md:hidden"
+      style={{ overflow: isOpen ? "hidden" : "auto" }}
+    >
       <div className="fixed inset-y-0 right-0 w-full max-w-sm bg-darkgray shadow-lg overflow-y-auto">
         <div className="flex h-16 items-center justify-between px-4 border-b border-gold/30">
           <div className="flex items-center">
