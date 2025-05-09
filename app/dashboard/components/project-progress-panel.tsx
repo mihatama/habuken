@@ -7,6 +7,12 @@ import { useState, useEffect } from "react"
 import { getClientSupabase } from "@/lib/supabase-utils"
 import { Loader2, AlertCircle } from "lucide-react"
 
+// 以下のimportを修正
+import { Slider } from "@/components/ui/slider"
+// import { Button } from "@/components/ui/button" // 削除
+import { toast } from "@/components/ui/use-toast"
+import { debounce } from "lodash" // 追加
+
 interface Deal {
   id: string
   name: string
@@ -35,6 +41,28 @@ export function ProjectProgressPanel({ deals: initialDeals }: ProjectProgressPan
     } else {
       fetchDeals()
     }
+
+    // 進捗率更新のdebounce関数を作成
+    const debouncedSave = debounce(async (dealId, progress) => {
+      const success = await updateActualProgress(dealId, progress)
+      if (success) {
+        toast({
+          title: "進捗率を更新しました",
+          description: `進捗率を${progress}%に更新しました`,
+        })
+      } else {
+        toast({
+          title: "エラー",
+          description: "進捗率の更新に失敗しました",
+          variant: "destructive",
+        })
+      }
+    }, 1000)
+
+    // コンポーネントのクリーンアップ時にdebounceをキャンセル
+    return () => {
+      debouncedSave.cancel()
+    }
   }, [initialDeals])
 
   // 案件データのフォーマット関数
@@ -61,7 +89,11 @@ export function ProjectProgressPanel({ deals: initialDeals }: ProjectProgressPan
 
       // 実際の進捗率を計算
       // ステータスと期間に基づいて計算
-      const actualProgress = calculateActualProgress(deal.status, startDate, endDate, plannedProgress)
+      // 実際の進捗率はデータベースから取得、なければ計算値を使用
+      const actualProgress =
+        deal.actual_progress !== undefined && deal.actual_progress !== null
+          ? deal.actual_progress
+          : calculateActualProgress(deal.status, startDate, endDate, plannedProgress)
 
       return {
         id: deal.id,
@@ -123,6 +155,19 @@ export function ProjectProgressPanel({ deals: initialDeals }: ProjectProgressPan
     }
   }
 
+  async function updateActualProgress(dealId: string, progress: number) {
+    try {
+      const supabase = getClientSupabase()
+      const { error } = await supabase.from("deals").update({ actual_progress: progress }).eq("id", dealId)
+
+      if (error) throw error
+      return true
+    } catch (err) {
+      console.error("進捗率の更新エラー:", err)
+      return false
+    }
+  }
+
   async function fetchDeals() {
     setIsLoading(true)
     setError(null)
@@ -132,8 +177,8 @@ export function ProjectProgressPanel({ deals: initialDeals }: ProjectProgressPan
 
       // 案件データの取得 - deals テーブルから
       const { data, error } = await supabase
-        .from("deals")
-        .select("id, name, start_date, end_date, status")
+        // .select("id, name, start_date, end_date, status")
+        .select("id, name, start_date, end_date, status, actual_progress")
         .order("start_date", { ascending: false })
 
       if (error) throw error
@@ -253,6 +298,18 @@ export function ProjectProgressPanel({ deals: initialDeals }: ProjectProgressPan
     .sort((a, b) => a.plannedProgress - a.actualProgress - (b.plannedProgress - b.actualProgress))
     .slice(0, 5) // 上位5件のみ表示
 
+  function handleProgressChange(dealId: string, value: number[]) {
+    // ディープコピーを作成して状態を更新
+    const updatedDeals = deals.map((deal) => (deal.id === dealId ? { ...deal, actualProgress: value[0] } : deal))
+    setDeals(updatedDeals)
+
+    // 進捗率を自動保存
+    const deal = updatedDeals.find((d) => d.id === dealId)
+    if (deal) {
+      updateActualProgress(dealId, deal.actualProgress)
+    }
+  }
+
   if (isLoading) {
     return (
       <Card className="col-span-full md:col-span-1">
@@ -302,11 +359,24 @@ export function ProjectProgressPanel({ deals: initialDeals }: ProjectProgressPan
                 <Badge variant={getStatusVariant(deal.status)}>{deal.status}</Badge>
               </div>
               <div className="space-y-1">
+                {/* <div className="flex items-center justify-between text-sm">
+                  <span>実際の進捗</span>
+                  <span className="font-medium">{deal.actualProgress}%</span>
+                </div>
+                <Progress value={deal.actualProgress} className="h-2" /> */}
                 <div className="flex items-center justify-between text-sm">
                   <span>実際の進捗</span>
                   <span className="font-medium">{deal.actualProgress}%</span>
                 </div>
-                <Progress value={deal.actualProgress} className="h-2" />
+                <div className="py-2">
+                  <Slider
+                    value={[deal.actualProgress]}
+                    min={0}
+                    max={100}
+                    step={1}
+                    onValueChange={(value) => handleProgressChange(deal.id, value)}
+                  />
+                </div>
                 <div className="flex items-center justify-between text-sm">
                   <span>計画上の進捗</span>
                   <span
