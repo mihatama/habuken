@@ -984,7 +984,7 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl flex flex-col h-screen sm:h-auto">
         <DialogHeader>
           <DialogTitle>作業日報の作成</DialogTitle>
           <DialogDescription>作業日報の詳細情報を入力してください。*は必須項目です。</DialogDescription>
@@ -994,281 +994,288 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
             <p>データを読み込み中...</p>
           </div>
         ) : (
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label>案件名 *</Label>
-              <div className="space-y-2">
-                <Select value={formData.projectId} onValueChange={handleProjectChange}>
-                  <SelectTrigger id="projectId">
-                    <SelectValue placeholder="案件を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="placeholder" disabled>
-                      案件を選択してください
-                    </SelectItem>
-                    {deals.map((deal: any) => (
-                      <SelectItem key={`deal-${deal.id}`} value={deal.id}>
-                        {deal.name}
+          <div className="overflow-auto flex-1 px-4 space-y-4">
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label>案件名 *</Label>
+                <div className="space-y-2">
+                  <Select value={formData.projectId} onValueChange={handleProjectChange}>
+                    <SelectTrigger id="projectId">
+                      <SelectValue placeholder="案件を選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="placeholder" disabled>
+                        案件を選択してください
                       </SelectItem>
-                    ))}
-                    <SelectItem value="custom">その他（手入力）</SelectItem>
-                  </SelectContent>
-                </Select>
+                      {deals.map((deal: any) => (
+                        <SelectItem key={`deal-${deal.id}`} value={deal.id}>
+                          {deal.name}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="custom">その他（手入力）</SelectItem>
+                    </SelectContent>
+                  </Select>
 
-                {showCustomInput && (
+                  {showCustomInput && (
+                    <Input
+                      id="customProject"
+                      placeholder="案件名を入力"
+                      value={customProject}
+                      onChange={(e) => setCustomProject(e.target.value)}
+                    />
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="userId">登録者 *</Label>
+                  <Select
+                    value={formData.userId}
+                    onValueChange={(value) => setFormData({ ...formData, userId: value })}
+                  >
+                    <SelectTrigger id="userId">
+                      <SelectValue placeholder="登録者を選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="placeholder" disabled>
+                        登録者を選択してください
+                      </SelectItem>
+                      {staff.map((s: any) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="workDate">作業日 *</Label>
                   <Input
-                    id="customProject"
-                    placeholder="案件名を入力"
-                    value={customProject}
-                    onChange={(e) => setCustomProject(e.target.value)}
+                    id="workDate"
+                    type="date"
+                    value={formData.workDate}
+                    onChange={(e) => setFormData({ ...formData, workDate: e.target.value })}
                   />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="startTime">作業開始時間 *</Label>
+                  <Input id="startTime" type="time" value={formData.startTime} onChange={handleStartTimeChange} />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="endTime">作業終了時間 *</Label>
+                  <Input id="endTime" type="time" value={formData.endTime} onChange={handleEndTimeChange} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="weather">天候</Label>
+                  <Select
+                    value={formData.weather}
+                    onValueChange={(value) => setFormData({ ...formData, weather: value })}
+                  >
+                    <SelectTrigger id="weather">
+                      <SelectValue placeholder="天候を選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sunny">晴れ</SelectItem>
+                      <SelectItem value="cloudy">曇り</SelectItem>
+                      <SelectItem value="rainy">雨</SelectItem>
+                      <SelectItem value="snowy">雪</SelectItem>
+                      <SelectItem value="windy">強風</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="workContentText">作業内容 *</Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={isRecording ? "destructive" : "outline"}
+                    onClick={toggleSpeechRecognition}
+                    className={`flex items-center gap-1 ${isRecording ? "animate-pulse" : ""}`}
+                  >
+                    {isRecording ? (
+                      <>
+                        <MicOff size={16} /> 録音停止
+                      </>
+                    ) : (
+                      <>
+                        <Mic size={16} /> 音声入力
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <Textarea
+                  id="workContentText"
+                  value={formData.workContentText}
+                  onChange={(e) => setFormData({ ...formData, workContentText: e.target.value })}
+                  placeholder="作業内容を入力してください"
+                  className="min-h-[150px]"
+                />
+                {isRecording && (
+                  <div className="text-sm text-green-600 animate-pulse">
+                    音声を認識中... マイクに向かって話してください
+                  </div>
+                )}
+                {!speechSupported && (
+                  <div className="text-sm text-amber-500">
+                    お使いのブラウザは音声入力に対応していません。Chrome、Safari、Edgeなどの最新ブラウザをお試しください。
+                  </div>
                 )}
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="userId">登録者 *</Label>
-                <Select value={formData.userId} onValueChange={(value) => setFormData({ ...formData, userId: value })}>
-                  <SelectTrigger id="userId">
-                    <SelectValue placeholder="登録者を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="placeholder" disabled>
-                      登録者を選択してください
-                    </SelectItem>
-                    {staff.map((s: any) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="workDate">作業日 *</Label>
-                <Input
-                  id="workDate"
-                  type="date"
-                  value={formData.workDate}
-                  onChange={(e) => setFormData({ ...formData, workDate: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="startTime">作業開始時間 *</Label>
-                <Input id="startTime" type="time" value={formData.startTime} onChange={handleStartTimeChange} />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="endTime">作業終了時間 *</Label>
-                <Input id="endTime" type="time" value={formData.endTime} onChange={handleEndTimeChange} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="weather">天候</Label>
-                <Select
-                  value={formData.weather}
-                  onValueChange={(value) => setFormData({ ...formData, weather: value })}
-                >
-                  <SelectTrigger id="weather">
-                    <SelectValue placeholder="天候を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sunny">晴れ</SelectItem>
-                    <SelectItem value="cloudy">曇り</SelectItem>
-                    <SelectItem value="rainy">雨</SelectItem>
-                    <SelectItem value="snowy">雪</SelectItem>
-                    <SelectItem value="windy">強風</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="workContentText">作業内容 *</Label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={isRecording ? "destructive" : "outline"}
-                  onClick={toggleSpeechRecognition}
-                  className={`flex items-center gap-1 ${isRecording ? "animate-pulse" : ""}`}
-                >
-                  {isRecording ? (
-                    <>
-                      <MicOff size={16} /> 録音停止
-                    </>
-                  ) : (
-                    <>
-                      <Mic size={16} /> 音声入力
-                    </>
-                  )}
-                </Button>
-              </div>
-              <Textarea
-                id="workContentText"
-                value={formData.workContentText}
-                onChange={(e) => setFormData({ ...formData, workContentText: e.target.value })}
-                placeholder="作業内容を入力してください"
-                className="min-h-[150px]"
-              />
-              {isRecording && (
-                <div className="text-sm text-green-600 animate-pulse">
-                  音声を認識中... マイクに向かって話してください
+                <div className="flex items-center justify-between">
+                  <Label>作業者</Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={addWorker}
+                    className="flex items-center gap-1"
+                  >
+                    <Plus size={16} /> 作業者を追加
+                  </Button>
                 </div>
-              )}
-              {!speechSupported && (
-                <div className="text-sm text-amber-500">
-                  お使いのブラウザは音声入力に対応していません。Chrome、Safari、Edgeなどの最新ブラウザをお試しください。
-                </div>
-              )}
-            </div>
-            <div className="grid gap-2">
-              <div className="flex items-center justify-between">
-                <Label>作業者</Label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={addWorker}
-                  className="flex items-center gap-1"
-                >
-                  <Plus size={16} /> 作業者を追加
-                </Button>
-              </div>
 
-              {formData.workers.length === 0 ? (
-                <div className="text-sm text-muted-foreground py-2">
-                  作業者が登録されていません。登録者が作業者として自動的に記録されます。
+                {formData.workers.length === 0 ? (
+                  <div className="text-sm text-muted-foreground py-2">
+                    作業者が登録されていません。登録者が作業者として自動的に記録されます。
+                  </div>
+                ) : (
+                  <div className="space-y-3 mt-2">
+                    {formData.workers.map((worker, index) => (
+                      <div key={index} className="border rounded-md p-3 relative">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute top-2 right-2 h-6 w-6 p-0"
+                          onClick={() => removeWorker(index)}
+                        >
+                          <X size={14} />
+                        </Button>
+
+                        <div className="grid gap-3">
+                          <div className="grid gap-2">
+                            <Label htmlFor={`worker-${index}-name`}>名前</Label>
+                            <Select value={worker.id} onValueChange={(value) => changeWorkerStaff(index, value)}>
+                              <SelectTrigger id={`worker-${index}-name`}>
+                                <SelectValue placeholder="作業者を選択" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {staff.map((s) => (
+                                  <SelectItem key={`worker-staff-${s.id}`} value={s.id}>
+                                    {s.full_name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="grid gap-2">
+                              <Label htmlFor={`worker-${index}-start`}>開始時間</Label>
+                              <Input
+                                id={`worker-${index}-start`}
+                                type="time"
+                                value={worker.startTime}
+                                onChange={(e) => updateWorker(index, "startTime", e.target.value)}
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <Label htmlFor={`worker-${index}-end`}>終了時間</Label>
+                              <Input
+                                id={`worker-${index}-end`}
+                                type="time"
+                                value={worker.endTime}
+                                onChange={(e) => updateWorker(index, "endTime", e.target.value)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="grid gap-2">
+                <Label>写真添付</Label>
+                {!bucketExists && (
+                  <div className="text-amber-500 text-sm mb-2">
+                    ※ 写真保存用のストレージが設定されていません。写真は保存されません。
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
+                  <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={handleCameraCapture}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1"
+                    disabled={!bucketExists || isCompressing}
+                  >
+                    {isCompressing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus size={16} />} 写真を選択
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="flex items-center gap-1"
+                    disabled={!bucketExists || isCompressing}
+                  >
+                    {isCompressing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Camera size={16} />}{" "}
+                    カメラで撮影
+                  </Button>
                 </div>
-              ) : (
-                <div className="space-y-3 mt-2">
-                  {formData.workers.map((worker, index) => (
-                    <div key={index} className="border rounded-md p-3 relative">
+                {isCompressing && (
+                  <div className="text-sm text-blue-600 animate-pulse mt-2">
+                    写真を最適化中... しばらくお待ちください
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {photoFiles.map((file, index) => (
+                    <Badge key={index} variant="outline" className="flex items-center gap-1 p-1">
+                      <ImageIcon className="h-3 w-3 mr-1" />
+                      <span className="max-w-[150px] truncate">{file.name}</span>
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="absolute top-2 right-2 h-6 w-6 p-0"
-                        onClick={() => removeWorker(index)}
+                        className="h-5 w-5 p-0 ml-1"
+                        onClick={() => removePhoto(index)}
                       >
-                        <X size={14} />
+                        <X size={12} />
                       </Button>
-
-                      <div className="grid gap-3">
-                        <div className="grid gap-2">
-                          <Label htmlFor={`worker-${index}-name`}>名前</Label>
-                          <Select value={worker.id} onValueChange={(value) => changeWorkerStaff(index, value)}>
-                            <SelectTrigger id={`worker-${index}-name`}>
-                              <SelectValue placeholder="作業者を選択" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {staff.map((s) => (
-                                <SelectItem key={`worker-staff-${s.id}`} value={s.id}>
-                                  {s.full_name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="grid gap-2">
-                            <Label htmlFor={`worker-${index}-start`}>開始時間</Label>
-                            <Input
-                              id={`worker-${index}-start`}
-                              type="time"
-                              value={worker.startTime}
-                              onChange={(e) => updateWorker(index, "startTime", e.target.value)}
-                            />
-                          </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor={`worker-${index}-end`}>終了時間</Label>
-                            <Input
-                              id={`worker-${index}-end`}
-                              type="time"
-                              value={worker.endTime}
-                              onChange={(e) => updateWorker(index, "endTime", e.target.value)}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    </Badge>
                   ))}
                 </div>
-              )}
-            </div>
-            <div className="grid gap-2">
-              <Label>写真添付</Label>
-              {!bucketExists && (
-                <div className="text-amber-500 text-sm mb-2">
-                  ※ 写真保存用のストレージが設定されていません。写真は保存されません。
-                </div>
-              )}
-              <div className="flex flex-wrap gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
-                <input
-                  ref={cameraInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={handleCameraCapture}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-1"
-                  disabled={!bucketExists || isCompressing}
-                >
-                  {isCompressing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus size={16} />} 写真を選択
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => cameraInputRef.current?.click()}
-                  className="flex items-center gap-1"
-                  disabled={!bucketExists || isCompressing}
-                >
-                  {isCompressing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Camera size={16} />}{" "}
-                  カメラで撮影
-                </Button>
-              </div>
-              {isCompressing && (
-                <div className="text-sm text-blue-600 animate-pulse mt-2">写真を最適化中... しばらくお待ちください</div>
-              )}
-              <div className="flex flex-wrap gap-2 mt-2">
-                {photoFiles.map((file, index) => (
-                  <Badge key={index} variant="outline" className="flex items-center gap-1 p-1">
-                    <ImageIcon className="h-3 w-3 mr-1" />
-                    <span className="max-w-[150px] truncate">{file.name}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-5 w-5 p-0 ml-1"
-                      onClick={() => removePhoto(index)}
-                    >
-                      <X size={12} />
-                    </Button>
-                  </Badge>
-                ))}
               </div>
             </div>
           </div>
         )}
-        <DialogFooter>
-          <Button onClick={handleSubmit} disabled={isSubmitting || loading || isCompressing}>
+        <DialogFooter className="flex-none bg-white p-4">
+          <Button onClick={handleSubmit} disabled={isSubmitting || loading || isCompressing} className="w-full">
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 保存中...
