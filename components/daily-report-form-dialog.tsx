@@ -782,16 +782,21 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
       return
     }
 
-    if (
-      !formData.userId ||
-      formData.userId === "placeholder" ||
-      !formData.workContentText ||
-      !formData.startTime ||
-      !formData.endTime
-    ) {
+    // 必須項目のみをチェック
+    const requiredFields = {
+      userId: "登録者",
+      workDate: "作業日",
+      workContentText: "作業内容",
+      startTime: "作業開始時間",
+      endTime: "作業終了時間",
+    }
+
+    const missingFields = Object.entries(requiredFields).filter(([key, _]) => !formData[key as keyof typeof formData])
+
+    if (missingFields.length > 0) {
       toast({
         title: "入力エラー",
-        description: "必須項目を入力してください",
+        description: `以下の必須項目を入力してください: ${missingFields.map(([_, label]) => label).join(", ")}`,
         variant: "destructive",
       })
       return
@@ -907,6 +912,17 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
 
         if (!response.ok) {
           const errorData = await response.json()
+
+          // バリデーションエラーの場合
+          if (response.status === 400 && errorData.missingFields) {
+            toast({
+              title: "入力エラー",
+              description: errorData.error || "必須項目を入力してください",
+              variant: "destructive",
+            })
+            return
+          }
+
           throw new Error(`APIエラー: ${errorData.error || response.statusText}`)
         }
 

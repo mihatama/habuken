@@ -21,6 +21,30 @@ export async function POST(request: Request) {
       auth: { persistSession: false },
     })
 
+    // POST関数内のバリデーション部分を修正します
+
+    // 必須項目のチェック
+    const requiredFields = {
+      report_date: "作業日",
+      work_description: "作業内容",
+      submitted_by: "登録者",
+      start_time: "作業開始時間",
+      end_time: "作業終了時間",
+    }
+
+    const missingFields = Object.entries(requiredFields).filter(([key, _]) => !reportData[key])
+
+    if (missingFields.length > 0) {
+      console.error("API: 必須項目が不足しています:", missingFields)
+      return NextResponse.json(
+        {
+          error: `以下の必須項目を入力してください: ${missingFields.map(([_, label]) => label).join(", ")}`,
+          missingFields: missingFields.map(([key, _]) => key),
+        },
+        { status: 400 },
+      )
+    }
+
     // project_idとdeal_idの処理
     console.log("API: project_idの処理前:", reportData.project_id)
 
