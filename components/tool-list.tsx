@@ -377,16 +377,15 @@ export function ToolList() {
           <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isRefreshing} title="リスト更新">
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
           </Button>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <Dialog
+            open={isAddDialogOpen}
+            onOpenChange={(open) => {
+              setIsAddDialogOpen(open)
+              if (open) setFormErrors({})
+            }}
+          >
             <DialogTrigger asChild>
-              <Button
-                variant="gold"
-                onClick={(e) => {
-                  e.preventDefault()
-                  setIsAddDialogOpen(true)
-                  setFormErrors({})
-                }}
-              >
+              <Button variant="gold">
                 <Plus className="mr-2 h-4 w-4" />
                 新規備品
               </Button>
@@ -477,7 +476,7 @@ export function ToolList() {
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={isLoading}>
                   キャンセル
                 </Button>
-                <Button variant="gold" type="button" onClick={() => addTool()} disabled={isLoading}>
+                <Button variant="gold" type="button" onClick={addTool} disabled={isLoading}>
                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   追加
                 </Button>
