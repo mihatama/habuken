@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Loader2, AlertCircle, Search, Cloud, CloudRain, Sun, CloudSun, Wind, Droplets } from "lucide-react"
-import { OPENWEATHER_API_KEY } from "@/lib/constants"
 
 interface WeatherData {
   main: {
@@ -50,12 +49,12 @@ export function WeatherForecastPanel() {
     setError(null)
 
     try {
-      const response = await fetch(
-        `https://api.openweathermap.org/data/2.5/weather?zip=${formattedZip},JP&appid=${OPENWEATHER_API_KEY}&units=metric&lang=ja`,
-      )
+      // サーバーサイドAPIルートを使用
+      const response = await fetch(`/api/weather?zipCode=${formattedZip}`)
 
       if (!response.ok) {
-        throw new Error(`天気情報の取得に失敗しました（${response.status}）`)
+        const errorData = await response.json()
+        throw new Error(errorData.error || `天気情報の取得に失敗しました（${response.status}）`)
       }
 
       const data = await response.json()

@@ -102,7 +102,7 @@ self.addEventListener("fetch", (event) => {
         // キャッシュにヒットした場合はそれを返し、バックグラウンドで更新
         const fetchPromise = fetch(request)
           .then((networkResponse) => {
-            // 有効なレスポンスの場合はキャッシュを更新
+            // 有効なレスポンスの場合はキャッシュ���更新
             if (networkResponse && networkResponse.status === 200) {
               const responseToCache = networkResponse.clone()
               caches.open(CACHE_NAME).then((cache) => {
