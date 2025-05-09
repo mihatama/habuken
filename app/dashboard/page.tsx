@@ -5,13 +5,13 @@ import { DashboardClient } from "./dashboard-client"
 import { Skeleton } from "@/components/ui/skeleton"
 
 export const metadata: Metadata = {
-  title: "ダッシュボード | 工事管理システム",
-  description: "案件カレンダーとリソース割り当て状況を一目で確認できるダッシュボード",
+  title: "一覧表示 | 工事管理システム",
+  description: "現場カレンダーと割り当て状況を一目で確認できるダッシュボード",
 }
 
 export default function DashboardPage() {
   return (
-    <DashboardLayout title="ダッシュボード" description="案件カレンダーとリソース割り当て状況を一目で確認できます">
+    <DashboardLayout title="一覧表示" description="現場カレンダーと割り当て状況を一目で確認できます">
       <Suspense
         fallback={
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

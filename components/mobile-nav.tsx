@@ -99,7 +99,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
             onClick={() => handleNavigation("/dashboard")}
           >
             <LayoutDashboard className="h-4 w-4 mr-2" />
-            ダッシュボード
+            一覧表示
           </Button>
           <Button
             variant="ghost"
@@ -107,7 +107,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
             onClick={() => handleNavigation("/deals")}
           >
             <Briefcase className="h-4 w-4 mr-2" />
-            案件
+            現場
           </Button>
           <Button
             variant="ghost"

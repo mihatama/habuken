@@ -80,7 +80,7 @@ export function DailyWorkReportList() {
     if (report.custom_project_name) {
       return report.custom_project_name
     }
-    return "不明な案件"
+    return "不明な現場"
   }
 
   // 現在のユーザー情報を取得

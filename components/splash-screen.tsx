@@ -12,6 +12,15 @@ export function SplashScreen() {
   useEffect(() => {
     setIsLoaded(true)
 
+    // 現在のパスを取得
+    const currentPath = window.location.pathname
+
+    // ログインページの場合は即座に非表示にする
+    if (currentPath === "/login") {
+      hideSplash()
+      return
+    }
+
     // 3秒後に自動的に非表示にする
     const timer = setTimeout(() => {
       hideSplash()

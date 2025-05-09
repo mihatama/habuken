@@ -6,6 +6,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/contexts/auth-context"
+import { useSplash } from "@/contexts/splash-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -18,7 +19,13 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { signIn, loading, user } = useAuth()
+  const { hideSplash } = useSplash()
   const router = useRouter()
+
+  // ログインページがマウントされたときにスプラッシュを非表示にする
+  useEffect(() => {
+    hideSplash()
+  }, [hideSplash])
 
   // ユーザーが既にログインしている場合はダッシュボードにリダイレクト
   useEffect(() => {

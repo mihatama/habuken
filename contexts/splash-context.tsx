@@ -9,17 +9,25 @@ interface SplashContextType {
 
 const SplashContext = createContext<SplashContextType | undefined>(undefined)
 
+// セッション期間（24時間 = 86400000ミリ秒）
+const SESSION_DURATION = 86400000
+
 export function SplashProvider({ children }: { children: ReactNode }) {
   const [showSplash, setShowSplash] = useState(true)
 
   useEffect(() => {
-    // スプラッシュ画面を4秒後に自動的に非表示にする
-    // (アニメーションが3.5秒なので、少し余裕を持たせる)
-    const timer = setTimeout(() => {
-      setShowSplash(false)
-    }, 4000)
+    // ローカルストレージからスプラッシュ表示状態を取得
+    const splashShown = localStorage.getItem("splashShown")
+    const currentPath = window.location.pathname
 
-    return () => clearTimeout(timer)
+    // 初回訪問時またはセッションが切れた場合のみスプラッシュを表示
+    // ただし、ログインページ(/login)では表示しない
+    if ((!splashShown || Date.now() - Number.parseInt(splashShown) > SESSION_DURATION) && currentPath !== "/login") {
+      setShowSplash(true)
+      localStorage.setItem("splashShown", Date.now().toString())
+    } else {
+      setShowSplash(false)
+    }
   }, [])
 
   const hideSplash = () => setShowSplash(false)

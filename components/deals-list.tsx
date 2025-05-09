@@ -57,7 +57,7 @@ export function DealsList() {
       setDeals(data || [])
     } catch (err: any) {
       console.error("案件データの取得エラー:", err)
-      setError("案件データの取得中にエラーが発生しました。")
+      setError("現場データの取得中にエラーが発生しました。")
     } finally {
       setLoading(false)
     }
@@ -92,7 +92,7 @@ export function DealsList() {
       console.error("案件削除エラー:", err)
       toast({
         title: "エラー",
-        description: `案件の削除に失敗しました: ${err.message || "不明なエラー"}`,
+        description: `現場の削除に失敗しました: ${err.message || "不明なエラー"}`,
         variant: "destructive",
       })
     } finally {
@@ -150,8 +150,8 @@ export function DealsList() {
     return (
       <Card className="p-6">
         <div className="flex flex-col items-center justify-center py-8 text-center">
-          <h3 className="text-xl font-semibold mb-2">案件がありません</h3>
-          <p className="text-muted-foreground mb-4">新しい案件を登録してください</p>
+          <h3 className="text-xl font-semibold mb-2">現場がありません</h3>
+          <p className="text-muted-foreground mb-4">新しい現場を登録してください</p>
           <DealRegistrationModal />
         </div>
       </Card>
@@ -227,9 +227,9 @@ export function DealsList() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>案件を削除しますか？</AlertDialogTitle>
+            <AlertDialogTitle>現場を削除しますか？</AlertDialogTitle>
             <AlertDialogDescription>
-              この操作は元に戻せません。案件に関連するすべてのデータ（スタッフ割り当て、重機割り当てなど）も削除されます。
+              この操作は元に戻せません。現場に関連するすべてのデータ（スタッフ割り当て、重機割り当てなど）も削除されます。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

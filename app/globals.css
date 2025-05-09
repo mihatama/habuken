@@ -325,6 +325,23 @@ html {
   }
 }
 
+@keyframes logoFadeIn {
+  0%,
+  20% {
+    opacity: 0;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-logo-fade-in {
+  animation: logoFadeIn 2.5s ease-out forwards;
+}
+
 .animate-fade-in-blur {
   animation: fadeInBlur 1.5s ease-out forwards;
 }

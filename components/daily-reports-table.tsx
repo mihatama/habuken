@@ -178,7 +178,7 @@ export function DailyReportsTable() {
       const { data: dealsData, error: dealsError } = await supabase.from("deals").select("id, name")
 
       if (dealsError) {
-        console.error("案件データの取得エラー:", dealsError)
+        console.error("現場データの取得エラー:", dealsError)
         throw dealsError
       }
 
@@ -261,7 +261,7 @@ export function DailyReportsTable() {
     if (report.custom_project_name) {
       return report.custom_project_name
     }
-    return "不明な案件"
+    return "不明な現場"
   }
 
   if (error) {

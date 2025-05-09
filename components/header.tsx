@@ -75,7 +75,7 @@ export function Header() {
                 }}
               >
                 <LayoutDashboard className="h-4 w-4" />
-                ダッシュボード
+                一覧表示
               </Link>
               <Link
                 href="/deals"
@@ -86,7 +86,7 @@ export function Header() {
                 }}
               >
                 <Briefcase className="h-4 w-4" />
-                案件
+                現場
               </Link>
               <Link
                 href="/master/staff"
