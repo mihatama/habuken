@@ -7,7 +7,7 @@ import { useState, useEffect } from "react"
 import { getClientSupabase } from "@/lib/supabase-utils"
 import { Loader2, AlertCircle } from "lucide-react"
 
-interface Project {
+interface Deal {
   id: string
   name: string
   startDate: Date
@@ -17,72 +17,138 @@ interface Project {
   plannedProgress: number
 }
 
-export function ProjectProgressPanel() {
-  const [projects, setProjects] = useState<Project[]>([])
+interface ProjectProgressPanelProps {
+  deals?: any[] // 親コンポーネントから渡される案件データ
+}
+
+export function ProjectProgressPanel({ deals: initialDeals }: ProjectProgressPanelProps) {
+  const [deals, setDeals] = useState<Deal[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchProjects()
-  }, [])
+    if (initialDeals && initialDeals.length > 0) {
+      // 親コンポーネントからデータが渡された場合はそれを使用
+      const formattedDeals = formatDeals(initialDeals)
+      setDeals(formattedDeals)
+      setIsLoading(false)
+    } else {
+      fetchDeals()
+    }
+  }, [initialDeals])
 
-  async function fetchProjects() {
+  // 案件データのフォーマット関数
+  function formatDeals(data) {
+    const today = new Date()
+
+    return data.map((deal) => {
+      const startDate = deal.start_date
+        ? new Date(deal.start_date)
+        : new Date(today.getFullYear(), today.getMonth() - 1, 1)
+      const endDate = deal.end_date ? new Date(deal.end_date) : new Date(today.getFullYear(), today.getMonth() + 2, 0)
+
+      // 計画上の進捗率を計算（開始日から終了日までの期間における現在日付の位置）
+      let plannedProgress = 0
+
+      if (endDate) {
+        const totalDuration = endDate.getTime() - startDate.getTime()
+        const elapsedDuration = today.getTime() - startDate.getTime()
+
+        if (totalDuration > 0) {
+          plannedProgress = Math.min(Math.max(Math.round((elapsedDuration / totalDuration) * 100), 0), 100)
+        }
+      }
+
+      // 実際の進捗率を計算
+      // ステータスと期間に基づいて計算
+      const actualProgress = calculateActualProgress(deal.status, startDate, endDate, plannedProgress)
+
+      return {
+        id: deal.id,
+        name: deal.name,
+        startDate: startDate,
+        endDate: endDate,
+        status: getStatusLabel(deal.status || "in_progress"),
+        actualProgress: actualProgress,
+        plannedProgress: plannedProgress,
+      }
+    })
+  }
+
+  // ステータスと期間に基づいて実際の進捗率を計算
+  function calculateActualProgress(
+    status: string,
+    startDate: Date,
+    endDate: Date | null,
+    plannedProgress: number,
+  ): number {
+    const today = new Date()
+
+    // ステータスに基づく進捗率の計算
+    switch (status) {
+      case "completed":
+      case "完了":
+        return 100
+
+      case "suspended":
+      case "中断":
+        // 中断された案件は計画進捗の80%程度と仮定
+        return Math.round(plannedProgress * 0.8)
+
+      case "planned":
+      case "計画中":
+      case "準備中":
+        // 準備中の案件は開始前なら5%、開始後は計画進捗の30%程度と仮定
+        if (today < startDate) return 5
+        return Math.min(Math.max(Math.round(plannedProgress * 0.3), 5), 30)
+
+      case "in_progress":
+      case "進行中":
+        // 進行中の案件は計画進捗に基づいて計算
+        // 開始直後は少し遅れ気味、中盤で追いつき、終盤で計画通りと仮定
+        if (plannedProgress < 30) {
+          // 初期段階: 計画より少し遅れ気味 (計画の85%)
+          return Math.round(plannedProgress * 0.85)
+        } else if (plannedProgress < 70) {
+          // 中盤: 計画に近づく (計画の95%)
+          return Math.round(plannedProgress * 0.95)
+        } else {
+          // 終盤: 計画通りに進行
+          return plannedProgress
+        }
+
+      default:
+        // デフォルトは計画進捗と同じ
+        return plannedProgress
+    }
+  }
+
+  async function fetchDeals() {
     setIsLoading(true)
     setError(null)
 
     try {
       const supabase = getClientSupabase()
 
-      // 案件データの取得
+      // 案件データの取得 - deals テーブルから
       const { data, error } = await supabase
         .from("deals")
-        .select("id, name, start_date, end_date, status, progress")
+        .select("id, name, start_date, end_date, status")
         .order("start_date", { ascending: false })
 
       if (error) throw error
 
-      const today = new Date()
+      // 抽出した関数を使用
+      const formattedDeals = formatDeals(data)
 
-      // データの整形と進捗計算
-      const formattedProjects = data.map((project) => {
-        const startDate = project.start_date
-          ? new Date(project.start_date)
-          : new Date(today.getFullYear(), today.getMonth() - 1, 1)
-        const endDate = project.end_date
-          ? new Date(project.end_date)
-          : new Date(today.getFullYear(), today.getMonth() + 2, 0)
-
-        // 計画上の進捗率を計算（開始日から終了日までの期間における現在日付の位置）
-        let plannedProgress = 0
-
-        if (endDate) {
-          const totalDuration = endDate.getTime() - startDate.getTime()
-          const elapsedDuration = today.getTime() - startDate.getTime()
-
-          if (totalDuration > 0) {
-            plannedProgress = Math.min(Math.max(Math.round((elapsedDuration / totalDuration) * 100), 0), 100)
-          }
-        }
-
-        return {
-          id: project.id,
-          name: project.name,
-          startDate: startDate,
-          endDate: endDate,
-          status: getStatusLabel(project.status || "in_progress"),
-          actualProgress: project.progress || Math.floor(Math.random() * 100), // 実際の進捗（ない場合はランダム値）
-          plannedProgress: plannedProgress, // 計画上の進捗
-        }
-      })
-
-      setProjects(formattedProjects)
+      setDeals(formattedDeals)
     } catch (err) {
       console.error("案件データの取得エラー:", err)
       setError("データの取得中にエラーが発生しました。")
 
       // エラー時はダミーデータを使用
       const today = new Date()
-      setProjects([
+      setDeals([
         {
           id: "1",
           name: "東京都港区オフィスビル新築工事",
@@ -141,6 +207,11 @@ export function ProjectProgressPanel() {
       planned: "準備中",
       completed: "完了",
       suspended: "中断",
+      計画中: "準備中",
+      進行中: "進行中",
+      完了: "完了",
+      中断: "中断",
+      準備中: "準備中",
     }
     return statusMap[status] || status
   }
@@ -177,9 +248,9 @@ export function ProjectProgressPanel() {
   }
 
   // 進行中の案件のみをフィルタリングし、実際の進捗率と計画進捗率の差でソート
-  const activeProjects = projects
-    .filter((project) => project.status === "進行中" || project.status === "準備中")
-    .sort((a, b) => b.actualProgress - b.plannedProgress - (a.actualProgress - a.plannedProgress))
+  const activeDeals = deals
+    .filter((deal) => deal.status === "進行中" || deal.status === "準備中")
+    .sort((a, b) => a.plannedProgress - a.actualProgress - (b.plannedProgress - b.actualProgress))
     .slice(0, 5) // 上位5件のみ表示
 
   if (isLoading) {
@@ -206,7 +277,7 @@ export function ProjectProgressPanel() {
             <AlertCircle className="h-5 w-5" />
             <p>{error}</p>
           </div>
-          {activeProjects.length > 0 && <p className="text-sm text-muted-foreground">ダミーデータを表示しています</p>}
+          {activeDeals.length > 0 && <p className="text-sm text-muted-foreground">ダミーデータを表示しています</p>}
         </CardContent>
       </Card>
     )
@@ -218,40 +289,40 @@ export function ProjectProgressPanel() {
         <CardTitle>現場進捗</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {activeProjects.length > 0 ? (
-          activeProjects.map((project) => (
-            <div key={project.id} className="space-y-2">
+        {activeDeals.length > 0 ? (
+          activeDeals.map((deal) => (
+            <div key={deal.id} className="space-y-2">
               <div className="flex justify-between items-center">
                 <div>
-                  <div className="font-medium">{project.name}</div>
+                  <div className="font-medium">{deal.name}</div>
                   <div className="text-caption text-muted-foreground">
-                    {formatDate(project.startDate)} ~ {formatDate(project.endDate)}
+                    {formatDate(deal.startDate)} ~ {formatDate(deal.endDate)}
                   </div>
                 </div>
-                <Badge variant={getStatusVariant(project.status)}>{project.status}</Badge>
+                <Badge variant={getStatusVariant(deal.status)}>{deal.status}</Badge>
               </div>
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-sm">
                   <span>実際の進捗</span>
-                  <span className="font-medium">{project.actualProgress}%</span>
+                  <span className="font-medium">{deal.actualProgress}%</span>
                 </div>
-                <Progress value={project.actualProgress} className="h-2" />
+                <Progress value={deal.actualProgress} className="h-2" />
                 <div className="flex items-center justify-between text-sm">
                   <span>計画上の進捗</span>
                   <span
-                    className={`font-medium ${getProgressDifferenceColor(project.actualProgress, project.plannedProgress)}`}
+                    className={`font-medium ${getProgressDifferenceColor(deal.actualProgress, deal.plannedProgress)}`}
                   >
-                    {project.plannedProgress}%
-                    {project.actualProgress !== project.plannedProgress && (
+                    {deal.plannedProgress}%
+                    {deal.actualProgress !== deal.plannedProgress && (
                       <span>
                         {" "}
-                        ({project.actualProgress > project.plannedProgress ? "+" : ""}
-                        {project.actualProgress - project.plannedProgress}%)
+                        ({deal.actualProgress > deal.plannedProgress ? "+" : ""}
+                        {deal.actualProgress - deal.plannedProgress}%)
                       </span>
                     )}
                   </span>
                 </div>
-                <Progress value={project.plannedProgress} className="h-1 opacity-60" />
+                <Progress value={deal.plannedProgress} className="h-1 opacity-60" />
               </div>
             </div>
           ))

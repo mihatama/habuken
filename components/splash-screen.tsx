@@ -4,8 +4,18 @@ import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useSplash } from "@/contexts/splash-context"
 import Image from "next/image"
+// auth contextからユーザー情報を取得
+import { useAuth } from "@/contexts/auth-context"
 
 export function SplashScreen() {
+  const { isVisible, setIsVisible } = useSplash()
+  const { user } = useAuth()
+
+  // ユーザーがログインしている場合はスプラッシュスクリーンを表示しない
+  if (!isVisible || user) {
+    return null
+  }
+
   const { showSplash, hideSplash } = useSplash()
   const [isLoaded, setIsLoaded] = useState(false)
 

@@ -31,6 +31,7 @@ export function LoginForm() {
       }
 
       // ログイン成功
+      setLoading(false) // 先にローディング状態を解除
       router.push("/dashboard")
       router.refresh()
     } catch (error) {

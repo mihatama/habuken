@@ -44,6 +44,20 @@ export function DashboardClient() {
         .select("count", { count: "exact" })
         .eq("type", "工具")
 
+      // 案件数を取得 - deals テーブルから
+      const { data: dealsCount, error: dealsError } = await supabase.from("deals").select("count", { count: "exact" })
+
+      // 案件データを取得（最新の5件）- deals テーブルから
+      const { data: dealsData, error: dealsDataError } = await supabase
+        .from("deals")
+        .select("id, name, start_date, end_date, status")
+        .order("start_date", { ascending: false })
+        .limit(5)
+
+      if (dealsDataError) {
+        console.error("案件データの取得エラー:", dealsDataError)
+      }
+
       // 最近のアクティビティを取得
       const { data: reportsData, error: reportsError } = await supabase
         .from("daily_reports")
@@ -65,7 +79,9 @@ export function DashboardClient() {
           machineryCount: machineryCount?.[0]?.count || 0,
           vehiclesCount: vehiclesCount?.[0]?.count || 0,
           toolsCount: toolsCount?.[0]?.count || 0,
+          dealsCount: dealsCount?.[0]?.count || 0,
         },
+        deals: dealsData || [],
         activities: [
           ...(reportsData
             ? reportsData.map((report) => ({
@@ -155,7 +171,7 @@ export function DashboardClient() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <ProjectProgressPanel />
+        <ProjectProgressPanel deals={dashboardData.deals} />
         <RecentActivitiesPanel activities={dashboardData.activities} />
       </div>
 

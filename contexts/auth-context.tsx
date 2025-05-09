@@ -39,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (user && (pathname === "/login" || pathname === "/signup" || pathname === "/")) {
         console.log("認証済みユーザーがログインページにいます。ダッシュボードにリダイレクトします。")
         setIsRedirecting(true)
+        // 即時リダイレクト
         router.push("/dashboard")
       }
     }
@@ -131,6 +132,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ログイン成功後、明示的にダッシュボードにリダイレクト
       console.log("ダッシュボードへリダイレクトします")
       setIsRedirecting(true)
+      // 即時リダイレクトするために、setLoadingをfalseに設定してからリダイレクト
+      setLoading(false)
       router.push("/dashboard")
 
       return { success: true }
