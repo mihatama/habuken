@@ -27,14 +27,38 @@ const dealFormSchema = z.object({
     message: "案件名を入力してください",
   }),
   client_name: z.string().optional(), // クライアント名を任意に変更
-  start_date: z.date({
-    required_error: "開始予定日を選択してください",
-  }),
+  start_date: z
+    .date({
+      required_error: "開始予定日を選択してください",
+    })
+    .refine(
+      (date) => {
+        // 開始日は本日以降であることを確認
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        return date >= today
+      },
+      {
+        message: "開始予定日は本日以降の日付を選択してください",
+      },
+    ),
   end_date: z
     .date({
       required_error: "終了予定日を選択してください",
     })
-    .optional(),
+    .optional()
+    .refine(
+      (date, ctx) => {
+        // 終了日が指定されている場合、開始日以降であることを確認
+        if (date && ctx.parent.start_date) {
+          return date >= ctx.parent.start_date
+        }
+        return true
+      },
+      {
+        message: "終了予定日は開始予定日以降の日付を選択してください",
+      },
+    ),
   location: z.string().optional(), // 場所を任意に変更
   status: z.string().optional(), // ステータスを任意に変更
   description: z.string().default(""),
@@ -319,6 +343,12 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
                               field.onChange(date)
                               updateResourceDates()
                             }}
+                            disabled={(date) => {
+                              // 本日より前の日付を無効化
+                              const today = new Date()
+                              today.setHours(0, 0, 0, 0)
+                              return date < today
+                            }}
                             initialFocus
                           />
                         </PopoverContent>
@@ -360,8 +390,15 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
                               updateResourceDates()
                             }}
                             disabled={(date) => {
+                              // 開始日より前の日付を無効化
                               const startDate = form.getValues("start_date")
-                              return startDate && date < startDate
+                              // 開始日が設定されていない場合は本日より前の日付を無効化
+                              if (!startDate) {
+                                const today = new Date()
+                                today.setHours(0, 0, 0, 0)
+                                return date < today
+                              }
+                              return date < startDate
                             }}
                             initialFocus
                           />
