@@ -13,20 +13,20 @@ import {
   CheckCircle,
   Clock,
   Construction,
-  DollarSign,
-  FileText,
   Loader2,
   Package,
   PieChart,
   RefreshCw,
   Truck,
   Users,
+  Cloud,
 } from "lucide-react"
 import { ProjectCalendar } from "@/components/project-calendar"
 import { StaffCalendar } from "@/components/staff-calendar"
 import { HeavyMachineryCalendar } from "@/components/heavy-machinery-calendar"
 import { VehicleCalendar } from "@/components/vehicle-calendar"
 import { ToolCalendar } from "@/components/tool-calendar"
+import { WeatherForecast } from "@/components/weather-forecast"
 
 export default function Dashboard() {
   const { toast } = useToast()
@@ -227,7 +227,7 @@ export default function Dashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-3 mb-8">
+        <TabsList className="grid grid-cols-4 mb-8">
           <TabsTrigger value="overview" className="flex items-center">
             <PieChart className="mr-2 h-4 w-4" />
             <span>概要</span>
@@ -235,6 +235,10 @@ export default function Dashboard() {
           <TabsTrigger value="projects" className="flex items-center">
             <Building2 className="mr-2 h-4 w-4" />
             <span>案件</span>
+          </TabsTrigger>
+          <TabsTrigger value="costs" className="flex items-center">
+            <Cloud className="mr-2 h-4 w-4" />
+            <span>天気予報</span>
           </TabsTrigger>
           <TabsTrigger value="calendars" className="flex items-center">
             <Calendar className="mr-2 h-4 w-4" />
@@ -297,57 +301,19 @@ export default function Dashboard() {
             </Card>
           </div>
 
-          {/* コスト最適化 */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="col-span-1 md:col-span-1">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <DollarSign className="mr-2 h-5 w-5 text-green-500" />
-                  総節約額
-                </CardTitle>
-                <CardDescription>最適なレンタル計画による節約</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-green-600">
-                  {formatCurrency(dashboardData.costs.totalSavings)}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Construction className="mr-2 h-5 w-5 text-amber-500" />
-                  重機コスト最適化
-                </CardTitle>
-                <CardDescription>最適化による節約</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">
-                  {formatCurrency(dashboardData.costs.machineryOptimization.amount)}
-                  <span className="ml-2 text-sm bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                    {formatPercentage(dashboardData.costs.machineryOptimization.percentage)}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Truck className="mr-2 h-5 w-5 text-blue-500" />
-                  車両コスト最適化
-                </CardTitle>
-                <CardDescription>最適化による節約</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">
-                  {formatCurrency(dashboardData.costs.vehicleOptimization.amount)}
-                  <span className="ml-2 text-sm bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                    {formatPercentage(dashboardData.costs.vehicleOptimization.percentage)}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          {/* 天気予報 */}
+          <Card className="col-span-full">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Cloud className="mr-2 h-5 w-5 text-blue-500" />
+                天気予報
+              </CardTitle>
+              <CardDescription>現場の天気情報を確認できます</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <WeatherForecast />
+            </CardContent>
+          </Card>
 
           {/* 休暇申請状況 */}
           <Card>
@@ -543,85 +509,19 @@ export default function Dashboard() {
           </Card>
         </TabsContent>
 
-        {/* コスト分析タブ */}
+        {/* 天気予報タブ */}
         <TabsContent value="costs" className="space-y-6">
-          {/* コスト最適化サマリー */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <DollarSign className="mr-2 h-5 w-5 text-green-500" />
-                コスト最適化サマリー
+                <Cloud className="mr-2 h-5 w-5 text-blue-500" />
+                天気予報
               </CardTitle>
-              <CardDescription>最適なリソース計画による節約額</CardDescription>
+              <CardDescription>現場の天気情報を確認できます</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-4xl font-bold text-green-600">
-                {formatCurrency(dashboardData.costs.totalSavings)}
-              </div>
-              <div className="text-sm text-muted-foreground mt-2">最適なレンタル計画による節約</div>
+              <WeatherForecast />
             </CardContent>
-          </Card>
-
-          {/* 詳細コスト分析 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Construction className="mr-2 h-5 w-5 text-amber-500" />
-                  重機コスト最適化
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">
-                  {formatCurrency(dashboardData.costs.machineryOptimization.amount)}
-                </div>
-                <div className="flex items-center mt-2">
-                  <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">
-                    {formatPercentage(dashboardData.costs.machineryOptimization.percentage)} 最適化
-                  </div>
-                </div>
-                <div className="text-sm text-muted-foreground mt-4">
-                  最適なレンタル計画と稼働スケジュールによる節約額
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Truck className="mr-2 h-5 w-5 text-blue-500" />
-                  車両コスト最適化
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">
-                  {formatCurrency(dashboardData.costs.vehicleOptimization.amount)}
-                </div>
-                <div className="flex items-center mt-2">
-                  <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">
-                    {formatPercentage(dashboardData.costs.vehicleOptimization.percentage)} 最適化
-                  </div>
-                </div>
-                <div className="text-sm text-muted-foreground mt-4">効率的な車両運用とルート最適化による節約額</div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* コスト分析レポート */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <FileText className="mr-2 h-5 w-5" />
-                コスト分析レポート
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">詳細なコスト分析レポートを表示します。</p>
-            </CardContent>
-            <CardFooter className="border-t pt-4">
-              <Button variant="outline" size="sm" className="w-full">
-                詳細レポートを表示
-              </Button>
-            </CardFooter>
           </Card>
         </TabsContent>
 

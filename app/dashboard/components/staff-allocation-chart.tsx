@@ -30,59 +30,77 @@ export function StaffAllocationChart({ data: initialData }: StaffAllocationChart
     }
   }, [initialData])
 
+  // fetchStaffData 関数を以下のように修正
   async function fetchStaffData() {
     setIsLoading(true)
     try {
       const supabase = getClientSupabase()
 
-      // スタッフデータの取得（リレーションシップを使わない）
-      const { data: staffData, error: staffError } = await supabase.from("staff").select("id, name, role, project_id")
+      // スタッフデータの取得（正しいカラム名を使用）
+      const { data: staffData, error: staffError } = await supabase
+        .from("staff")
+        .select("id, full_name, position, department")
 
       if (staffError) throw staffError
 
-      // プロジェクトデータの取得
-      const { data: projectsData, error: projectsError } = await supabase.from("projects").select("id, name")
+      // deal_staff テーブルを通じてスタッフと案件の関連を取得
+      const { data: dealStaffData, error: dealStaffError } = await supabase
+        .from("deal_staff")
+        .select("staff_id, deal_id")
 
-      if (projectsError) throw projectsError
+      if (dealStaffError) throw dealStaffError
 
-      // プロジェクトIDと名前のマッピングを作成
-      const projectMap = new Map()
-      projectsData.forEach((project) => {
-        projectMap.set(project.id, project.name)
+      // 案件データの取得
+      const { data: dealsData, error: dealsError } = await supabase.from("deals").select("id, name")
+
+      if (dealsError) throw dealsError
+
+      // 案件IDと名前のマッピングを作成
+      const dealMap = new Map()
+      dealsData.forEach((deal) => {
+        dealMap.set(deal.id, deal.name)
+      })
+
+      // スタッフと案件の関連マッピングを作成
+      const staffDealMap = new Map()
+      dealStaffData.forEach((relation) => {
+        staffDealMap.set(relation.staff_id, relation.deal_id)
       })
 
       // プロジェクト別のスタッフ集計
-      const projectCounts: Record<string, number> = {}
-      const roleCounts: Record<string, number> = {}
+      const dealCounts: Record<string, number> = {}
+      const positionCounts: Record<string, number> = {}
 
       staffData.forEach((staff) => {
-        // プロジェクト別集計
-        const projectName = staff.project_id ? projectMap.get(staff.project_id) || "未割当" : "未割当"
-        if (!projectCounts[projectName]) {
-          projectCounts[projectName] = 0
+        // 案件別集計
+        const dealId = staffDealMap.get(staff.id)
+        const dealName = dealId ? dealMap.get(dealId) || "未割当" : "未割当"
+
+        if (!dealCounts[dealName]) {
+          dealCounts[dealName] = 0
         }
-        projectCounts[projectName]++
+        dealCounts[dealName]++
 
         // 役割別集計
-        const role = staff.role || "その他"
-        if (!roleCounts[role]) {
-          roleCounts[role] = 0
+        const position = staff.position || "その他"
+        if (!positionCounts[position]) {
+          positionCounts[position] = 0
         }
-        roleCounts[role]++
+        positionCounts[position]++
       })
 
       // グラフ用データ形式に変換
       const colors = ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40", "#C9CBCF"]
 
-      const byProject = Object.keys(projectCounts).map((name, index) => ({
+      const byProject = Object.keys(dealCounts).map((name, index) => ({
         name,
-        value: projectCounts[name],
+        value: dealCounts[name],
         color: colors[index % colors.length],
       }))
 
-      const byRole = Object.keys(roleCounts).map((name, index) => ({
+      const byRole = Object.keys(positionCounts).map((name, index) => ({
         name,
-        value: roleCounts[name],
+        value: positionCounts[name],
         color: colors[index % colors.length],
       }))
 

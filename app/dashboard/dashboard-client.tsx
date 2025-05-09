@@ -5,7 +5,7 @@ import { KpiCard } from "./components/kpi-card"
 import { ProjectProgressPanel } from "./components/project-progress-panel"
 import { RecentActivitiesPanel } from "./components/recent-activities-panel"
 import { CalendarPanel } from "./components/calendar-panel"
-import { CostOptimizationPanel } from "./components/cost-optimization-panel"
+import { WeatherForecastPanel } from "./components/weather-forecast-panel"
 import { StaffAllocationChart } from "./components/staff-allocation-chart"
 import { getClientSupabase } from "@/lib/supabase-utils"
 import { Users, Truck, Car, PenToolIcon as Tool, AlertTriangle } from "lucide-react"
@@ -177,7 +177,7 @@ export function DashboardClient() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <StaffAllocationChart />
-        <CostOptimizationPanel />
+        <WeatherForecastPanel />
       </div>
 
       <div className="grid grid-cols-1 gap-6">

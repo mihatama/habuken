@@ -43,13 +43,13 @@ import {
   BarChart3,
   PieChartIcon,
   LineChartIcon,
+  Cloud,
 } from "lucide-react"
 import { ProjectCalendar } from "@/components/project-calendar"
 import { StaffCalendar } from "@/components/staff-calendar"
 import { HeavyMachineryCalendar } from "@/components/heavy-machinery-calendar"
 import { ToolCalendar } from "@/components/tool-calendar"
-import { VehicleCostAnalysis } from "@/components/vehicle-cost-analysis"
-import { HeavyMachineryCostAnalysis } from "@/components/heavy-machinery-cost-analysis"
+import { WeatherForecast } from "@/components/weather-forecast"
 
 // ドラッグ＆ドロップのためのライブラリ
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core"
@@ -260,7 +260,7 @@ function renderWidgetContent(widget: WidgetConfig) {
     case "costAnalysis":
       return (
         <div className="h-[300px] overflow-auto">
-          <VehicleCostAnalysis />
+          <WeatherForecast />
         </div>
       )
 
@@ -539,7 +539,7 @@ export default function InteractiveDashboard() {
       case "calendar":
         return "プロジェクトカレンダー"
       case "costAnalysis":
-        return "コスト分析"
+        return "天気予報"
       case "recentProjects":
         return "最近のプロジェクト"
       default:
@@ -800,19 +800,31 @@ export default function InteractiveDashboard() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle>車両コスト分析</CardTitle>
+                    <CardTitle>天気予報</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <VehicleCostAnalysis />
+                    <WeatherForecast />
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>重機コスト分析</CardTitle>
+                    <CardTitle>リソース稼働状況</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <HeavyMachineryCostAnalysis />
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={sampleResourceData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis />
+                          <Tooltip />
+                          <Legend />
+                          <Bar dataKey="稼働率" fill="#2196F3" />
+                          <Bar dataKey="予約数" fill="#FF5722" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
@@ -1030,8 +1042,8 @@ export default function InteractiveDashboard() {
                 className="h-24 flex flex-col items-center justify-center"
                 onClick={() => handleAddWidget("costAnalysis")}
               >
-                <Truck className="h-8 w-8 mb-2" />
-                コスト分析
+                <Cloud className="h-8 w-8 mb-2" />
+                天気予報
               </Button>
               <Button
                 variant="outline"
