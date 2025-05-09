@@ -979,11 +979,11 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
   const getStatusBgColor = (status: string) => {
     switch (status) {
       case "good":
-        return "bg-green-100"
+        return "bg-green-100 dark:bg-green-900/30"
       case "caution":
-        return "bg-yellow-100"
+        return "bg-yellow-100 dark:bg-yellow-900/30"
       case "danger":
-        return "bg-red-100"
+        return "bg-red-100 dark:bg-red-900/30"
       default:
         return ""
     }
@@ -1150,10 +1150,12 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
 
         <div>
           <h3 className="text-sm font-medium text-gray-700 mb-3">チェックリスト</h3>
-          <div className="space-y-6 border rounded-md p-4 max-h-[50vh] overflow-y-auto">
+          <div className="space-y-6 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-md p-4 max-h-[50vh] overflow-y-auto">
             {categories.map((category) => (
               <div key={category} className="space-y-3">
-                <h4 className="font-medium text-sm border-b pb-1">{category}</h4>
+                <h4 className="font-medium text-sm border-b border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 pb-1">
+                  {category}
+                </h4>
                 <div className="space-y-4">
                   {formData.checklistItems
                     .filter((item) => item.category === category)
@@ -1161,9 +1163,9 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
                       <div key={item.id} className={`rounded-md ${getStatusBgColor(item.status)} p-2`}>
                         <div className="flex items-center justify-between">
                           <div className="w-64 text-sm flex items-center">
-                            <span>{item.name}</span>
+                            <span className="text-gray-900 dark:text-gray-100">{item.name}</span>
                             {item.isEco && (
-                              <span className="ml-2 text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full">
+                              <span className="ml-2 text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300 px-1.5 py-0.5 rounded-full">
                                 エコ
                               </span>
                             )}
@@ -1173,13 +1175,15 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
                               type="button"
                               onClick={() => updateChecklistItemStatus(item.id, "good")}
                               className={`flex items-center px-2 py-1 rounded-md transition-colors ${
-                                item.status === "good" ? "bg-green-200 border border-green-300" : "hover:bg-gray-100"
+                                item.status === "good"
+                                  ? "bg-green-200 dark:bg-green-900 border border-green-300 dark:border-green-700"
+                                  : "hover:bg-gray-100 dark:hover:bg-gray-700"
                               }`}
                             >
-                              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-green-500 text-white text-xs">
+                              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-green-500 dark:bg-green-600 text-white text-xs">
                                 ○
                               </span>
-                              <span className="ml-1 text-xs">良好</span>
+                              <span className="ml-1 text-xs text-green-600 dark:text-green-400">良好</span>
                             </button>
 
                             <button
@@ -1187,27 +1191,29 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
                               onClick={() => updateChecklistItemStatus(item.id, "caution")}
                               className={`flex items-center px-2 py-1 rounded-md transition-colors ${
                                 item.status === "caution"
-                                  ? "bg-yellow-200 border border-yellow-300"
-                                  : "hover:bg-gray-100"
+                                  ? "bg-yellow-200 dark:bg-yellow-900 border border-yellow-300 dark:border-yellow-700"
+                                  : "hover:bg-gray-100 dark:hover:bg-gray-700"
                               }`}
                             >
-                              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-yellow-500 text-white text-xs">
+                              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-yellow-500 dark:bg-yellow-600 text-white text-xs">
                                 △
                               </span>
-                              <span className="ml-1 text-xs">注意</span>
+                              <span className="ml-1 text-xs text-yellow-600 dark:text-yellow-400">注意</span>
                             </button>
 
                             <button
                               type="button"
                               onClick={() => updateChecklistItemStatus(item.id, "danger")}
                               className={`flex items-center px-2 py-1 rounded-md transition-colors ${
-                                item.status === "danger" ? "bg-red-200 border border-red-300" : "hover:bg-gray-100"
+                                item.status === "danger"
+                                  ? "bg-red-200 dark:bg-red-900 border border-red-300 dark:border-red-700"
+                                  : "hover:bg-gray-100 dark:hover:bg-gray-700"
                               }`}
                             >
-                              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white text-xs">
+                              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-red-500 dark:bg-red-600 text-white text-xs">
                                 ○
                               </span>
-                              <span className="ml-1 text-xs">危険</span>
+                              <span className="ml-1 text-xs text-red-600 dark:text-red-400">危険</span>
                             </button>
                           </div>
                         </div>
