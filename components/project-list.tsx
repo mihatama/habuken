@@ -373,8 +373,10 @@ export function ProjectList() {
         return <Badge className="bg-green-500 hover:bg-green-600">{status}</Badge>
       case "完了":
         return <Badge className="bg-purple-500 hover:bg-purple-600">{status}</Badge>
+      case "未選択":
+        return <Badge className="bg-gray-300 hover:bg-gray-400">未選択</Badge>
       default:
-        return <Badge>{status}</Badge>
+        return <Badge>{status || "未選択"}</Badge>
     }
   }
 
@@ -851,7 +853,7 @@ export function ProjectList() {
                     <TableCell>
                       {formatDate(project.start_date)} {project.end_date ? `〜 ${formatDate(project.end_date)}` : ""}
                     </TableCell>
-                    <TableCell>{getStatusBadge(project.status)}</TableCell>
+                    <TableCell>{getStatusBadge(project.status || "未選択")}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
                         <Dialog

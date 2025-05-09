@@ -82,11 +82,11 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
   )
   const [selectedTools, setSelectedTools] = useState<{ id: string; startDate: string; endDate: string | null }[]>([])
 
-  // デフォルト値の設定
+  // 新規案件作成時のデフォルト値を「pendding」から「未選択」に変更
   const defaultValues: Partial<DealFormValues> = {
     name: "",
     client_name: "",
-    status: "計画中", // デフォルト値は残しておく
+    status: "未選択",
     description: "",
     location: "",
   }
@@ -437,6 +437,7 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                          <SelectItem value="未選択">未選択</SelectItem>
                           <SelectItem value="計画中">計画中</SelectItem>
                           <SelectItem value="準備中">準備中</SelectItem>
                           <SelectItem value="進行中">進行中</SelectItem>

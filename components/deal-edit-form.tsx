@@ -61,7 +61,7 @@ export function DealEditForm({ dealId, onSuccess, onCancel }: DealEditFormProps)
   const defaultValues: Partial<DealFormValues> = {
     name: "",
     client_name: "",
-    status: "計画中",
+    status: "未選択",
     description: "",
     location: "",
   }
@@ -445,6 +445,7 @@ export function DealEditForm({ dealId, onSuccess, onCancel }: DealEditFormProps)
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                          <SelectItem value="未選択">未選択</SelectItem>
                           <SelectItem value="計画中">計画中</SelectItem>
                           <SelectItem value="準備中">準備中</SelectItem>
                           <SelectItem value="進行中">進行中</SelectItem>

@@ -116,6 +116,8 @@ export function DealsList() {
         return "warning"
       case "キャンセル":
         return "destructive"
+      case "未選択":
+        return "outline"
       default:
         return "outline"
     }
@@ -164,7 +166,7 @@ export function DealsList() {
             <div className="p-6">
               <div className="flex justify-between items-start mb-4">
                 <h3 className="text-lg font-semibold line-clamp-2">{deal.name}</h3>
-                <Badge variant={getStatusBadgeVariant(deal.status) as any}>{deal.status}</Badge>
+                <Badge variant={getStatusBadgeVariant(deal.status || "未選択")}>{deal.status || "未選択"}</Badge>
               </div>
 
               <div className="text-sm text-muted-foreground mt-1">

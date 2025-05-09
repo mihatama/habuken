@@ -133,6 +133,7 @@ export function EnhancedDealsList() {
     }))
   }
 
+  // getStatusBadgeVariant 関数内で、未選択のケースを追加し、デフォルトケースを修正します
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case "計画中":
@@ -147,6 +148,8 @@ export function EnhancedDealsList() {
         return "warning"
       case "キャンセル":
         return "destructive"
+      case "未選択":
+        return "outline"
       default:
         return "outline"
     }
@@ -234,7 +237,8 @@ export function EnhancedDealsList() {
           <CardContent className="p-6">
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-lg font-semibold line-clamp-2">{deal.name}</h3>
-              <Badge variant={getStatusBadgeVariant(deal.status) as any}>{deal.status}</Badge>
+              {/* status が null または undefined または空文字の場合、「未選択」と表示するように修正 */}
+              <Badge variant={getStatusBadgeVariant(deal.status || "未選択") as any}>{deal.status || "未選択"}</Badge>
             </div>
             <div className="text-sm text-muted-foreground mt-1">
               <Calendar className="h-3.5 w-3.5 inline-block mr-1" />
