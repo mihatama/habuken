@@ -21,50 +21,49 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ResourceSelector } from "@/components/resource-selector"
 
 // 案件登録フォームのスキーマ
-const dealFormSchema = z.object({
-  name: z.string().min(1, {
-    message: "案件名を入力してください",
-  }),
-  client_name: z.string().optional(), // クライアント名を任意に変更
-  start_date: z
-    .date({
-      required_error: "開始予定日を選択してください",
-    })
-    .refine(
-      (date) => {
-        // 開始日は本日以降であることを確認
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        return date >= today
-      },
-      {
-        message: "開始予定日は本日以降の日付を選択してください",
-      },
-    ),
-  end_date: z
-    .date({
-      required_error: "終了予定日を選択してください",
-    })
-    .optional()
-    .superRefine((date, ctx) => {
-      // 終了日が指定されている場合、開始日以降であることを確認
-      if (date && ctx.parent.start_date) {
-        if (date < ctx.parent.start_date) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "終了予定日は開始予定日以降の日付を選択してください",
-          })
-        }
-      }
+const dealFormSchema = z
+  .object({
+    name: z.string().min(1, {
+      message: "案件名を入力してください",
     }),
-  location: z.string().optional(), // 場所を任意に変更
-  status: z.string().optional(), // ステータスを任意に変更
-  description: z.string().default(""),
-  contract_amount: z
-    .string()
-    .optional()
-    .transform((val) => (val ? Number.parseFloat(val) : null)),
-})
+    client_name: z.string().optional(), // クライアント名を任意に変更
+    start_date: z
+      .date({
+        required_error: "開始予定日を選択してください",
+      })
+      .refine(
+        (date) => {
+          // 開始日は本日以降であることを確認
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          return date >= today
+        },
+        {
+          message: "開始予定日は本日以降の日付を選択してください",
+        },
+      ),
+    end_date: z.date().optional(),
+    location: z.string().optional(), // 場所を任意に変更
+    status: z.string().optional(), // ステータスを任意に変更
+    description: z.string().default(""),
+    contract_amount: z
+      .string()
+      .optional()
+      .transform((val) => (val ? Number.parseFloat(val) : null)),
+  })
+  .refine(
+    (data) => {
+      // 終了日が指定されていて、開始日より前の場合はエラー
+      if (data.end_date && data.start_date && data.end_date < data.start_date) {
+        return false
+      }
+      return true
+    },
+    {
+      message: "終了予定日は開始予定日以降の日付を選択してください",
+      path: ["end_date"], // エラーを表示するフィールドを指定
+    },
+  )
 
 type DealFormValues = z.infer<typeof dealFormSchema>
 
@@ -190,6 +189,15 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
   }
 
   async function onSubmit(data: DealFormValues) {
+    // 終了日が開始日より前の場合はエラーを表示して処理を中断
+    if (data.end_date && data.start_date && data.end_date < data.start_date) {
+      form.setError("end_date", {
+        type: "manual",
+        message: "終了予定日は開始予定日以降の日付を選択してください",
+      })
+      return
+    }
+
     setIsSubmitting(true)
     try {
       const supabase = getClientSupabase()
@@ -339,13 +347,15 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
                             </Button>
                           </FormControl>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
+                        <PopoverContent className="w-auto p-0 z-50" align="start">
                           <Calendar
                             mode="single"
                             selected={field.value}
                             onSelect={(date) => {
-                              field.onChange(date)
-                              updateResourceDates()
+                              if (date) {
+                                field.onChange(date)
+                                updateResourceDates()
+                              }
                             }}
                             disabled={(date) => {
                               // 本日より前の日付を無効化
@@ -385,13 +395,15 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
                             </Button>
                           </FormControl>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
+                        <PopoverContent className="w-auto p-0 z-50" align="start">
                           <Calendar
                             mode="single"
                             selected={field.value || undefined}
                             onSelect={(date) => {
-                              field.onChange(date)
-                              updateResourceDates()
+                              if (date) {
+                                field.onChange(date)
+                                updateResourceDates()
+                              }
                             }}
                             disabled={(date) => {
                               // 開始日より前の日付を無効化
