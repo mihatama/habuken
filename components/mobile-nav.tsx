@@ -56,17 +56,11 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
       className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm md:hidden"
       style={{ overflow: isOpen ? "hidden" : "auto" }}
     >
-      <div className="fixed inset-y-0 right-0 w-full max-w-sm bg-darkgray shadow-lg overflow-y-auto">
-        <div className="flex h-16 items-center justify-between px-4 border-b border-gold/30">
+      <div className="fixed inset-y-0 right-0 w-full max-w-sm bg-gray-600/80 shadow-lg overflow-y-auto">
+        <div className="flex h-16 items-center justify-between px-4 border-b border-gold/20">
           <div className="flex items-center">
             <div className="mr-2 p-0.5">
-              <Image
-                src="/favicon.ico"
-                alt="現助ロゴ"
-                width={24}
-                height={24}
-                className="border-2 border-white rounded-full"
-              />
+              <Image src="/habuken-logo.png" alt="現助ロゴ" width={24} height={24} className="rounded-full" />
             </div>
             <span style={{ fontFamily: "'Noto Serif JP', serif" }} className="text-xl font-bold text-gold">
               現助
@@ -84,7 +78,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
         </div>
 
         {user && (
-          <div className="p-4 border-b border-gold/30">
+          <div className="p-4 border-b border-gold/20">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-gold flex items-center justify-center">
                 <span className="text-darkgray font-bold">{user.email?.charAt(0).toUpperCase() || "U"}</span>
@@ -165,7 +159,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
           </Button>
         </div>
 
-        <div className="border-t border-gold/30 p-2 mt-2">
+        <div className="border-t border-gold/20 p-2 mt-2">
           <Button
             variant="ghost"
             className="flex w-full justify-start gap-3 p-3 text-white hover:bg-darkgray-light hover:text-gold"

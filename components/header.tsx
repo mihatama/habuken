@@ -42,7 +42,7 @@ export function Header() {
   }
 
   return (
-    <header className="fixed top-0 z-40 w-full border-b border-gold bg-darkgray">
+    <header className="fixed top-0 z-40 w-full border-b border-gold bg-gray-600/80">
       <div className="container flex h-16 items-center px-4 sm:px-6">
         <div className="flex items-center">
           <Link
@@ -54,13 +54,7 @@ export function Header() {
             }}
           >
             <div className="mr-2 p-0.5">
-              <Image
-                src="/favicon.ico"
-                alt="現助ロゴ"
-                width={24}
-                height={24}
-                className="border-2 border-white rounded-full"
-              />
+              <Image src="/habuken-logo.png" alt="現助ロゴ" width={28} height={28} className="rounded-full" />
             </div>
             <span style={{ fontFamily: "'Noto Serif JP', serif" }} className="text-xl font-bold text-gold">
               現助
