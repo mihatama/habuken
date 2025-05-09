@@ -46,18 +46,17 @@ const dealFormSchema = z.object({
       required_error: "終了予定日を選択してください",
     })
     .optional()
-    .refine(
-      (date, ctx) => {
-        // 終了日が指定されている場合、開始日以降であることを確認
-        if (date && ctx.parent && ctx.parent.start_date) {
-          return date >= ctx.parent.start_date
+    .superRefine((date, ctx) => {
+      // 終了日が指定されている場合、開始日以降であることを確認
+      if (date && ctx.parent.start_date) {
+        if (date < ctx.parent.start_date) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "終了予定日は開始予定日以降の日付を選択してください",
+          })
         }
-        return true
-      },
-      {
-        message: "終了予定日は開始予定日以降の日付を選択してください",
-      },
-    ),
+      }
+    }),
   location: z.string().optional(), // 場所を任意に変更
   status: z.string().optional(), // ステータスを任意に変更
   description: z.string().default(""),
