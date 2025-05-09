@@ -90,13 +90,6 @@ export function LoginForm() {
           {loading ? "ログイン中..." : "ログイン"}
         </Button>
       </form>
-
-      <div className="text-center text-sm">
-        アカウントをお持ちでないですか？{" "}
-        <Link href="/signup" className="text-blue-500 hover:underline">
-          新規登録
-        </Link>
-      </div>
     </div>
   )
 }

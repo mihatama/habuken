@@ -10,7 +10,7 @@ import { useSplash } from "@/contexts/splash-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function LoginPage() {
@@ -110,15 +110,6 @@ export default function LoginPage() {
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex justify-center">
-          <p className="text-sm text-gray-600">
-            アカウントをお持ちでない方は{" "}
-            <Link href="/signup" className="text-blue-600 hover:text-blue-500">
-              新規登録
-            </Link>
-            してくださいね
-          </p>
-        </CardFooter>
       </Card>
     </div>
   )
