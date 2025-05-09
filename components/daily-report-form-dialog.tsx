@@ -21,6 +21,7 @@ import { ImageIcon, Camera, Plus, X, Loader2, Mic, MicOff } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { getClientSupabase } from "@/lib/supabase-utils"
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition"
+import { useAuth } from "@/hooks/use-auth"
 
 // バケット名を定数として定義
 const STORAGE_BUCKET_NAME = "dailyreports"
@@ -126,6 +127,7 @@ async function compressImage(file: File): Promise<{ file: File; originalSize: nu
 }
 
 export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyReportFormProps) {
+  const { user: authUser } = useAuth()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [customProject, setCustomProject] = useState("")
@@ -887,6 +889,8 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
         created_by: user.id,
         // 現在のユーザーIDを明示的に送信
         user_id: user.id,
+        // 登録者情報を追加
+        submitted_by: authUser?.id || user?.id,
         // 作業者情報を追加
         workers: formData.workers.map((worker) => ({
           id: worker.id,

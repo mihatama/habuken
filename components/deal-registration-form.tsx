@@ -15,7 +15,6 @@ import { getClientSupabase } from "@/lib/supabase-utils"
 import { CalendarIcon, Loader2 } from "lucide-react"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
-import { cn } from "@/lib/utils"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -328,14 +327,14 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button
+                              type="button"
                               variant={"outline"}
-                              className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
-                              onClick={() => updateResourceDates()}
+                              className="w-full border border-input bg-background px-3 py-2 text-left font-normal"
                             >
                               {field.value ? (
                                 format(field.value, "yyyy年MM月dd日", { locale: ja })
                               ) : (
-                                <span>日付を選択</span>
+                                <span className="text-muted-foreground">日付を選択</span>
                               )}
                               <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                             </Button>
@@ -374,14 +373,14 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button
+                              type="button"
                               variant={"outline"}
-                              className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
-                              onClick={() => updateResourceDates()}
+                              className="w-full border border-input bg-background px-3 py-2 text-left font-normal"
                             >
                               {field.value ? (
                                 format(field.value, "yyyy年MM月dd日", { locale: ja })
                               ) : (
-                                <span>日付を選択</span>
+                                <span className="text-muted-foreground">日付を選択</span>
                               )}
                               <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                             </Button>
