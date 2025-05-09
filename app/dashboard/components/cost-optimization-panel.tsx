@@ -7,6 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { calculateOptimalCost } from "@/utils/cost-calculation"
 import { getClientSupabase } from "@/lib/supabase-utils"
 import { Loader2 } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 
 interface CostOptimizationPanelProps {
   costSavings?: number
@@ -213,56 +214,68 @@ export function CostOptimizationPanel({ costSavings }: CostOptimizationPanelProp
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
+      <Card className="col-span-full md:col-span-2">
+        <CardContent className="flex justify-center items-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
     )
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h3 className="text-lg font-medium">月間コスト削減可能額: {formatCurrency(totalSavings)}</h3>
-          <p className="text-sm text-muted-foreground">リソースの最適な割り当てと利用によるコスト削減効果</p>
+    <Card className="col-span-full md:col-span-2">
+      <CardHeader>
+        <CardTitle>コスト最適化</CardTitle>
+        <CardDescription>リソースの最適な割り当てによるコスト削減効果</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h3 className="text-heading-md font-medium">月間コスト削減可能額: {formatCurrency(totalSavings)}</h3>
+            <p className="text-caption text-muted-foreground">リソースの最適な割り当てと利用によるコスト削減効果</p>
+          </div>
+          <Button>最適化レポートを表示</Button>
         </div>
-        <Button>最適化レポートを表示</Button>
-      </div>
 
-      <div className="h-[300px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={costData}
-            margin={{
-              top: 20,
-              right: 30,
-              left: 20,
-              bottom: 5,
-            }}
-          >
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip formatter={(value) => formatCurrency(value as number)} />
-            <Legend />
-            <Bar dataKey="日額のみ" fill="#ef4444" />
-            <Bar dataKey="最適プラン" fill="#22c55e" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+        <div className="h-[300px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={costData}
+              margin={{
+                top: 20,
+                right: 30,
+                left: 20,
+                bottom: 5,
+              }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip formatter={(value) => formatCurrency(value as number)} />
+              <Legend />
+              <Bar dataKey="日額のみ" fill="#ef4444" />
+              <Bar dataKey="最適プラン" fill="#22c55e" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-muted p-4 rounded-lg">
-          <h4 className="font-medium">重機の最適化</h4>
-          <p className="text-sm text-muted-foreground mt-1">日額・週額・月額の最適な組み合わせによる削減</p>
-          <div className="mt-2 text-lg font-bold text-green-600">{formatCurrency(machineryTotalSavings)}</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <h4 className="font-medium">重機の最適化</h4>
+              <p className="text-caption text-muted-foreground mt-1">日額・週額・月額の最適な組み合わせによる削減</p>
+              <div className="mt-2 text-lg font-bold text-green-600">{formatCurrency(machineryTotalSavings)}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <h4 className="font-medium">車両の最適化</h4>
+              <p className="text-caption text-muted-foreground mt-1">日額・週額・月額の最適な組み合わせによる削減</p>
+              <div className="mt-2 text-lg font-bold text-green-600">{formatCurrency(vehicleTotalSavings)}</div>
+            </CardContent>
+          </Card>
         </div>
-        <div className="bg-muted p-4 rounded-lg">
-          <h4 className="font-medium">車両の最適化</h4>
-          <p className="text-sm text-muted-foreground mt-1">日額・週額・月額の最適な組み合わせによる削減</p>
-          <div className="mt-2 text-lg font-bold text-green-600">{formatCurrency(vehicleTotalSavings)}</div>
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }

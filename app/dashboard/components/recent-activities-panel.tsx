@@ -1,6 +1,7 @@
 "use client"
 
 import { FileText, Clock, AlertTriangle } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 interface Activity {
   id: string
@@ -16,29 +17,38 @@ interface RecentActivitiesPanelProps {
 
 export function RecentActivitiesPanel({ activities }: RecentActivitiesPanelProps) {
   return (
-    <div className="space-y-4">
-      {activities.length > 0 ? (
-        activities.map((activity) => (
-          <div key={activity.id} className="flex items-start gap-3 pb-3 border-b last:border-0">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-              {activity.type === "report" ? (
-                <FileText className="h-4 w-4" />
-              ) : activity.type === "leave" ? (
-                <Clock className="h-4 w-4" />
-              ) : (
-                <AlertTriangle className="h-4 w-4" />
-              )}
-            </div>
-            <div>
-              <div className="font-medium">{activity.title}</div>
-              <div className="text-xs text-muted-foreground">{new Date(activity.date).toLocaleDateString("ja-JP")}</div>
-              <div className="mt-1 text-sm">{activity.description}</div>
-            </div>
-          </div>
-        ))
-      ) : (
-        <div className="text-center text-muted-foreground py-4">最近のアクティビティはありません</div>
-      )}
-    </div>
+    <Card className="col-span-full md:col-span-1">
+      <CardHeader>
+        <CardTitle>最近のアクティビティ</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {activities.length > 0 ? (
+            activities.map((activity) => (
+              <div key={activity.id} className="flex items-start gap-3 pb-3 border-b last:border-0">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                  {activity.type === "report" ? (
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                  ) : activity.type === "leave" ? (
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </div>
+                <div>
+                  <div className="font-medium">{activity.title}</div>
+                  <div className="text-caption text-muted-foreground">
+                    {new Date(activity.date).toLocaleDateString("ja-JP")}
+                  </div>
+                  <div className="mt-1 text-body">{activity.description}</div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center text-muted-foreground py-4">最近のアクティビティはありません</div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   )
 }

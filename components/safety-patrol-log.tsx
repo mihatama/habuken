@@ -330,12 +330,12 @@ export function SafetyPatrolLog() {
   if (isCheckingTable) {
     return (
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <CardTitle>安全・環境巡視日誌</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center p-8">
-            <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+            <RefreshCw className="h-6 w-6 animate-spin mr-2 text-muted-foreground" />
             <span>データベース接続を確認中...</span>
           </div>
         </CardContent>
@@ -347,17 +347,19 @@ export function SafetyPatrolLog() {
   if (tableExists === false) {
     return (
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <CardTitle>安全・環境巡視日誌</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-md border border-yellow-200 dark:border-yellow-800 mb-4">
-            <p className="text-yellow-700 dark:text-yellow-300">
-              安全巡視テーブルが存在しません。データベースが正しく設定されていることを確認してください。
-            </p>
-          </div>
-          <Button onClick={checkTableExists} className="mt-2">
-            <RefreshCw className="h-4 w-4 mr-2" />
+          <Card className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
+            <CardContent className="p-4">
+              <p className="text-yellow-700 dark:text-yellow-300">
+                安全巡視テーブルが存在しません。データベースが正しく設定されていることを確認してください。
+              </p>
+            </CardContent>
+          </Card>
+          <Button onClick={checkTableExists} className="mt-4">
+            <RefreshCw className="h-4 w-4 mr-2 text-muted-foreground" />
             再確認
           </Button>
         </CardContent>
@@ -384,7 +386,7 @@ export function SafetyPatrolLog() {
             />
           </div>
           <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isRefreshing}>
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""} text-muted-foreground`} />
           </Button>
           <Button variant="gold" onClick={openForm}>
             新規作成
@@ -442,7 +444,7 @@ export function SafetyPatrolLog() {
         )}
 
         {filteredLogs.length > 0 && (
-          <div className="mt-4 text-center text-sm text-muted-foreground">
+          <div className="mt-4 text-center text-caption text-muted-foreground">
             {filteredLogs.length}件の巡視日誌が表示されています
             {searchQuery && ` (検索条件: "${searchQuery}")`}
           </div>
@@ -468,76 +470,80 @@ export function SafetyPatrolLog() {
             <div className="space-y-4 mt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">対象工事</h3>
-                  <p className="mt-1">{selectedLog.projectName}</p>
+                  <h3 className="text-caption font-medium text-muted-foreground">対象工事</h3>
+                  <p className="mt-1 text-body">{selectedLog.projectName}</p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">巡視日</h3>
-                  <p className="mt-1">{formatDateString(selectedLog.inspectionDate)}</p>
+                  <h3 className="text-caption font-medium text-muted-foreground">巡視日</h3>
+                  <p className="mt-1 text-body">{formatDateString(selectedLog.inspectionDate)}</p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">巡視者</h3>
-                  <p className="mt-1">{selectedLog.inspectorName}</p>
+                  <h3 className="text-caption font-medium text-muted-foreground">巡視者</h3>
+                  <p className="mt-1 text-body">{selectedLog.inspectorName}</p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">作成日時</h3>
-                  <p className="mt-1">{formatDateString(selectedLog.createdAt)}</p>
+                  <h3 className="text-caption font-medium text-muted-foreground">作成日時</h3>
+                  <p className="mt-1 text-body">{formatDateString(selectedLog.createdAt)}</p>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-sm font-medium text-gray-500">コメント</h3>
-                <p className="mt-1 p-2 bg-gray-50 rounded-md">{selectedLog.comment || "コメントなし"}</p>
+                <h3 className="text-caption font-medium text-muted-foreground">コメント</h3>
+                <Card className="mt-1">
+                  <CardContent className="p-2 text-body">{selectedLog.comment || "コメントなし"}</CardContent>
+                </Card>
               </div>
 
               {selectedLog.checklist && selectedLog.checklist.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">チェックリスト</h3>
-                  <div className="border rounded-md overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-gray-50 border-b">
-                          <th className="px-4 py-2 text-left">項目</th>
-                          <th className="px-4 py-2 text-left">カテゴリ</th>
-                          <th className="px-4 py-2 text-left">状態</th>
-                          <th className="px-4 py-2 text-left">環境項目</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedLog.checklist.map((item, index) => (
-                          <tr key={index} className="border-b last:border-b-0">
-                            <td className="px-4 py-2">{item.name}</td>
-                            <td className="px-4 py-2">{item.category}</td>
-                            <td className="px-4 py-2">
-                              <div className="flex items-center gap-1">
-                                {getStatusIcon(item.status)}
-                                <span>
-                                  {item.status === "good"
-                                    ? "良好"
-                                    : item.status === "warning" || item.status === "caution"
-                                      ? "注意"
-                                      : "危険"}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-2">
-                              {item.isEco ? (
-                                <Badge className="bg-green-100 text-green-800 hover:bg-green-200">環境</Badge>
-                              ) : (
-                                <span className="text-gray-400">-</span>
-                              )}
-                            </td>
+                  <h3 className="text-caption font-medium text-muted-foreground mb-2">チェックリスト</h3>
+                  <Card>
+                    <CardContent className="p-0">
+                      <table className="w-full text-body">
+                        <thead>
+                          <tr className="bg-muted border-b">
+                            <th className="px-4 py-2 text-left">項目</th>
+                            <th className="px-4 py-2 text-left">カテゴリ</th>
+                            <th className="px-4 py-2 text-left">状態</th>
+                            <th className="px-4 py-2 text-left">環境項目</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {selectedLog.checklist.map((item, index) => (
+                            <tr key={index} className="border-b last:border-b-0">
+                              <td className="px-4 py-2">{item.name}</td>
+                              <td className="px-4 py-2">{item.category}</td>
+                              <td className="px-4 py-2">
+                                <div className="flex items-center gap-1">
+                                  {getStatusIcon(item.status)}
+                                  <span>
+                                    {item.status === "good"
+                                      ? "良好"
+                                      : item.status === "warning" || item.status === "caution"
+                                        ? "注意"
+                                        : "危険"}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-4 py-2">
+                                {item.isEco ? (
+                                  <Badge className="bg-green-100 text-green-800 hover:bg-green-200">環境</Badge>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </CardContent>
+                  </Card>
                 </div>
               )}
 
               {selectedLog.photoUrls && selectedLog.photoUrls.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">写真</h3>
+                  <h3 className="text-caption font-medium text-muted-foreground mb-2">写真</h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                     {selectedLog.photoUrls.map((url, index) => (
                       <div key={index} className="relative aspect-square">
@@ -588,7 +594,7 @@ function PatrolCard({ log, getStatusIcon, formatDateString, countIssues, onShowD
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle className="text-lg flex items-center gap-2">{log.projectName}</CardTitle>
+            <CardTitle className="text-heading-md flex items-center gap-2">{log.projectName}</CardTitle>
             <CardDescription className="flex items-center gap-1 mt-1 flex-wrap">
               <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
               {formatDateString(log.inspectionDate)}
@@ -597,13 +603,13 @@ function PatrolCard({ log, getStatusIcon, formatDateString, countIssues, onShowD
                   <span className="mx-1">|</span>
                   {warningCount > 0 && (
                     <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      <AlertTriangle className="h-3 w-3 mr-1 text-muted-foreground" />
                       注意 {warningCount}件
                     </Badge>
                   )}
                   {dangerCount > 0 && (
                     <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 ml-1">
-                      <XCircle className="h-3 w-3 mr-1" />
+                      <XCircle className="h-3 w-3 mr-1 text-muted-foreground" />
                       危険 {dangerCount}件
                     </Badge>
                   )}
@@ -627,22 +633,22 @@ function PatrolCard({ log, getStatusIcon, formatDateString, countIssues, onShowD
         </div>
       </CardHeader>
       <CardContent className="pb-2">
-        <div className="text-sm text-muted-foreground mb-2">
+        <div className="text-caption text-muted-foreground mb-2">
           <span className="font-medium">巡視者:</span> {log.inspectorName}
         </div>
-        <div className="text-sm mb-2">
+        <div className="text-caption mb-2">
           <span className="font-medium">コメント:</span>
         </div>
-        <div className="text-sm whitespace-pre-wrap">{getShortenedComment()}</div>
+        <div className="text-body whitespace-pre-wrap">{getShortenedComment()}</div>
 
         {log.photoUrls && log.photoUrls.length > 0 && (
           <div className="mt-3 flex items-center gap-2">
             <img src="/placeholder.svg" className="h-3.5 w-3.5 text-muted-foreground" alt="" />
-            <span className="text-xs text-muted-foreground">写真 {log.photoUrls.length}枚</span>
+            <span className="text-caption text-muted-foreground">写真 {log.photoUrls.length}枚</span>
           </div>
         )}
       </CardContent>
-      <CardFooter className="pt-0 text-xs text-muted-foreground">
+      <CardFooter className="pt-0 text-caption text-muted-foreground">
         <div className="flex items-center gap-1">
           <FileText className="h-3 w-3 text-muted-foreground" />
           {formatDateString(log.createdAt)} 作成

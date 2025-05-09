@@ -2,6 +2,7 @@
 
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 interface Project {
   id: string
@@ -24,29 +25,34 @@ export function ProjectProgressPanel({ projects }: ProjectProgressPanelProps) {
     .slice(0, 5) // 上位5件のみ表示
 
   return (
-    <div className="space-y-4">
-      {activeProjects.length > 0 ? (
-        activeProjects.map((project) => (
-          <div key={project.id} className="space-y-2">
-            <div className="flex justify-between items-center">
-              <div>
-                <div className="font-medium">{project.name}</div>
-                <div className="text-xs text-muted-foreground">
-                  {project.startDate} ~ {project.endDate || "未定"}
+    <Card className="col-span-full md:col-span-1">
+      <CardHeader>
+        <CardTitle>プロジェクト進捗</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {activeProjects.length > 0 ? (
+          activeProjects.map((project) => (
+            <div key={project.id} className="space-y-2">
+              <div className="flex justify-between items-center">
+                <div>
+                  <div className="font-medium">{project.name}</div>
+                  <div className="text-caption text-muted-foreground">
+                    {project.startDate} ~ {project.endDate || "未定"}
+                  </div>
                 </div>
+                <Badge variant={getStatusVariant(project.status)}>{project.status}</Badge>
               </div>
-              <Badge variant={getStatusVariant(project.status)}>{project.status}</Badge>
+              <div className="flex items-center gap-2">
+                <Progress value={project.progress} className="h-2" />
+                <span className="text-caption font-medium">{project.progress}%</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Progress value={project.progress} className="h-2" />
-              <span className="text-xs font-medium">{project.progress}%</span>
-            </div>
-          </div>
-        ))
-      ) : (
-        <div className="text-center text-muted-foreground py-4">進行中の案件はありません</div>
-      )}
-    </div>
+          ))
+        ) : (
+          <div className="text-center text-muted-foreground py-4">進行中の案件はありません</div>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 

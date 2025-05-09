@@ -2,8 +2,8 @@
 
 import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { useRouter } from "next/navigation"
-import { AlertCircle } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { AlertTriangle } from "lucide-react"
 
 export default function Error({
   error,
@@ -12,37 +12,23 @@ export default function Error({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  const router = useRouter()
-
   useEffect(() => {
-    // リダイレクトエラーの場合は処理しない
-    if (error.message === "NEXT_REDIRECT" || error.message.includes("Redirect")) {
-      console.log("Redirect detected, not treating as error")
-      return
-    }
-
-    // その他のエラーをログに記録
-    console.error("Application error:", error)
+    // エラーをログに記録
+    console.error(error)
   }, [error])
 
-  // リダイレクトエラーの場合は何も表示しない
-  if (error.message === "NEXT_REDIRECT" || error.message.includes("Redirect")) {
-    return null
-  }
-
   return (
-    <div className="flex h-screen flex-col items-center justify-center p-container-padding text-center">
-      <AlertCircle className="h-12 w-12 text-destructive mb-space-4" />
-      <h2 className="mb-space-4 text-heading-md font-bold">エラーが発生しました</h2>
-      <p className="mb-space-6 max-w-md text-body text-muted-foreground">
-        申し訳ありませんが、予期しないエラーが発生しました。もう一度お試しいただくか、管理者にお問い合わせください。
-      </p>
-      <div className="flex gap-space-4">
-        <Button onClick={() => reset()}>再試行</Button>
-        <Button variant="outline" onClick={() => router.push("/")}>
-          ホームに戻る
-        </Button>
-      </div>
+    <div className="flex items-center justify-center min-h-screen p-container-padding">
+      <Card className="max-w-md w-full">
+        <CardContent className="pt-6 flex flex-col items-center text-center">
+          <AlertTriangle className="h-8 w-8 text-destructive mb-4" />
+          <h2 className="text-heading-md font-semibold mb-2">エラーが発生しました</h2>
+          <p className="text-body text-muted-foreground mb-4">
+            申し訳ありませんが、ページの読み込み中にエラーが発生しました。
+          </p>
+          <Button onClick={reset}>再試行</Button>
+        </CardContent>
+      </Card>
     </div>
   )
 }
