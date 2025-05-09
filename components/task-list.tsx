@@ -98,6 +98,13 @@ const STATUS_ICONS = {
   "Not Started": <AlertCircle className="h-5 w-5 text-gray-500" />,
 }
 
+// STATUS_ICONS の定義の近くに以下を追加
+const STATUS_TEXT = {
+  Completed: "完了",
+  "In Progress": "進行中",
+  "Not Started": "未着手",
+}
+
 // 優先度バッジのマッピング
 const PRIORITY_BADGES = {
   High: { className: "bg-red-500 hover:bg-red-600" },
@@ -174,10 +181,10 @@ export function TaskList() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>My Tasks</CardTitle>
+        <CardTitle>私のタスク一覧</CardTitle>
         <div className="flex items-center space-x-2">
           <Input
-            placeholder="Search tasks..."
+            placeholder="タスクを検索..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-[250px]"
@@ -188,12 +195,12 @@ export function TaskList() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Task</TableHead>
-              <TableHead>Project</TableHead>
-              <TableHead>Due Date</TableHead>
-              <TableHead>Priority</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>タスク名</TableHead>
+              <TableHead>プロジェクト</TableHead>
+              <TableHead>期限日</TableHead>
+              <TableHead>優先度</TableHead>
+              <TableHead>状態</TableHead>
+              <TableHead className="text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -206,7 +213,7 @@ export function TaskList() {
                 <TableCell>
                   <div className="flex items-center gap-2">
                     {getStatusIcon(task.status)}
-                    <span>{task.status}</span>
+                    <span>{STATUS_TEXT[task.status] || task.status}</span>
                   </div>
                 </TableCell>
                 <TableCell className="text-right">
@@ -220,7 +227,7 @@ export function TaskList() {
                     >
                       <DialogTrigger asChild>
                         <Button variant="outline" onClick={() => viewTaskDetails(task)}>
-                          View Details
+                          詳細を見る
                         </Button>
                       </DialogTrigger>
                       <DialogContent className="max-w-3xl">
@@ -231,51 +238,51 @@ export function TaskList() {
                           <div className="grid gap-6 py-4">
                             <div className="grid grid-cols-2 gap-4">
                               <div>
-                                <h3 className="text-sm font-medium text-muted-foreground mb-1">Project</h3>
+                                <h3 className="text-sm font-medium text-muted-foreground mb-1">プロジェクト</h3>
                                 <p>{currentTask.project}</p>
                               </div>
                               <div>
-                                <h3 className="text-sm font-medium text-muted-foreground mb-1">Due Date</h3>
+                                <h3 className="text-sm font-medium text-muted-foreground mb-1">期限日</h3>
                                 <p>{currentTask.dueDate.toLocaleDateString()}</p>
                               </div>
                               <div>
-                                <h3 className="text-sm font-medium text-muted-foreground mb-1">Priority</h3>
+                                <h3 className="text-sm font-medium text-muted-foreground mb-1">優先度</h3>
                                 <p>{getPriorityBadge(currentTask.priority)}</p>
                               </div>
                               <div>
-                                <h3 className="text-sm font-medium text-muted-foreground mb-1">Status</h3>
+                                <h3 className="text-sm font-medium text-muted-foreground mb-1">状態</h3>
                                 <div className="flex items-center gap-2">
                                   {getStatusIcon(currentTask.status)}
-                                  <span>{currentTask.status}</span>
+                                  <span>{STATUS_TEXT[currentTask.status] || currentTask.status}</span>
                                 </div>
                               </div>
                             </div>
 
                             <div>
-                              <h3 className="text-sm font-medium text-muted-foreground mb-1">Description</h3>
+                              <h3 className="text-sm font-medium text-muted-foreground mb-1">説明</h3>
                               <p>{currentTask.description}</p>
                             </div>
 
                             <div>
-                              <h3 className="text-sm font-medium text-muted-foreground mb-1">Update Status</h3>
+                              <h3 className="text-sm font-medium text-muted-foreground mb-1">状態を更新</h3>
                               <div className="flex space-x-2 mt-2">
                                 <Button
                                   variant={currentTask.status === "Not Started" ? "default" : "outline"}
                                   onClick={() => handleStatusChange(currentTask.id, "Not Started")}
                                 >
-                                  Not Started
+                                  未着手
                                 </Button>
                                 <Button
                                   variant={currentTask.status === "In Progress" ? "default" : "outline"}
                                   onClick={() => handleStatusChange(currentTask.id, "In Progress")}
                                 >
-                                  In Progress
+                                  進行中
                                 </Button>
                                 <Button
                                   variant={currentTask.status === "Completed" ? "default" : "outline"}
                                   onClick={() => handleStatusChange(currentTask.id, "Completed")}
                                 >
-                                  Completed
+                                  完了
                                 </Button>
                               </div>
                             </div>
@@ -283,7 +290,7 @@ export function TaskList() {
                             <div>
                               <div className="flex items-center mb-2">
                                 <MessageSquare className="h-5 w-5 mr-2" />
-                                <h3 className="text-sm font-medium">Comments</h3>
+                                <h3 className="text-sm font-medium">コメント</h3>
                               </div>
                               <div className="space-y-4 max-h-[200px] overflow-y-auto">
                                 {currentTask.comments.length > 0 ? (
@@ -299,18 +306,18 @@ export function TaskList() {
                                     </div>
                                   ))
                                 ) : (
-                                  <p className="text-sm text-muted-foreground">No comments yet.</p>
+                                  <p className="text-sm text-muted-foreground">まだコメントはありません。</p>
                                 )}
                               </div>
                               <div className="mt-4 space-y-2">
-                                <Label htmlFor="comment">Add Comment</Label>
+                                <Label htmlFor="comment">コメントを追加</Label>
                                 <Textarea
                                   id="comment"
-                                  placeholder="Type your comment here..."
+                                  placeholder="ここにコメントを入力してください..."
                                   value={newComment}
                                   onChange={(e) => setNewComment(e.target.value)}
                                 />
-                                <Button onClick={handleAddComment}>Add Comment</Button>
+                                <Button onClick={handleAddComment}>コメントを追加</Button>
                               </div>
                             </div>
                           </div>

@@ -65,8 +65,8 @@ export function ProfileForm() {
       setTimeout(() => {
         setIsLoading(false)
         toast({
-          title: "Profile updated",
-          description: "Your profile has been updated successfully.",
+          title: "プロフィールを更新しました",
+          description: "プロフィール情報が正常に更新されました。",
         })
       }, 1000)
     },
@@ -77,8 +77,8 @@ export function ProfileForm() {
   const handleChangePassword = useCallback(() => {
     // パスワード変更ロジックをここに実装
     toast({
-      title: "Feature not implemented",
-      description: "Password change functionality is not implemented yet.",
+      title: "機能未実装",
+      description: "パスワード変更機能はまだ実装されていません。",
     })
   }, [toast])
 
@@ -86,8 +86,8 @@ export function ProfileForm() {
   const handleNotificationSettings = useCallback(() => {
     // 通知設定ロジックをここに実装
     toast({
-      title: "Feature not implemented",
-      description: "Notification settings functionality is not implemented yet.",
+      title: "機能未実装",
+      description: "通知設定機能はまだ実装されていません。",
     })
   }, [toast])
 
@@ -95,8 +95,8 @@ export function ProfileForm() {
   const handleEnable2FA = useCallback(() => {
     // 2FA有効化ロジックをここに実装
     toast({
-      title: "Feature not implemented",
-      description: "Two-factor authentication functionality is not implemented yet.",
+      title: "機能未実装",
+      description: "二要素認証機能はまだ実装されていません。",
     })
   }, [toast])
 
@@ -104,8 +104,8 @@ export function ProfileForm() {
   const handleDeactivateAccount = useCallback(() => {
     // アカウント無効化ロジックをここに実装
     toast({
-      title: "Feature not implemented",
-      description: "Account deactivation functionality is not implemented yet.",
+      title: "機能未実装",
+      description: "アカウント無効化機能はまだ実装されていません。",
     })
   }, [toast])
 
@@ -113,8 +113,8 @@ export function ProfileForm() {
     <div className="grid gap-6 md:grid-cols-2">
       <Card>
         <CardHeader>
-          <CardTitle>Personal Information</CardTitle>
-          <CardDescription>Update your personal details and contact information.</CardDescription>
+          <CardTitle>個人情報</CardTitle>
+          <CardDescription>個人情報や連絡先を更新してください。</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -125,7 +125,7 @@ export function ProfileForm() {
                   <AvatarFallback>JD</AvatarFallback>
                 </Avatar>
                 <Button variant="outline" type="button">
-                  Change Avatar
+                  プロフィール画像を変更
                 </Button>
               </div>
 
@@ -134,7 +134,7 @@ export function ProfileForm() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-base">Full Name</FormLabel>
+                    <FormLabel className="text-base">氏名</FormLabel>
                     <FormControl>
                       <Input className="text-base h-12" {...field} />
                     </FormControl>
@@ -149,7 +149,7 @@ export function ProfileForm() {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-base">Email</FormLabel>
+                      <FormLabel className="text-base">メールアドレス</FormLabel>
                       <FormControl>
                         <Input className="text-base h-12" {...field} />
                       </FormControl>
@@ -163,7 +163,7 @@ export function ProfileForm() {
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-base">Phone</FormLabel>
+                      <FormLabel className="text-base">電話番号</FormLabel>
                       <FormControl>
                         <Input className="text-base h-12" {...field} />
                       </FormControl>
@@ -179,7 +179,7 @@ export function ProfileForm() {
                   name="position"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-base">Position</FormLabel>
+                      <FormLabel className="text-base">役職</FormLabel>
                       <FormControl>
                         <Input className="text-base h-12" {...field} />
                       </FormControl>
@@ -193,7 +193,7 @@ export function ProfileForm() {
                   name="department"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-base">Department</FormLabel>
+                      <FormLabel className="text-base">部署</FormLabel>
                       <FormControl>
                         <Input className="text-base h-12" {...field} />
                       </FormControl>
@@ -208,7 +208,7 @@ export function ProfileForm() {
                 name="bio"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-base">Bio</FormLabel>
+                    <FormLabel className="text-base">自己紹介</FormLabel>
                     <FormControl>
                       <Textarea
                         className="text-base min-h-[120px]"
@@ -216,14 +216,14 @@ export function ProfileForm() {
                         {...field}
                       />
                     </FormControl>
-                    <FormDescription>Brief description for your profile. Maximum 500 characters.</FormDescription>
+                    <FormDescription>プロフィールの簡単な説明です。最大500文字まで。</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
               <Button type="submit" className="text-base h-12" disabled={isLoading}>
-                {isLoading ? "Saving..." : "Save Changes"}
+                {isLoading ? "保存中..." : "変更を保存"}
               </Button>
             </form>
           </Form>
@@ -232,37 +232,39 @@ export function ProfileForm() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Account Settings</CardTitle>
-          <CardDescription>Manage your account preferences and security settings.</CardDescription>
+          <CardTitle>アカウント設定</CardTitle>
+          <CardDescription>アカウントの設定やセキュリティ設定を管理します。</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div>
-            <h3 className="text-lg font-medium mb-2">Password</h3>
-            <p className="text-sm text-muted-foreground mb-4">Change your password to keep your account secure.</p>
+            <h3 className="text-lg font-medium mb-2">パスワード</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              アカウントを安全に保つためにパスワードを変更してください。
+            </p>
             <Button variant="outline" className="text-base" onClick={handleChangePassword}>
-              Change Password
+              パスワードを変更
             </Button>
           </div>
 
           <div>
-            <h3 className="text-lg font-medium mb-2">Notifications</h3>
-            <p className="text-sm text-muted-foreground mb-4">Configure how you receive notifications and alerts.</p>
+            <h3 className="text-lg font-medium mb-2">通知設定</h3>
+            <p className="text-sm text-muted-foreground mb-4">通知やアラートの受け取り方を設定します。</p>
             <Button variant="outline" className="text-base" onClick={handleNotificationSettings}>
-              Notification Settings
+              通知設定
             </Button>
           </div>
 
           <div>
-            <h3 className="text-lg font-medium mb-2">Two-Factor Authentication</h3>
-            <p className="text-sm text-muted-foreground mb-4">Add an extra layer of security to your account.</p>
+            <h3 className="text-lg font-medium mb-2">二要素認証</h3>
+            <p className="text-sm text-muted-foreground mb-4">アカウントにセキュリティ層を追加します。</p>
             <Button variant="outline" className="text-base" onClick={handleEnable2FA}>
-              Enable 2FA
+              二要素認証を有効化
             </Button>
           </div>
         </CardContent>
         <CardFooter className="border-t pt-6">
           <Button variant="destructive" className="text-base" onClick={handleDeactivateAccount}>
-            Deactivate Account
+            アカウントを無効化
           </Button>
         </CardFooter>
       </Card>
