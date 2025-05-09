@@ -22,49 +22,15 @@ export const metadata: Metadata = {
   description: "Construction project management system",
   icons: {
     icon: "/favicon.ico",
-    apple: "/habuken-logo.png",
+    apple: "/icons/apple-touch-icon.png",
   },
   manifest: "/manifest.json",
   themeColor: "#4a90e2",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "現助",
-    // フルスクリーンモードを有効化
-    startupImage: [
-      {
-        url: "/splash/apple-splash-2048-2732.png",
-        media:
-          "(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)",
-      },
-      {
-        url: "/splash/apple-splash-1668-2388.png",
-        media:
-          "(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)",
-      },
-      {
-        url: "/splash/apple-splash-1536-2048.png",
-        media:
-          "(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)",
-      },
-      {
-        url: "/splash/apple-splash-1125-2436.png",
-        media:
-          "(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)",
-      },
-      {
-        url: "/splash/apple-splash-750-1334.png",
-        media:
-          "(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)",
-      },
-    ],
-  },
   viewport: {
     width: "device-width",
     initialScale: 1,
     maximumScale: 5,
     userScalable: true,
-    // iOS用のビューポート設定
     viewportFit: "cover",
   },
   formatDetection: {
@@ -77,7 +43,6 @@ export const metadata: Metadata = {
     "apple-mobile-web-app-title": "現助",
     "msapplication-TileColor": "#4a90e2",
     "msapplication-tap-highlight": "no",
-    // iOS用のステータスバー設定
     "apple-mobile-web-app-status-bar-style": "black-translucent",
   },
     generator: 'v0.dev'
@@ -94,6 +59,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
+        <link
+          rel="apple-touch-startup-image"
+          href="/splash/apple-splash-1125-2436.png"
+          media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+        />
       </head>
       <body className={`${inter.className} ${notoSerifJP.variable}`}>
         <Providers>
