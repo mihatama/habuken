@@ -211,8 +211,8 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
         .insert({
           name: data.name,
           client_name: data.client_name || "", // nullではなく空文字列を使用
-          start_date: data.start_date.toISOString().split("T")[0],
-          end_date: data.end_date ? data.end_date.toISOString().split("T")[0] : null,
+          start_date: format(data.start_date, "yyyy-MM-dd"),
+          end_date: data.end_date ? format(data.end_date, "yyyy-MM-dd") : null,
           location: data.location || "", // nullではなく空文字列を使用
           status: data.status || "計画中", // 未選択の場合はデフォルト値を使用
           description: data.description || "",
