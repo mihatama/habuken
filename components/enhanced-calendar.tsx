@@ -68,6 +68,24 @@ const customStyles = `
   .rbc-time-view .rbc-time-content::-webkit-scrollbar {
     display: none !important;
   }
+  
+  /* 土曜日のセルの背景色を薄い青色に設定 */
+  .rbc-day-slot.rbc-time-column.rbc-day-6,
+  .rbc-header.rbc-day-6,
+  .rbc-month-row .rbc-row-content .rbc-date-cell.rbc-day-6,
+  .rbc-time-header-content .rbc-header.rbc-today.rbc-day-6,
+  .rbc-time-header-content .rbc-header.rbc-day-6 {
+    background-color: rgba(219, 234, 254, 0.7) !important; /* bg-blue-100相当 */
+  }
+  
+  /* 日曜日のセルの背景色を薄い赤色に設定 */
+  .rbc-day-slot.rbc-time-column.rbc-day-0,
+  .rbc-header.rbc-day-0,
+  .rbc-month-row .rbc-row-content .rbc-date-cell.rbc-day-0,
+  .rbc-time-header-content .rbc-header.rbc-today.rbc-day-0,
+  .rbc-time-header-content .rbc-header.rbc-day-0 {
+    background-color: rgba(254, 226, 226, 0.7) !important; /* bg-red-100相当 */
+  }
 `
 
 export interface CalendarEvent {
