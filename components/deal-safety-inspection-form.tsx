@@ -71,7 +71,7 @@ export function DealSafetyInspectionForm({ dealId }: DealSafetyInspectionFormPro
         console.error("案件データ取得エラー:", error)
         toast({
           title: "エラー",
-          description: "案件データの取得に失敗しました",
+          description: "案件データの取得ができませんでした",
           variant: "destructive",
         })
       }
@@ -130,8 +130,8 @@ export function DealSafetyInspectionForm({ dealId }: DealSafetyInspectionFormPro
       if (error) throw error
 
       toast({
-        title: "成功",
-        description: "安全パトロール記録が正常に登録されました",
+        title: "成功しました",
+        description: "安全パトロール記録が登録できました",
       })
 
       // Reset form
@@ -158,7 +158,7 @@ export function DealSafetyInspectionForm({ dealId }: DealSafetyInspectionFormPro
       console.error("安全パトロール登録エラー:", error)
       toast({
         title: "エラー",
-        description: "安全パトロール記録の登録に失敗しました",
+        description: "安全パトロール記録の登録ができませんでした",
         variant: "destructive",
       })
     } finally {
@@ -206,7 +206,7 @@ export function DealSafetyInspectionForm({ dealId }: DealSafetyInspectionFormPro
                 required
                 value={formData.location}
                 onChange={handleChange}
-                placeholder="点検場所を入力"
+                placeholder="点検した場所を入力してくださいね"
               />
             </div>
           </div>
@@ -226,19 +226,19 @@ export function DealSafetyInspectionForm({ dealId }: DealSafetyInspectionFormPro
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="good" id={`${item.id}-good`} />
                       <Label htmlFor={`${item.id}-good`} className="text-green-600">
-                        ◎ 良好
+                        ◎ 良好です
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="warning" id={`${item.id}-warning`} />
                       <Label htmlFor={`${item.id}-warning`} className="text-yellow-600">
-                        △ 注意
+                        △ 注意が必要です
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="danger" id={`${item.id}-danger`} />
                       <Label htmlFor={`${item.id}-danger`} className="text-red-600">
-                        × 危険
+                        × 危険です
                       </Label>
                     </div>
                   </RadioGroup>
@@ -258,7 +258,7 @@ export function DealSafetyInspectionForm({ dealId }: DealSafetyInspectionFormPro
               rows={5}
               value={formData.findings}
               onChange={handleChange}
-              placeholder="安全パトロールで発見した事項を入力してください"
+              placeholder="安全パトロールで見つけたことを入力してくださいね"
             />
           </div>
 
@@ -270,13 +270,13 @@ export function DealSafetyInspectionForm({ dealId }: DealSafetyInspectionFormPro
               rows={3}
               value={formData.actionItems}
               onChange={handleChange}
-              placeholder="必要な対応事項があれば入力してください"
+              placeholder="必要な対応があれば入力してくださいね"
             />
           </div>
 
           <div className="flex justify-end space-x-4">
             <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
-              キャンセル
+              戻る
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? (
@@ -285,7 +285,7 @@ export function DealSafetyInspectionForm({ dealId }: DealSafetyInspectionFormPro
                   送信中...
                 </>
               ) : (
-                "記録を登録"
+                "記録を登録する"
               )}
             </Button>
           </div>

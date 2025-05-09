@@ -50,7 +50,7 @@ export function DealDailyReportForm({ dealId }: DealDailyReportFormProps) {
         console.error("案件データ取得エラー:", error)
         toast({
           title: "エラー",
-          description: "案件データの取得に失敗しました",
+          description: "案件データの取得ができませんでした",
           variant: "destructive",
         })
       }
@@ -102,8 +102,8 @@ export function DealDailyReportForm({ dealId }: DealDailyReportFormProps) {
       if (error) throw error
 
       toast({
-        title: "成功",
-        description: "日報が正常に登録されました",
+        title: "成功しました",
+        description: "日報が登録できました",
       })
 
       // Reset form
@@ -121,7 +121,7 @@ export function DealDailyReportForm({ dealId }: DealDailyReportFormProps) {
       console.error("日報登録エラー:", error)
       toast({
         title: "エラー",
-        description: "日報の登録に失敗しました",
+        description: "日報の登録ができませんでした",
         variant: "destructive",
       })
     } finally {
@@ -203,7 +203,7 @@ export function DealDailyReportForm({ dealId }: DealDailyReportFormProps) {
               rows={5}
               value={formData.workDescription}
               onChange={handleChange}
-              placeholder="今日行った作業内容を入力してください"
+              placeholder="今日行った作業内容を入力してくださいね"
             />
           </div>
 
@@ -215,13 +215,13 @@ export function DealDailyReportForm({ dealId }: DealDailyReportFormProps) {
               rows={3}
               value={formData.issues}
               onChange={handleChange}
-              placeholder="発生した問題点や課題があれば入力してください"
+              placeholder="問題点や課題があれば入力してくださいね"
             />
           </div>
 
           <div className="flex justify-end space-x-4">
             <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
-              キャンセル
+              戻る
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? (
@@ -230,7 +230,7 @@ export function DealDailyReportForm({ dealId }: DealDailyReportFormProps) {
                   送信中...
                 </>
               ) : (
-                "日報を登録"
+                "日報を登録する"
               )}
             </Button>
           </div>

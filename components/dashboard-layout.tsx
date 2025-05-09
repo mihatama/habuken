@@ -52,7 +52,7 @@ export function DashboardLayout({ children, title, description, isAdmin = false 
 
         setUser(session.user)
       } catch (error) {
-        console.error("認証チェックエラー:", error)
+        console.error("認証確認でエラーが発生しました:", error)
         router.push("/login")
       } finally {
         setIsLoading(false)
@@ -62,6 +62,7 @@ export function DashboardLayout({ children, title, description, isAdmin = false 
     checkAuth()
   }, [router, isAdmin, pathname])
 
+  // ローディングメッセージを日本語に変更
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">

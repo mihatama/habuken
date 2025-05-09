@@ -125,7 +125,7 @@ const DailyReportForm = () => {
     ) {
       toast({
         title: "入力エラー",
-        description: "すべての必須フィールドを入力してください",
+        description: "すべての必須項目を入力してくださいね",
         variant: "destructive",
       })
       return
@@ -140,8 +140,8 @@ const DailyReportForm = () => {
       }
 
       toast({
-        title: "成功",
-        description: "レポートが正常に作成されました",
+        title: "成功しました",
+        description: "日報が作成できました",
       })
 
       setFormData({
@@ -161,7 +161,7 @@ const DailyReportForm = () => {
       console.error("レポートの作成に失敗しました:", error)
       toast({
         title: "エラー",
-        description: "レポートの作成に失敗しました",
+        description: "日報の作成ができませんでした",
         variant: "destructive",
       })
     } finally {
@@ -234,7 +234,7 @@ const DailyReportForm = () => {
               id="activity"
               value={formData.activity}
               onChange={(e) => setFormData({ ...formData, activity: e.target.value })}
-              placeholder="今日行った活動について記入してください"
+              placeholder="今日行った活動を記入してくださいね"
             />
           </div>
           <div className="space-y-2">
@@ -243,7 +243,7 @@ const DailyReportForm = () => {
               id="feeling"
               value={formData.feeling}
               onChange={(e) => setFormData({ ...formData, feeling: e.target.value })}
-              placeholder="今日の気分について記入してください"
+              placeholder="今日の気分を記入してくださいね"
             />
           </div>
           <div className="space-y-2">
@@ -252,7 +252,7 @@ const DailyReportForm = () => {
               id="learned"
               value={formData.learned}
               onChange={(e) => setFormData({ ...formData, learned: e.target.value })}
-              placeholder="今日学んだことについて記入してください"
+              placeholder="今日学んだことを記入してくださいね"
             />
           </div>
           <div className="space-y-2">
@@ -261,11 +261,11 @@ const DailyReportForm = () => {
               id="tomorrow"
               value={formData.tomorrow}
               onChange={(e) => setFormData({ ...formData, tomorrow: e.target.value })}
-              placeholder="明日の予定について記入してください"
+              placeholder="明日の予定を記入してくださいね"
             />
           </div>
           <Button onClick={createReport} disabled={isLoading} className="w-full">
-            {isLoading ? "送信中..." : "レポート作成"}
+            {isLoading ? "送信中..." : "日報を作成する"}
           </Button>
         </CardContent>
       </Card>
@@ -275,7 +275,7 @@ const DailyReportForm = () => {
         {isLoading ? (
           <div className="text-center py-4">読み込み中...</div>
         ) : reports.length === 0 ? (
-          <div className="text-center py-4">レポートがありません</div>
+          <div className="text-center py-4">日報がありませんよ</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {reports.map((report) => (
@@ -292,11 +292,11 @@ const DailyReportForm = () => {
                     </div>
                   </div>
                   <div>
-                    <p className="font-medium">活動:</p>
+                    <p className="font-medium">活動内容:</p>
                     <p className="text-sm">{report.activity}</p>
                   </div>
                   <div>
-                    <p className="font-medium">気分:</p>
+                    <p className="font-medium">今日の気分:</p>
                     <p className="text-sm">{report.feeling}</p>
                   </div>
                   <div>

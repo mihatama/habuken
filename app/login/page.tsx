@@ -34,7 +34,7 @@ export default function LoginPage() {
     setIsSubmitting(true)
 
     if (!email || !password) {
-      setError("メールアドレスとパスワードを入力してください")
+      setError("メールアドレスとパスワードを入力してくださいね")
       setIsSubmitting(false)
       return
     }
@@ -61,7 +61,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold">ログイン</CardTitle>
-          <CardDescription>アカウントにログインしてください</CardDescription>
+          <CardDescription>システムにログインしてくださいね</CardDescription>
         </CardHeader>
         <CardContent>
           {error && (
@@ -77,7 +77,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
+                placeholder="メールアドレスを入力"
                 required
                 disabled={isSubmitting || loading}
               />
@@ -86,7 +86,7 @@ export default function LoginPage() {
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">パスワード</Label>
                 <Link href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-500">
-                  パスワードをお忘れですか？
+                  パスワードを忘れた方はこちら
                 </Link>
               </div>
               <Input
@@ -99,16 +99,17 @@ export default function LoginPage() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={isSubmitting || loading}>
-              {isSubmitting || loading ? "ログイン中..." : "ログイン"}
+              {isSubmitting || loading ? "ログイン中..." : "ログインする"}
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex justify-center">
           <p className="text-sm text-gray-600">
-            アカウントをお持ちでないですか？{" "}
+            アカウントをお持ちでない方は{" "}
             <Link href="/signup" className="text-blue-600 hover:text-blue-500">
               新規登録
             </Link>
+            してくださいね
           </p>
         </CardFooter>
       </Card>

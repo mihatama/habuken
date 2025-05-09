@@ -35,10 +35,10 @@ export function ToolCalendar() {
         // If there's still an error (like table doesn't exist), handle it gracefully
         if (error.message.includes("does not exist")) {
           setEvents([])
-          setError("備品予約テーブルが存在しません。テーブルを作成してください。")
+          setError("備品予約テーブルがありません。テーブルを作成してくださいね。")
           toast({
             title: "テーブルが見つかりません",
-            description: "備品予約テーブルが存在しません。管理者に連絡してください。",
+            description: "備品予約テーブルがありません。管理者に連絡してくださいね。",
             variant: "destructive",
           })
         } else {
@@ -65,16 +65,16 @@ export function ToolCalendar() {
       // If we successfully loaded events, show a success message
       if (data && data.length > 0) {
         toast({
-          title: "データ読み込み完了",
-          description: `${data.length}件の備品予約を読み込みました`,
+          title: "読み込みが完了しました",
+          description: `${data.length}件の備品予約を読み込みましたよ`,
         })
       }
     } catch (error) {
       console.error("備品予約の取得に失敗しました:", error)
-      setError("備品の予約データの取得に失敗しました")
+      setError("備品の予約データが取得できませんでした")
       toast({
         title: "エラー",
-        description: "備品の予約データの取得に失敗しました",
+        description: "備品の予約データが取得できませんでした",
         variant: "destructive",
       })
     } finally {
@@ -94,10 +94,10 @@ export function ToolCalendar() {
       if (tableCheckError && tableCheckError.message.includes("does not exist")) {
         toast({
           title: "テーブルが見つかりません",
-          description: "備品予約テーブルが存在しません。管理者に連絡してください。",
+          description: "備品予約テーブルがありません。管理者に連絡してくださいね。",
           variant: "destructive",
         })
-        throw new Error("備品予約テーブルが存在しません")
+        throw new Error("備品予約テーブルがありません")
       }
 
       const { data, error } = await supabase
@@ -147,10 +147,10 @@ export function ToolCalendar() {
       if (tableCheckError && tableCheckError.message.includes("does not exist")) {
         toast({
           title: "テーブルが見つかりません",
-          description: "備品予約テーブルが存在しません。管理者に連絡してください。",
+          description: "備品予約テーブルがありません。管理者に連絡してくださいね。",
           variant: "destructive",
         })
-        throw new Error("備品予約テーブルが存在しません")
+        throw new Error("備品予約テーブルがありません")
       }
 
       const { error } = await supabase
@@ -193,10 +193,10 @@ export function ToolCalendar() {
       if (tableCheckError && tableCheckError.message.includes("does not exist")) {
         toast({
           title: "テーブルが見つかりません",
-          description: "備品予約テーブルが存在しません。管理者に連絡してください。",
+          description: "備品予約テーブルがありません。管理者に連絡してくださいね。",
           variant: "destructive",
         })
-        throw new Error("備品予約テーブルが存在しません")
+        throw new Error("備品予約テーブルがありません")
       }
 
       const { error } = await supabase.from("tool_reservations").delete().eq("id", eventId)
@@ -221,7 +221,7 @@ export function ToolCalendar() {
   // 備品カテゴリ
   const toolCategories = [
     { value: "tool", label: "備品" },
-    { value: "maintenance", label: "メンテナンス" },
+    { value: "maintenance", label: "点検・修理" },
     { value: "other", label: "その他" },
   ]
 

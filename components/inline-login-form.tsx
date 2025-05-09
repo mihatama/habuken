@@ -35,7 +35,7 @@ export function InlineLoginForm() {
       router.refresh()
     } catch (error) {
       console.error("ログインエラー:", error)
-      setError("ログインに失敗しました。メールアドレスとパスワードを確認してください。")
+      setError("ログインできませんでした。メールアドレスとパスワードを確認してくださいね。")
     } finally {
       setLoading(false)
     }
@@ -66,7 +66,7 @@ export function InlineLoginForm() {
         />
       </div>
       <Button type="submit" disabled={loading} size="sm">
-        {loading ? "ログイン中..." : "システムにアクセス"}
+        {loading ? "ログイン中..." : "システムに入る"}
       </Button>
       {error && <p className="text-xs text-red-500 absolute top-full left-0 mt-1">{error}</p>}
     </form>

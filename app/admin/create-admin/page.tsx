@@ -47,7 +47,7 @@ export default function CreateAdminPage() {
               ) : (
                 <AlertCircle className="h-4 w-4" />
               )}
-              <AlertTitle>{result.success ? "成功" : "エラー"}</AlertTitle>
+              <AlertTitle>{result.success ? "成功しました" : "エラーが発生しました"}</AlertTitle>
               <AlertDescription>{result.message}</AlertDescription>
 
               {/* デバッグ情報（開発環境のみ） */}
@@ -59,13 +59,13 @@ export default function CreateAdminPage() {
             </Alert>
           )}
           <div className="space-y-4">
-            <p>以下の情報で管理者ユーザーを作成します：</p>
+            <p>以下の情報で管理者を作成しますね：</p>
             <ul className="list-disc pl-5 space-y-1">
               <li>メールアドレス: info@mihatama.com</li>
               <li>パスワード: gensuke</li>
               <li>権限: 管理者（admin）</li>
             </ul>
-            <p className="text-sm text-gray-500">注意: 既にユーザーが存在する場合は、パスワードのみ更新されます。</p>
+            <p className="text-sm text-gray-500">注意: すでに登録されている場合は、パスワードだけ更新されますよ。</p>
           </div>
         </CardContent>
         <CardFooter>
@@ -76,7 +76,7 @@ export default function CreateAdminPage() {
                 作成中...
               </>
             ) : (
-              "管理者ユーザーを作成"
+              "管理者を作成する"
             )}
           </Button>
         </CardFooter>
