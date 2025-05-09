@@ -285,3 +285,31 @@ html {
     overscroll-behavior: none;
   }
 }
+
+/* スクロールヒントのスタイル */
+.scroll-hint {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  padding: 0.5rem 0.75rem;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border-radius: 0.25rem 0 0 0.25rem;
+  font-size: 0.875rem;
+  z-index: 30;
+  pointer-events: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+}
+
+/* ダークモード対応 */
+.dark .scroll-hint {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ゴールドテーマ対応 */
+.gold-theme .scroll-hint {
+  background: rgba(204, 172, 0, 0.7);
+  color: #505050;
+}

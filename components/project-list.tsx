@@ -11,13 +11,15 @@ import { Textarea } from "@/components/ui/textarea"
 import { Plus, Pencil, Trash2, Loader2, Search, X, AlertCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
 import { useProjects, useCreateProject, useUpdateProject, useDeleteProject } from "@/hooks/use-projects"
 import { useStaff, useHeavyMachinery, useVehicles, useTools } from "@/hooks/use-resources"
 import { useAuth } from "@/contexts/auth-context"
+
+// 既存のインポートはそのままに、新しいコンポーネントをインポート
+import { ScrollAreaWithHint } from "@/components/ui/scroll-area-with-hint"
 
 export function ProjectList() {
   const { toast } = useToast()
@@ -548,7 +550,7 @@ export function ProjectList() {
                     )}
 
                     {/* スタッフ一覧 */}
-                    <ScrollArea className="h-[300px]">
+                    <ScrollAreaWithHint className="h-[300px]" showScrollHint={true}>
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -582,7 +584,7 @@ export function ProjectList() {
                           )}
                         </TableBody>
                       </Table>
-                    </ScrollArea>
+                    </ScrollAreaWithHint>
                   </TabsContent>
 
                   {/* 重機選択タブ */}
@@ -618,7 +620,7 @@ export function ProjectList() {
                     )}
 
                     {/* 重機一覧 */}
-                    <ScrollArea className="h-[300px]">
+                    <ScrollAreaWithHint className="h-[300px]" showScrollHint={true}>
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -656,7 +658,7 @@ export function ProjectList() {
                           )}
                         </TableBody>
                       </Table>
-                    </ScrollArea>
+                    </ScrollAreaWithHint>
                   </TabsContent>
 
                   {/* 車両選択タブ */}
@@ -692,7 +694,7 @@ export function ProjectList() {
                     )}
 
                     {/* 車両一覧 */}
-                    <ScrollArea className="h-[300px]">
+                    <ScrollAreaWithHint className="h-[300px]" showScrollHint={true}>
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -728,7 +730,7 @@ export function ProjectList() {
                           )}
                         </TableBody>
                       </Table>
-                    </ScrollArea>
+                    </ScrollAreaWithHint>
                   </TabsContent>
 
                   {/* 備品選択タブ */}
@@ -764,7 +766,7 @@ export function ProjectList() {
                     )}
 
                     {/* 備品一覧 */}
-                    <ScrollArea className="h-[300px]">
+                    <ScrollAreaWithHint className="h-[300px]" showScrollHint={true}>
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -802,7 +804,7 @@ export function ProjectList() {
                           )}
                         </TableBody>
                       </Table>
-                    </ScrollArea>
+                    </ScrollAreaWithHint>
                   </TabsContent>
                 </Tabs>
               </div>

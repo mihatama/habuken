@@ -25,7 +25,7 @@ export function useStaff(
   return useData<Staff>("staff", {
     queryKey: ["staff", filters],
     filters,
-    order: { column: "full_name", ascending: true },
+    order: { column: "display_order", ascending: true },
     enabled,
   })
 }

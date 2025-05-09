@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
-import { DashboardLayout } from "@/components/dashboard-layout"
 import { ProjectList } from "@/components/project-list"
+import { SortableProjectList } from "@/components/sortable-project-list"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export const metadata: Metadata = {
   title: "案件管理 | 工事管理システム",
@@ -9,14 +10,23 @@ export const metadata: Metadata = {
 
 export default function ProjectPage() {
   return (
-    <DashboardLayout
-      title="案件管理"
-      description="案件の登録、編集、予定管理ができますよ。新しい案件を作成したり、既存の案件を更新したりできます。"
-      isAdmin={true}
-    >
-      <div className="flex flex-col space-y-6">
-        <ProjectList />
-      </div>
-    </DashboardLayout>
+    <div className="container mx-auto py-6">
+      <h1 className="text-2xl font-bold mb-6">プロジェクト管理</h1>
+
+      <Tabs defaultValue="list">
+        <TabsList className="mb-4">
+          <TabsTrigger value="list">一覧</TabsTrigger>
+          <TabsTrigger value="sort">並び替え</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="list">
+          <ProjectList />
+        </TabsContent>
+
+        <TabsContent value="sort">
+          <SortableProjectList />
+        </TabsContent>
+      </Tabs>
+    </div>
   )
 }

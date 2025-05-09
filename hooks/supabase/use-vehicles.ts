@@ -38,7 +38,7 @@ export function useVehicles(
       try {
         const { data } = await fetchClientData<Vehicle>("vehicles", {
           filters,
-          order: { column: "created_at", ascending: false },
+          order: { column: "display_order", ascending: true },
         })
 
         // useVehicles関数内のフィルタリング部分を修正

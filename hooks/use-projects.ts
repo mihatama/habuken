@@ -14,7 +14,7 @@ export function useProjects() {
     queryFn: async () => {
       try {
         console.log("Fetching projects from Supabase...")
-        const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false })
+        const { data, error } = await supabase.from("projects").select("*").order("display_order", { ascending: true })
 
         if (error) {
           console.error("Error fetching projects:", error)

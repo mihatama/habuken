@@ -34,7 +34,7 @@ export function useTools(
       try {
         const { data } = await fetchClientData<Tool>("resources", {
           filters: { type: "工具", ...filters },
-          order: { column: "name", ascending: true },
+          order: { column: "display_order", ascending: true },
         })
         return data
       } catch (error) {
