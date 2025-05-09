@@ -44,9 +44,6 @@ export function DashboardClient() {
         .select("count", { count: "exact" })
         .eq("type", "工具")
 
-      // 案件数を取得
-      const { data: projectsData, error: projectsError } = await supabase.from("deals").select("*")
-
       // 最近のアクティビティを取得
       const { data: reportsData, error: reportsError } = await supabase
         .from("daily_reports")
@@ -69,16 +66,6 @@ export function DashboardClient() {
           vehiclesCount: vehiclesCount?.[0]?.count || 0,
           toolsCount: toolsCount?.[0]?.count || 0,
         },
-        projects: projectsData
-          ? projectsData.map((project) => ({
-              id: project.id,
-              name: project.name,
-              startDate: project.start_date,
-              endDate: project.end_date,
-              status: project.status || "未着手",
-              progress: Math.floor(Math.random() * 100), // ダミーデータ
-            }))
-          : [],
         activities: [
           ...(reportsData
             ? reportsData.map((report) => ({
@@ -99,21 +86,6 @@ export function DashboardClient() {
               }))
             : []),
         ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-        staffAllocation: {
-          byProject: [
-            { name: "東京プロジェクト", value: 8, color: "#FF6384" },
-            { name: "大阪工事", value: 5, color: "#36A2EB" },
-            { name: "名古屋現場", value: 3, color: "#FFCE56" },
-            { name: "福岡工事", value: 2, color: "#4BC0C0" },
-            { name: "未割当", value: 4, color: "#9966FF" },
-          ],
-          byRole: [
-            { name: "現場監督", value: 3, color: "#FF6384" },
-            { name: "作業員", value: 12, color: "#36A2EB" },
-            { name: "事務", value: 2, color: "#FFCE56" },
-            { name: "エンジニア", value: 5, color: "#4BC0C0" },
-          ],
-        },
       }
 
       setDashboardData(data)
@@ -183,12 +155,12 @@ export function DashboardClient() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <ProjectProgressPanel projects={dashboardData.projects} />
+        <ProjectProgressPanel />
         <RecentActivitiesPanel activities={dashboardData.activities} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <StaffAllocationChart data={dashboardData.staffAllocation} />
+        <StaffAllocationChart />
         <CostOptimizationPanel />
       </div>
 

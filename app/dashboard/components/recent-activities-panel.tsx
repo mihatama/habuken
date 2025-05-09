@@ -19,7 +19,7 @@ export function RecentActivitiesPanel({ activities }: RecentActivitiesPanelProps
   return (
     <Card className="col-span-full md:col-span-1">
       <CardHeader>
-        <CardTitle>最近のアクティビティ</CardTitle>
+        <CardTitle>更新状況</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

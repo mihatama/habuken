@@ -399,7 +399,7 @@ export default function Dashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center text-blue-600">
                   <Clock className="mr-2 h-5 w-5" />
-                  進行中
+                  現場進捗
                 </CardTitle>
               </CardHeader>
               <CardContent>
