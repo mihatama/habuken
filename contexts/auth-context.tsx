@@ -14,6 +14,7 @@ type AuthContextType = {
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   signOut: () => Promise<void>
+  refreshUserData: () => Promise<void> // 新しい関数を追加
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -30,6 +31,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // デバッグ用のログ
   useEffect(() => {
     console.log("認証状態:", { user, loading, pathname })
+    if (user) {
+      console.log("ユーザーメタデータ:", user.user_metadata)
+    }
   }, [user, loading, pathname])
 
   // 認証状態に基づいてリダイレクト
@@ -45,6 +49,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user, loading, pathname, router, isRedirecting])
 
+  // ユーザーデータを最新の状態に更新する関数
+  const refreshUserData = async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (session) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        if (user) {
+          const userData = {
+            id: user.id,
+            email: user.email || "",
+            user_metadata: {
+              full_name: user.user_metadata.full_name || "",
+              role: user.user_metadata.role || "user",
+            },
+          }
+          console.log("ユーザーデータを更新:", userData)
+          setUser(userData)
+          setSession(session)
+        }
+      }
+    } catch (error) {
+      console.error("ユーザーデータ更新エラー:", error)
+    }
+  }
+
   // セッションからユーザー情報を設定する関数
   const setUserFromSession = (session: Session | null) => {
     if (session) {
@@ -57,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       }
       console.log("セッションからユーザー情報を設定:", userData)
+      console.log("メタデータ詳細:", session.user.user_metadata)
       setUser(userData)
       setSession(session)
     } else {
@@ -80,6 +114,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } = await supabase.auth.getSession()
 
         console.log("セッション取得結果:", !!session)
+        if (session) {
+          console.log("セッションユーザー:", session.user)
+          console.log("セッションメタデータ:", session.user.user_metadata)
+        }
         setUserFromSession(session)
       } catch (error) {
         console.error("認証初期化エラー:", error)
@@ -97,6 +135,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("認証状態変更イベント:", event)
+      if (session) {
+        console.log("新しいセッションユーザー:", session.user)
+        console.log("新しいセッションメタデータ:", session.user.user_metadata)
+      }
       setUserFromSession(session)
 
       // ログイン成功時にリダイレクトフラグをリセット
@@ -127,6 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       console.log("ログイン成功:", data)
+      console.log("ユーザーメタデータ:", data.user.user_metadata)
       setUserFromSession(data.session)
 
       // ログイン成功後、明示的にダッシュボードにリダイレクト
@@ -173,6 +216,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     signIn,
     signOut,
+    refreshUserData, // 新しい関数を公開
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

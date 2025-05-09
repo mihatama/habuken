@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
+import { useAuth } from "@/contexts/auth-context"
 
 type LeaveRequest = {
   id: string
@@ -26,11 +27,22 @@ type LeaveRequest = {
 
 export function LeaveRequestManagement() {
   const { toast } = useToast()
+  const { user } = useAuth()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("all")
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null)
+
+  // ユーザーが管理者かどうかを確認
+  const isAdmin = user?.user_metadata?.role === "admin"
+
+  // 一般ユーザーの場合は、初期タブを「承認済み」に設定
+  useEffect(() => {
+    if (!isAdmin) {
+      setActiveTab("approved")
+    }
+  }, [isAdmin])
 
   const fetchLeaveRequests = async () => {
     try {
@@ -50,7 +62,13 @@ export function LeaveRequestManagement() {
 
       const data = await response.json()
       console.log("Fetched leave requests:", data.data)
-      setLeaveRequests(data.data)
+
+      // 一般ユーザーの場合は承認済みの申請のみをフィルタリング
+      if (!isAdmin) {
+        setLeaveRequests(data.data.filter((request: LeaveRequest) => request.status === "approved"))
+      } else {
+        setLeaveRequests(data.data)
+      }
     } catch (error) {
       console.error("休暇申請データ取得エラー:", error)
       toast({
@@ -170,12 +188,25 @@ export function LeaveRequestManagement() {
         <Button onClick={() => setIsDialogOpen(true)}>新規申請</Button>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs
+          defaultValue={isAdmin ? "all" : "approved"}
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="w-full"
+        >
           <TabsList className="mb-4">
-            <TabsTrigger value="all">すべて</TabsTrigger>
-            <TabsTrigger value="pending">審査中</TabsTrigger>
-            <TabsTrigger value="approved">承認済</TabsTrigger>
-            <TabsTrigger value="rejected">却下</TabsTrigger>
+            {/* 管理者のみ全てのタブを表示 */}
+            {isAdmin ? (
+              <>
+                <TabsTrigger value="all">すべて</TabsTrigger>
+                <TabsTrigger value="pending">審査中</TabsTrigger>
+                <TabsTrigger value="approved">承認済</TabsTrigger>
+                <TabsTrigger value="rejected">却下</TabsTrigger>
+              </>
+            ) : (
+              // 一般ユーザーは承認済みタブのみ表示
+              <TabsTrigger value="approved">承認済</TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value={activeTab} className="mt-0">
@@ -208,8 +239,8 @@ export function LeaveRequestManagement() {
                       <span className="font-medium">理由:</span> {request.reason}
                     </div>
 
-                    {/* 審査中の申請に対してのみ承認ボタンを表示 */}
-                    {request.status === "pending" && (
+                    {/* 管理者のみ審査中の申請に対して承認ボタンを表示 */}
+                    {isAdmin && request.status === "pending" && (
                       <div className="flex justify-end mt-2">
                         <Button
                           size="sm"

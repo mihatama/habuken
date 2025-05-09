@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter, usePathname } from "next/navigation"
@@ -10,15 +10,44 @@ import { UserNav } from "@/components/user-nav"
 import { useAuth } from "@/contexts/auth-context"
 import { Skeleton } from "@/components/ui/skeleton"
 // Lucideアイコンをインポート
-import { Menu, LayoutDashboard, Briefcase, Users, Truck, Car, Package, Calendar, FileText } from "lucide-react"
+import {
+  Menu,
+  LayoutDashboard,
+  Briefcase,
+  Users,
+  Truck,
+  Car,
+  Package,
+  Calendar,
+  FileText,
+  UserPlus,
+} from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { InstallButton } from "@/components/pwa-install-prompt"
 
 export function Header() {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, loading } = useAuth()
+  const { user, loading, refreshUserData } = useAuth()
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
+
+  // コンポーネントマウント時にユーザーデータを更新
+  useEffect(() => {
+    if (user) {
+      refreshUserData()
+    }
+  }, [])
+
+  // ユーザーが管理者かどうかを確認
+  const isAdmin = user?.user_metadata?.role === "admin"
+
+  // デバッグ用
+  useEffect(() => {
+    if (user) {
+      console.log("Header - ユーザーロール:", user.user_metadata?.role)
+      console.log("Header - 管理者判定:", isAdmin)
+    }
+  }, [user, isAdmin])
 
   // プログラムによるナビゲーション関数
   const handleNavigation = (path: string) => {
@@ -154,6 +183,20 @@ export function Header() {
                 <FileText className="h-4 w-4" />
                 現場報告
               </Link>
+              {/* 管理者のみユーザー作成メニューを表示 */}
+              {isAdmin && (
+                <Link
+                  href="/admin/create-user"
+                  className={`transition-colors ${isActive("/admin/create-user")} flex items-center gap-1`}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    router.push("/admin/create-user")
+                  }}
+                >
+                  <UserPlus className="h-4 w-4" />
+                  ユーザー作成
+                </Link>
+              )}
             </div>
             <div className="flex items-center">
               <div className="mr-4">

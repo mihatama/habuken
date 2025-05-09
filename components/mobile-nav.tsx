@@ -3,8 +3,21 @@
 import { useRouter, usePathname } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
+import { useEffect } from "react"
 // Lucideアイコンをインポート
-import { X, User, LogOut, LayoutDashboard, Briefcase, Users, Truck, Car, Calendar, FileText, Box } from "lucide-react"
+import {
+  X,
+  LogOut,
+  LayoutDashboard,
+  Briefcase,
+  Users,
+  Truck,
+  Car,
+  Calendar,
+  FileText,
+  Box,
+  UserPlus,
+} from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { ThemeToggle } from "@/components/theme-toggle"
 
@@ -16,7 +29,25 @@ interface MobileNavProps {
 export function MobileNav({ isOpen, onClose }: MobileNavProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, signOut } = useAuth()
+  const { user, signOut, refreshUserData } = useAuth()
+
+  // コンポーネントマウント時にユーザーデータを更新
+  useEffect(() => {
+    if (user) {
+      refreshUserData()
+    }
+  }, [])
+
+  // ユーザーが管理者かどうかを確認
+  const isAdmin = user?.user_metadata?.role === "admin"
+
+  // デバッグ用
+  useEffect(() => {
+    if (user) {
+      console.log("MobileNav - ユーザーロール:", user.user_metadata?.role)
+      console.log("MobileNav - 管理者判定:", isAdmin)
+    }
+  }, [user, isAdmin])
 
   if (!isOpen) return null
 
@@ -145,6 +176,17 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
             <FileText className="h-4 w-4 mr-2" />
             現場報告
           </Button>
+          {/* 管理者のみユーザー作成メニューを表示 */}
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              className={`flex w-full justify-start p-3 ${isActive("/admin/create-user")}`}
+              onClick={() => handleNavigation("/admin/create-user")}
+            >
+              <UserPlus className="h-4 w-4 mr-2" />
+              ユーザー作成
+            </Button>
+          )}
         </div>
 
         <div className="border-t border-gold/20 p-2 mt-2">
@@ -156,14 +198,6 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
               <span className="mr-2">テーマ切替</span>
               <ThemeToggle />
             </div>
-          </Button>
-          <Button
-            variant="ghost"
-            className="flex w-full justify-start gap-3 p-3 text-white hover:bg-darkgray-light hover:text-gold"
-            onClick={() => handleNavigation("/profile")}
-          >
-            <User className="h-5 w-5" />
-            <span>プロフィール</span>
           </Button>
           <Button
             variant="ghost"
