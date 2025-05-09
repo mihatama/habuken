@@ -26,6 +26,21 @@ export function getClientSupabase(): SupabaseClient {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
+      storageKey: "supabase.auth.token",
+      storage: {
+        getItem: (key) => {
+          if (typeof window === "undefined") return null
+          return JSON.parse(window.sessionStorage.getItem(key) || "null")
+        },
+        setItem: (key, value) => {
+          if (typeof window === "undefined") return
+          window.sessionStorage.setItem(key, JSON.stringify(value))
+        },
+        removeItem: (key) => {
+          if (typeof window === "undefined") return
+          window.sessionStorage.removeItem(key)
+        },
+      },
     },
   })
   return clientInstance
@@ -57,6 +72,13 @@ export function getServerSupabase(type?: "admin"): SupabaseClient {
   return serverInstance
 }
 
+// ダミーのCSRFトークン取得関数（実際には適切な実装が必要です）
+function getCsrfToken(): string {
+  // ここにCSRFトークンを取得するロジックを実装します
+  // 例：Cookieから取得、またはサーバーから取得
+  return "dummy_csrf_token"
+}
+
 /**
  * テーブルからデータを取得する関数
  */
@@ -64,7 +86,12 @@ export async function fetchDataFromTable(tableName: string, options: any = {}) {
   const { select = "*", filters = {}, order = {} } = options
   const supabase = getClientSupabase()
 
-  let query = supabase.from(tableName).select(select)
+  // CSRFトークンをヘッダーに追加
+  const headers = {
+    "X-CSRF-Token": getCsrfToken(), // この関数は別途実装する必要があります
+  }
+
+  let query = supabase.from(tableName).select(select).headers(headers)
 
   if (filters) {
     Object.entries(filters).forEach(([key, value]) => {

@@ -49,14 +49,18 @@ export async function middleware(req: NextRequest) {
   if (session) {
     res.cookies.set("authenticated", "true", {
       path: "/",
-      httpOnly: false,
+      httpOnly: true, // JavaScriptからアクセス不可に変更
+      secure: process.env.NODE_ENV === "production", // 本番環境ではHTTPSのみ
       sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7, // 1週間の有効期限を設定
     })
   } else {
     res.cookies.set("authenticated", "false", {
       path: "/",
-      httpOnly: false,
+      httpOnly: true, // JavaScriptからアクセス不可に変更
+      secure: process.env.NODE_ENV === "production", // 本番環境ではHTTPSのみ
       sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7, // 1週間の有効期限を設定
     })
   }
 

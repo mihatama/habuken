@@ -40,6 +40,7 @@ interface DealWithResources extends Deal {
   machinery?: { id: string; name: string }[]
   vehicles?: { id: string; name: string }[]
   tools?: { id: string; name: string }[]
+  contract_amount?: number
 }
 
 export function EnhancedDealsList() {
@@ -402,6 +403,38 @@ export function EnhancedDealsList() {
                   ) : (
                     <p className="text-sm text-muted-foreground">備品は割り当てられていません</p>
                   )}
+                </div>
+
+                {/* 請負金額情報 */}
+                <div className="mb-4">
+                  <h4 className="text-xs font-medium flex items-center gap-2 mb-2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-3.5 w-3.5 text-emerald-500"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
+                      <path d="M12 18V6" />
+                    </svg>
+                    請負金額（税込）
+                  </h4>
+                  <div className="bg-emerald-50 rounded-md px-3 py-2 text-sm">
+                    <span className="font-medium text-lg">
+                      {deal.contract_amount
+                        ? new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY" }).format(
+                            deal.contract_amount,
+                          )
+                        : "未設定"}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex justify-end items-center gap-2 mt-4">

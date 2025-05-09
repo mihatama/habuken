@@ -138,6 +138,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session) {
         console.log("新しいセッションユーザー:", session.user)
         console.log("新しいセッションメタデータ:", session.user.user_metadata)
+
+        // セッションの有効期限をチェック
+        const expiresAt = session.expires_at
+        const now = Math.floor(Date.now() / 1000)
+
+        if (expiresAt && now > expiresAt - 300) {
+          // 5分前に更新
+          console.log("セッショントークンを更新します")
+          supabase.auth.refreshSession()
+        }
       }
       setUserFromSession(session)
 
@@ -196,10 +206,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true)
       console.log("ログアウト処理開始")
-      await supabase.auth.signOut()
+
+      // すべてのデバイスからログアウト
+      await supabase.auth.signOut({ scope: "global" })
+
       console.log("ログアウト成功")
       setUser(null)
       setSession(null)
+
+      // セッションストレージをクリア
+      if (typeof window !== "undefined") {
+        window.sessionStorage.clear()
+      }
 
       // ログアウト後、明示的にログインページにリダイレクト
       router.push("/login")

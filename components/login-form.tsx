@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { getClientSupabase } from "@/lib/supabase-utils"
+import { useCsrf } from "@/hooks/use-csrf"
 
 export function LoginForm() {
   const router = useRouter()
@@ -13,6 +14,7 @@ export function LoginForm() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const { csrfToken } = useCsrf()
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -21,10 +23,19 @@ export function LoginForm() {
 
     try {
       const supabase = getClientSupabase()
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+
+      // CSRFトークンをヘッダーに追加
+      const { error } = await supabase.auth.signInWithPassword(
+        {
+          email,
+          password,
+        },
+        {
+          headers: {
+            "X-CSRF-Token": csrfToken,
+          },
+        },
+      )
 
       if (error) {
         throw error
