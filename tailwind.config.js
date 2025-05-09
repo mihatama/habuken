@@ -55,7 +55,7 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // 新しいカラーを追加
+        // 既存のカラーを保持
         gold: {
           DEFAULT: "#ffd700",
           light: "#ffeb99",
@@ -68,6 +68,30 @@ module.exports = {
           dark: "#303030",
           foreground: "#ffffff",
         },
+        text: {
+          DEFAULT: "hsl(var(--foreground))",
+          muted: "hsl(var(--muted-foreground))",
+          accent: "hsl(var(--accent-foreground))",
+        },
+      },
+      spacing: {
+        "space-1": "0.25rem",
+        "space-2": "0.5rem",
+        "space-3": "0.75rem",
+        "space-4": "1rem",
+        "space-5": "1.5rem",
+        "space-6": "2rem",
+        "space-7": "2.5rem",
+        "space-8": "3rem",
+        "container-padding": "2rem",
+      },
+      fontSize: {
+        "heading-lg": ["2rem", { lineHeight: "2.5rem", fontWeight: "700" }],
+        "heading-md": ["1.5rem", { lineHeight: "2rem", fontWeight: "600" }],
+        "heading-sm": ["1.25rem", { lineHeight: "1.75rem", fontWeight: "600" }],
+        body: ["1rem", { lineHeight: "1.5rem" }],
+        caption: ["0.875rem", { lineHeight: "1.25rem" }],
+        xs: ["0.75rem", { lineHeight: "1rem" }],
       },
       borderRadius: {
         lg: "var(--radius)",

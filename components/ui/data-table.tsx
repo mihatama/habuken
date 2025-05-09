@@ -58,7 +58,7 @@ const TableHead = React.forwardRef<HTMLThElement, React.HTMLAttributes<HTMLThEle
     <th
       ref={ref}
       className={cn(
-        "h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[0px]",
+        "h-12 px-space-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[0px]",
         className,
       )}
       {...props}
@@ -69,14 +69,14 @@ TableHead.displayName = "TableHead"
 
 const TableCell = React.forwardRef<HTMLTableCellElement, React.HTMLAttributes<HTMLTableCellElement>>(
   ({ className, ...props }, ref) => (
-    <td ref={ref} className={cn("p-4 align-middle [&:has([role=checkbox])]:pl-0", className)} {...props} />
+    <td ref={ref} className={cn("p-space-4 align-middle [&:has([role=checkbox])]:pl-0", className)} {...props} />
   ),
 )
 TableCell.displayName = "TableCell"
 
 const TableCaption = React.forwardRef<HTMLTableCaptionElement, React.HTMLAttributes<HTMLTableCaptionElement>>(
   ({ className, ...props }, ref) => (
-    <caption ref={ref} className={cn("mt-4 text-sm text-muted-foreground", className)} {...props} />
+    <caption ref={ref} className={cn("mt-space-4 text-caption text-muted-foreground", className)} {...props} />
   ),
 )
 TableCaption.displayName = "TableCaption"
@@ -116,7 +116,7 @@ function DataTable<TData, TValue>({
   })
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-space-4">
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -146,7 +146,7 @@ function DataTable<TData, TValue>({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell colSpan={columns.length} className="h-24 text-center text-body">
                   データがありませんよ
                 </TableCell>
               </TableRow>
@@ -156,7 +156,7 @@ function DataTable<TData, TValue>({
       </div>
 
       {pagination && (
-        <div className="flex items-center justify-end space-x-2 py-4">
+        <div className="flex items-center justify-end space-x-space-2 py-space-4">
           <Button
             variant="outline"
             size="sm"

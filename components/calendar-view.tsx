@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@supabase/supabase-js"
 import { getCalendarEvents } from "@/actions/calendar-events"
-import { Briefcase } from "lucide-react"
+import { Briefcase, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { EnhancedCalendar, type CalendarEvent } from "@/components/enhanced-calendar"
+import { EnhancedCalendar } from "@/components/enhanced-calendar"
+import type { BaseCalendarProps, CalendarEvent, CalendarCategory } from "@/types/calendar"
 
 // Supabaseクライアントの作成 - メモ化
 const getSupabaseClient = (() => {
@@ -32,29 +33,52 @@ const getSupabaseClient = (() => {
 // ページサイズの定数
 const PAGE_SIZE = 100
 
-export function CalendarView() {
-  const [events, setEvents] = useState<CalendarEvent[]>([])
+export interface CalendarViewProps extends BaseCalendarProps {
+  title?: string
+  showAddButton?: boolean
+  addButtonText?: string
+  onAddButtonClick?: () => void
+}
+
+export function CalendarView({
+  title = "カレンダー",
+  showAddButton = true,
+  addButtonText = "案件登録",
+  onAddButtonClick,
+  events: initialEvents,
+  onEventAdd: externalEventAdd,
+  onEventUpdate: externalEventUpdate,
+  onEventDelete: externalEventDelete,
+  isLoading: externalLoading,
+  error: externalError,
+  categories: externalCategories,
+  customFields,
+  onRefresh: externalRefresh,
+  timeframe = "month",
+}: CalendarViewProps) {
+  const [events, setEvents] = useState<CalendarEvent[]>(initialEvents || [])
   const [projects, setProjects] = useState<any[]>([])
   const [staff, setStaff] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(externalLoading || true)
+  const [error, setError] = useState<string | null>(externalError || null)
   const [currentPage, setCurrentPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const { toast } = useToast()
   const router = useRouter()
 
   // メモ化されたカレンダーカテゴリ
-  const mainCategories = useMemo(
-    () => [
-      { value: "project", label: "案件" },
-      { value: "staff", label: "スタッフ" },
-      { value: "tool", label: "備品" },
-      { value: "vehicle", label: "車両" },
-      { value: "meeting", label: "会議" },
-      { value: "holiday", label: "休日" },
-      { value: "general", label: "一般" },
-    ],
-    [],
+  const mainCategories = useMemo<CalendarCategory[]>(
+    () =>
+      externalCategories || [
+        { value: "project", label: "案件" },
+        { value: "staff", label: "スタッフ" },
+        { value: "tool", label: "備品" },
+        { value: "vehicle", label: "車両" },
+        { value: "meeting", label: "会議" },
+        { value: "holiday", label: "休日" },
+        { value: "general", label: "一般" },
+      ],
+    [externalCategories],
   )
 
   // 日付範囲の計算 - メモ化
@@ -68,6 +92,13 @@ export function CalendarView() {
   // ページング対応のイベント取得
   const fetchEvents = useCallback(
     async (page = 1, append = false) => {
+      // 外部からイベントが提供されている場合はスキップ
+      if (initialEvents) {
+        setEvents(initialEvents)
+        setIsLoading(false)
+        return
+      }
+
       if (page === 1) {
         setIsLoading(true)
       }
@@ -127,7 +158,7 @@ export function CalendarView() {
         setIsLoading(false)
       }
     },
-    [dateRange, toast],
+    [dateRange, toast, initialEvents],
   )
 
   // プロジェクトとスタッフのデータ取得 - メモ化
@@ -197,6 +228,11 @@ export function CalendarView() {
   // イベント追加のハンドラ - メモ化
   const handleEventAdd = useCallback(
     async (event: CalendarEvent) => {
+      // 外部ハンドラがある場合はそれを使用
+      if (externalEventAdd) {
+        return externalEventAdd(event)
+      }
+
       try {
         const supabase = getSupabaseClient()
 
@@ -225,7 +261,7 @@ export function CalendarView() {
           return addedEvent
         }
 
-        return { id: Date.now() }
+        return { id: Date.now() } as CalendarEvent
       } catch (error) {
         console.error("イベント追加エラー:", error)
         toast({
@@ -236,12 +272,17 @@ export function CalendarView() {
         throw error
       }
     },
-    [toast],
+    [externalEventAdd, toast],
   )
 
   // イベント更新のハンドラ - メモ化
   const handleEventUpdate = useCallback(
     async (event: CalendarEvent) => {
+      // 外部ハンドラがある場合はそれを使用
+      if (externalEventUpdate) {
+        return externalEventUpdate(event)
+      }
+
       try {
         const supabase = getSupabaseClient()
 
@@ -274,12 +315,17 @@ export function CalendarView() {
         throw error
       }
     },
-    [toast],
+    [externalEventUpdate, toast],
   )
 
   // イベント削除のハンドラ - メモ化
   const handleEventDelete = useCallback(
     async (eventId: string | number) => {
+      // 外部ハンドラがある場合はそれを使用
+      if (externalEventDelete) {
+        return externalEventDelete(eventId)
+      }
+
       try {
         const supabase = getSupabaseClient()
 
@@ -301,42 +347,70 @@ export function CalendarView() {
         throw error
       }
     },
-    [toast],
+    [externalEventDelete, toast],
   )
 
   // 案件登録ページへ遷移 - メモ化
   const navigateToDealRegistration = useCallback(() => {
-    router.push("/deals/register")
-  }, [router])
+    if (onAddButtonClick) {
+      onAddButtonClick()
+    } else {
+      router.push("/deals/register")
+    }
+  }, [router, onAddButtonClick])
 
   // リフレッシュハンドラ - メモ化
   const handleRefresh = useCallback(() => {
-    setCurrentPage(1)
-    fetchEvents(1, false)
-  }, [fetchEvents])
+    if (externalRefresh) {
+      externalRefresh()
+    } else {
+      setCurrentPage(1)
+      fetchEvents(1, false)
+    }
+  }, [fetchEvents, externalRefresh])
 
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>カレンダー</CardTitle>
-        <Button onClick={navigateToDealRegistration} className="flex items-center gap-2">
-          <Briefcase className="h-4 w-4" />
-          案件登録
-        </Button>
+        <CardTitle className="text-heading-md">{title}</CardTitle>
+        {showAddButton && (
+          <Button onClick={navigateToDealRegistration} className="flex items-center gap-space-2">
+            <Briefcase className="h-4 w-4" />
+            {addButtonText}
+          </Button>
+        )}
       </CardHeader>
       <CardContent>
-        <EnhancedCalendar
-          events={events}
-          onEventAdd={handleEventAdd}
-          onEventUpdate={handleEventUpdate}
-          onEventDelete={handleEventDelete}
-          isLoading={isLoading}
-          error={error}
-          categories={mainCategories}
-          onRefresh={handleRefresh}
-        />
-        {/* 無限スクロールのトリガー要素 */}
-        {hasMore && <div id="load-more-trigger" className="h-10 w-full" />}
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-space-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-space-4" />
+            <p className="text-body text-muted-foreground">カレンダーデータを読み込み中...</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-space-8 text-destructive">
+            <p className="text-body">{error}</p>
+            <Button onClick={handleRefresh} variant="outline" className="mt-space-4">
+              再読み込み
+            </Button>
+          </div>
+        ) : (
+          <>
+            <EnhancedCalendar
+              events={events}
+              onEventAdd={handleEventAdd}
+              onEventUpdate={handleEventUpdate}
+              onEventDelete={handleEventDelete}
+              isLoading={isLoading}
+              error={error}
+              categories={mainCategories}
+              customFields={customFields}
+              onRefresh={handleRefresh}
+              timeframe={timeframe}
+            />
+            {/* 無限スクロールのトリガー要素 */}
+            {hasMore && <div id="load-more-trigger" className="h-10 w-full" />}
+          </>
+        )}
       </CardContent>
     </Card>
   )

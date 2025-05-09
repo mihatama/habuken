@@ -1,13 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { getClientSupabase } from "@/lib/supabase-utils"
-import { EnhancedCalendar, type CalendarEvent } from "@/components/enhanced-calendar"
+import type { CalendarEvent } from "@/components/enhanced-calendar"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Loader2, Plus } from "lucide-react"
+import { CalendarView } from "@/components/calendar-view"
+import type { CalendarCustomField } from "@/types/calendar"
 
 export function HeavyMachineryCalendar() {
   const { toast } = useToast()
@@ -259,10 +260,6 @@ export function HeavyMachineryCalendar() {
           : { name: "不明", type: "不明" },
       }))
 
-      const error = null
-
-      if (error) throw error
-
       // 新しいイベントを追加
       if (data && data[0]) {
         const newEvent = {
@@ -274,7 +271,7 @@ export function HeavyMachineryCalendar() {
         return newEvent
       }
 
-      return { id: Date.now() }
+      return { id: Date.now() } as CalendarEvent
     } catch (error) {
       console.error("予約追加エラー:", error)
       toast({
@@ -353,7 +350,7 @@ export function HeavyMachineryCalendar() {
   }
 
   // カレンダーのカスタムフィールド定義
-  const customFields = [
+  const customFields: CalendarCustomField[] = [
     {
       name: "machinery_id",
       label: "重機",
@@ -377,66 +374,51 @@ export function HeavyMachineryCalendar() {
   ]
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>重機カレンダー</CardTitle>
-        <div className="flex space-x-2">
-          {error && error.includes("テーブルが存在しません") && (
-            <Button onClick={() => setIsTableCreationDialogOpen(true)} disabled={isCreatingTable}>
-              {isCreatingTable ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+    <>
+      {/* テーブル作成ダイアログ */}
+      <Dialog open={isTableCreationDialogOpen} onOpenChange={setIsTableCreationDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>重機予約テーブルの作成</DialogTitle>
+          </DialogHeader>
+          <div className="py-space-4">
+            <p className="mb-space-4 text-body">
+              重機予約を管理するためのテーブルが存在しません。カレンダー機能を使用するには、テーブルを作成する必要があります。
+            </p>
+            <p className="text-caption text-muted-foreground">
+              「テーブルを作成」ボタンをクリックすると、必要なテーブルが自動的に作成されます。
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsTableCreationDialogOpen(false)} disabled={isCreatingTable}>
+              キャンセル
+            </Button>
+            <Button onClick={createReservationsTable} disabled={isCreatingTable}>
+              {isCreatingTable ? (
+                <Loader2 className="mr-space-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="mr-space-2 h-4 w-4" />
+              )}
               テーブルを作成
             </Button>
-          )}
-          <Button onClick={() => fetchReservations()} disabled={loading}>
-            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            更新
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {/* テーブル作成ダイアログ */}
-        <Dialog open={isTableCreationDialogOpen} onOpenChange={setIsTableCreationDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>重機予約テーブルの作成</DialogTitle>
-            </DialogHeader>
-            <div className="py-4">
-              <p className="mb-4">
-                重機予約を管理するためのテーブルが存在しません。カレンダー機能を使用するには、テーブルを作成する必要があります。
-              </p>
-              <p className="text-sm text-muted-foreground">
-                「テーブルを作成」ボタンをクリックすると、必要なテーブルが自動的に作成されます。
-              </p>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsTableCreationDialogOpen(false)} disabled={isCreatingTable}>
-                キャンセル
-              </Button>
-              <Button onClick={createReservationsTable} disabled={isCreatingTable}>
-                {isCreatingTable ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Plus className="mr-2 h-4 w-4" />
-                )}
-                テーブルを作成
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        {/* カレンダー表示 */}
-        <EnhancedCalendar
-          events={events}
-          onEventAdd={handleEventAdd}
-          onEventUpdate={handleEventUpdate}
-          onEventDelete={handleEventDelete}
-          isLoading={loading}
-          error={error}
-          categories={machineryCategories}
-          onRefresh={fetchReservations}
-          customFields={customFields}
-        />
-      </CardContent>
-    </Card>
+      {/* カレンダー表示 */}
+      <CalendarView
+        title="重機カレンダー"
+        showAddButton={false}
+        events={events}
+        onEventAdd={handleEventAdd}
+        onEventUpdate={handleEventUpdate}
+        onEventDelete={handleEventDelete}
+        isLoading={loading}
+        error={error}
+        categories={machineryCategories}
+        onRefresh={fetchReservations}
+        customFields={customFields}
+      />
+    </>
   )
 }

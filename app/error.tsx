@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
+import { AlertCircle } from "lucide-react"
 
 export default function Error({
   error,
@@ -30,12 +31,13 @@ export default function Error({
   }
 
   return (
-    <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
-      <h2 className="mb-4 text-2xl font-bold">エラーが発生しました</h2>
-      <p className="mb-6 max-w-md text-muted-foreground">
+    <div className="flex h-screen flex-col items-center justify-center p-container-padding text-center">
+      <AlertCircle className="h-12 w-12 text-destructive mb-space-4" />
+      <h2 className="mb-space-4 text-heading-md font-bold">エラーが発生しました</h2>
+      <p className="mb-space-6 max-w-md text-body text-muted-foreground">
         申し訳ありませんが、予期しないエラーが発生しました。もう一度お試しいただくか、管理者にお問い合わせください。
       </p>
-      <div className="flex gap-4">
+      <div className="flex gap-space-4">
         <Button onClick={() => reset()}>再試行</Button>
         <Button variant="outline" onClick={() => router.push("/")}>
           ホームに戻る

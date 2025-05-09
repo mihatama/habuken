@@ -3,8 +3,10 @@
 import { useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { StaffAssignmentDialog } from "@/components/staff-assignment-dialog"
-import { EnhancedCalendar, type CalendarEvent } from "@/components/enhanced-calendar"
+import type { CalendarEvent } from "@/components/enhanced-calendar"
 import { useToast } from "@/hooks/use-toast"
+import { CalendarView } from "@/components/calendar-view"
+import type { CalendarCategory } from "@/types/calendar"
 
 // プロジェクトカレンダーのprops型定義
 interface ProjectCalendarProps {
@@ -60,7 +62,7 @@ const sampleEvents: CalendarEvent[] = [
 ]
 
 // プロジェクトカテゴリ
-const projectCategories = [
+const projectCategories: CalendarCategory[] = [
   { value: "project", label: "案件" },
   { value: "meeting", label: "会議" },
   { value: "deadline", label: "締切" },
@@ -182,14 +184,16 @@ export function ProjectCalendar({
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
-        <div className="text-lg font-medium">案件カレンダー</div>
+      <div className="flex justify-between items-center mb-space-4">
+        <div className="text-heading-md font-medium">案件カレンダー</div>
         <Button variant="default" size="sm" onClick={handleNewEventClick}>
           新規作成
         </Button>
       </div>
 
-      <EnhancedCalendar
+      <CalendarView
+        title=""
+        showAddButton={false}
         events={events}
         onEventAdd={handleEventAdd}
         onEventUpdate={handleEventUpdate}
