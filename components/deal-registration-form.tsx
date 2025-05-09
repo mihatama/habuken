@@ -50,7 +50,7 @@ const dealFormSchema = z.object({
     .refine(
       (date, ctx) => {
         // 終了日が指定されている場合、開始日以降であることを確認
-        if (date && ctx.parent.start_date) {
+        if (date && ctx.parent && ctx.parent.start_date) {
           return date >= ctx.parent.start_date
         }
         return true
