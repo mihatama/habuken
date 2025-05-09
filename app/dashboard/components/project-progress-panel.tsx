@@ -3,15 +3,12 @@
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { getClientSupabase } from "@/lib/supabase-utils"
 import { Loader2, AlertCircle } from "lucide-react"
-
-// 以下のimportを修正
 import { Slider } from "@/components/ui/slider"
-// import { Button } from "@/components/ui/button" // 削除
 import { toast } from "@/components/ui/use-toast"
-import { debounce } from "lodash" // 追加
+import { debounce } from "lodash"
 
 interface Deal {
   id: string
@@ -27,53 +24,96 @@ interface ProjectProgressPanelProps {
   deals?: any[] // 親コンポーネントから渡される案件データ
 }
 
+// コンポーネントの外でdebounce関数を定義
+const createDebouncedSave = () =>
+  debounce(async (dealId: string, progress: number, updateFn: (id: string, progress: number) => Promise<boolean>) => {
+    try {
+      const success = await updateFn(dealId, progress)
+      if (success) {
+        toast({
+          title: "進捗率を更新しました",
+          description: `進捗率を${progress}%に更新しました`,
+        })
+      }
+    } catch (error) {
+      console.error("進捗率の更新に失敗しました", error)
+      toast({
+        title: "エラー",
+        description: "進捗率の更新に失敗しました",
+        variant: "destructive",
+      })
+    }
+  }, 1000)
+
 export function ProjectProgressPanel({ deals: initialDeals }: ProjectProgressPanelProps) {
   const [deals, setDeals] = useState<Deal[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [sortedDealIds, setSortedDealIds] = useState<string[]>([])
+
+  // useCallbackを使用してメモ化された関数を作成
+  const updateActualProgress = useCallback(async (dealId: string, progress: number): Promise<boolean> => {
+    try {
+      const supabase = getClientSupabase()
+      const { error } = await supabase.from("deals").update({ actual_progress: progress }).eq("id", dealId)
+
+      if (error) throw error
+      return true
+    } catch (err) {
+      console.error("進捗率の更新エラー:", err)
+      return false
+    }
+  }, [])
+
+  // デバウンスされた保存関数をuseCallbackで作成
+  const debouncedSaveProgress = useCallback(createDebouncedSave(), [])
 
   useEffect(() => {
     if (initialDeals && initialDeals.length > 0) {
       // 親コンポーネントからデータが渡された場合はそれを使用
       const formattedDeals = formatDeals(initialDeals)
       setDeals(formattedDeals)
+
+      // 初回ロード時にソート順を保存
+      const sortedDeals = formattedDeals
+        .filter((deal) => deal.status === "進行中" || deal.status === "準備中")
+        .filter((deal) => !isProjectExpired(deal)) // 期限切れの案件を除外
+        .sort((a, b) => a.plannedProgress - a.actualProgress - (b.plannedProgress - b.actualProgress))
+
+      setSortedDealIds(sortedDeals.map((deal) => deal.id))
       setIsLoading(false)
     } else {
       fetchDeals()
     }
 
-    // 進捗率更新のdebounce関数を作成
-    const debouncedSave = debounce(async (dealId, progress) => {
-      const success = await updateActualProgress(dealId, progress)
-      if (success) {
-        toast({
-          title: "進捗率を更新しました",
-          description: `進捗率を${progress}%に更新しました`,
-        })
-      } else {
-        toast({
-          title: "エラー",
-          description: "進捗率の更新に失敗しました",
-          variant: "destructive",
-        })
-      }
-    }, 1000)
-
-    // コンポーネントのクリーンアップ時にdebounceをキャンセル
+    // クリーンアップ関数
     return () => {
-      debouncedSave.cancel()
+      debouncedSaveProgress.cancel()
     }
-  }, [initialDeals])
+  }, [initialDeals, debouncedSaveProgress])
 
   // 案件データのフォーマット関数
   function formatDeals(data) {
     const today = new Date()
 
     return data.map((deal) => {
-      const startDate = deal.start_date
-        ? new Date(deal.start_date)
-        : new Date(today.getFullYear(), today.getMonth() - 1, 1)
-      const endDate = deal.end_date ? new Date(deal.end_date) : new Date(today.getFullYear(), today.getMonth() + 2, 0)
+      let startDate
+      if (deal.start_date) {
+        startDate = new Date(deal.start_date)
+        // 時間部分をリセット
+        startDate.setHours(0, 0, 0, 0)
+      } else {
+        startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+      }
+
+      let endDate
+      if (deal.end_date) {
+        endDate = new Date(deal.end_date)
+        // 時間部分をリセット
+        endDate.setHours(0, 0, 0, 0)
+      } else {
+        endDate = new Date(today.getFullYear(), today.getMonth() + 2, 0)
+      }
 
       // 計画上の進捗率を計算（開始日から終了日までの期間における現在日付の位置）
       let plannedProgress = 0
@@ -110,7 +150,7 @@ export function ProjectProgressPanel({ deals: initialDeals }: ProjectProgressPan
   // ステータスと期間に基づいて実際の進捗率を計算
   function calculateActualProgress(
     status: string,
-    startDate: Date,
+    startDate: Date | null,
     endDate: Date | null,
     plannedProgress: number,
   ): number {
@@ -155,19 +195,6 @@ export function ProjectProgressPanel({ deals: initialDeals }: ProjectProgressPan
     }
   }
 
-  async function updateActualProgress(dealId: string, progress: number) {
-    try {
-      const supabase = getClientSupabase()
-      const { error } = await supabase.from("deals").update({ actual_progress: progress }).eq("id", dealId)
-
-      if (error) throw error
-      return true
-    } catch (err) {
-      console.error("進捗率の更新エラー:", err)
-      return false
-    }
-  }
-
   async function fetchDeals() {
     setIsLoading(true)
     setError(null)
@@ -177,7 +204,7 @@ export function ProjectProgressPanel({ deals: initialDeals }: ProjectProgressPan
 
       // 案件データの取得 - deals テーブルから
       const { data, error } = await supabase
-        // .select("id, name, start_date, end_date, status")
+        .from("deals")
         .select("id, name, start_date, end_date, status, actual_progress")
         .order("start_date", { ascending: false })
 
@@ -292,22 +319,54 @@ export function ProjectProgressPanel({ deals: initialDeals }: ProjectProgressPan
     return date.toLocaleDateString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit" })
   }
 
-  // 進行中の案件のみをフィルタリングし、実際の進捗率と計画進捗率の差でソート
-  const activeDeals = deals
-    .filter((deal) => deal.status === "進行中" || deal.status === "準備中")
-    .sort((a, b) => a.plannedProgress - a.actualProgress - (b.plannedProgress - b.actualProgress))
-    .slice(0, 5) // 上位5件のみ表示
+  // 案件が期限切れかどうかを判定する関数
+  function isProjectExpired(deal: Deal): boolean {
+    const today = new Date()
+    // 日付のみを比較するために時間部分をリセット
+    today.setHours(0, 0, 0, 0)
 
+    if (!deal.endDate) return false
+
+    // 終了日の時間部分もリセット
+    const endDate = new Date(deal.endDate)
+    endDate.setHours(0, 0, 0, 0)
+
+    return endDate < today
+  }
+
+  // 進行中かつ期限内の案件のみをフィルタリング
+  const filteredDeals = deals.filter(
+    (deal) => (deal.status === "進行中" || deal.status === "準備中") && !isProjectExpired(deal),
+  )
+
+  // 保存したソート順を使用して案件を並べ替え
+  const activeDeals =
+    sortedDealIds.length > 0
+      ? (sortedDealIds.map((id) => filteredDeals.find((deal) => deal.id === id)).filter(Boolean) as Deal[]).slice(0, 5)
+      : filteredDeals.slice(0, 5)
+
+  // デバッグ用のコンソールログを追加（問題解決後に削除可能）
+  console.log("Today:", new Date())
+  console.log(
+    "Filtered deals:",
+    filteredDeals.map((d) => ({
+      name: d.name,
+      endDate: d.endDate,
+      expired: isProjectExpired(d),
+    })),
+  )
+  console.log(
+    "Active deals:",
+    activeDeals.map((d) => d.name),
+  )
+
+  // スライダーの値変更時の処理を修正
   function handleProgressChange(dealId: string, value: number[]) {
-    // ディープコピーを作成して状態を更新
-    const updatedDeals = deals.map((deal) => (deal.id === dealId ? { ...deal, actualProgress: value[0] } : deal))
-    setDeals(updatedDeals)
+    // UI更新のみを行う（即時反映）
+    setDeals(deals.map((deal) => (deal.id === dealId ? { ...deal, actualProgress: value[0] } : deal)))
 
-    // 進捗率を自動保存
-    const deal = updatedDeals.find((d) => d.id === dealId)
-    if (deal) {
-      updateActualProgress(dealId, deal.actualProgress)
-    }
+    // デバウンスされた保存処理を呼び出す
+    debouncedSaveProgress(dealId, value[0], updateActualProgress)
   }
 
   if (isLoading) {
@@ -359,11 +418,6 @@ export function ProjectProgressPanel({ deals: initialDeals }: ProjectProgressPan
                 <Badge variant={getStatusVariant(deal.status)}>{deal.status}</Badge>
               </div>
               <div className="space-y-1">
-                {/* <div className="flex items-center justify-between text-sm">
-                  <span>実際の進捗</span>
-                  <span className="font-medium">{deal.actualProgress}%</span>
-                </div>
-                <Progress value={deal.actualProgress} className="h-2" /> */}
                 <div className="flex items-center justify-between text-sm">
                   <span>実際の進捗</span>
                   <span className="font-medium">{deal.actualProgress}%</span>
