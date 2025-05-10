@@ -9,7 +9,6 @@ import { SplashScreen } from "@/components/splash-screen"
 import { AppShell } from "@/components/app-shell"
 import { PWARegister } from "./pwa-register"
 import { HideAddressBar } from "@/components/hide-address-bar"
-import { DealsNotificationHandler } from "@/components/deals-notification-handler"
 
 const inter = Inter({ subsets: ["latin"] })
 const notoSerifJP = Noto_Serif_JP({
@@ -77,7 +76,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <div className="w-full px-0 sm:container sm:mx-auto sm:px-4">{children}</div>
               </AppShell>
               <PWARegister />
-              <DealsNotificationHandler />
             </SplashProvider>
           </AuthProvider>
         </Providers>

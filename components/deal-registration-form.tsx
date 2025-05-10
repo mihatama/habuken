@@ -283,8 +283,6 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
       // 備品の割り当て
       await handleResourceAssignment(supabase, "deal_tools", selectedTools, deal.id, "tool_id", true)
 
-      console.log("[現場登録] 現場登録成功 - 通知がトリガーされるはずです")
-
       toast({
         title: "現場登録完了",
         description: "現場情報が正常に登録されました。",
