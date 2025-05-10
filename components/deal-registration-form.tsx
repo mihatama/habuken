@@ -507,12 +507,13 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
                     </FormItem>
                   )}
                 />
+              </div>
 
-                <div className="col-span-1 md:col-span-2">
-                  <FormLabel>ファイル添付</FormLabel>
-                  <div className="mt-1">
-                    <DealFileUpload dealId={pendingDealId || undefined} onFilesUploaded={handleFilesUploaded} />
-                  </div>
+              <div className="mt-6">
+                <FormLabel>ファイル添付</FormLabel>
+                <FormDescription>PDFや写真を追加できます。カメラで撮影することも可能です。</FormDescription>
+                <div className="mt-2">
+                  <DealFileUpload dealId={pendingDealId || undefined} onFilesUploaded={handleFilesUploaded} />
                 </div>
               </div>
 

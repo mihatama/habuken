@@ -2,8 +2,8 @@ import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
 // バケット名を定数として定義
-const STORAGE_BUCKET_NAME = "dailyreports"
-const STORAGE_FOLDER_NAME = "public/daily_report_photos"
+const STORAGE_BUCKET_NAME = "genba"
+const STORAGE_FOLDER_NAME = "public/genba_files"
 
 export async function POST(request: Request) {
   try {

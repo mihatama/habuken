@@ -10,20 +10,20 @@ create table if not exists public.deal_files (
 
 -- Create storage bucket if it doesn't exist
 insert into storage.buckets (id, name, public)
-values ('deal_files', 'deal_files', true)
+values ('genba', 'genba', true)
 on conflict (id) do nothing;
 
 -- Set up storage policies
 create policy "Public Access"
 on storage.objects for select
-using (bucket_id = 'deal_files');
+using (bucket_id = 'genba');
 
 create policy "Authenticated users can upload files"
 on storage.objects for insert
 to authenticated
-with check (bucket_id = 'deal_files');
+with check (bucket_id = 'genba');
 
 create policy "Users can delete their own files"
 on storage.objects for delete
 to authenticated
-using (bucket_id = 'deal_files');
+using (bucket_id = 'genba');

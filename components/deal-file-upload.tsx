@@ -7,8 +7,12 @@ import { v4 as uuidv4 } from "uuid"
 import { getClientSupabase } from "@/lib/supabase-utils"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/use-toast"
-import { Loader2, X, FileText, ImageIcon, Trash2 } from "lucide-react"
+import { Loader2, X, FileText, ImageIcon, Trash2, Camera } from "lucide-react"
 import type { DealFile } from "@/types/supabase"
+
+// バケット名を定数として定義
+const STORAGE_BUCKET_NAME = "genba"
+const STORAGE_FOLDER_NAME = "public/genba_files"
 
 interface DealFileUploadProps {
   dealId?: string
@@ -21,6 +25,7 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
   const [uploadedFiles, setUploadedFiles] = useState<DealFile[]>(existingFiles)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({})
+  const [isCameraActive, setIsCameraActive] = useState(false)
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     // Filter files larger than 20MB
@@ -63,6 +68,61 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
     }
   }, [files])
 
+  const activateCamera = () => {
+    setIsCameraActive(true)
+  }
+
+  const capturePhoto = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+      const video = document.createElement("video")
+      video.srcObject = stream
+
+      await new Promise((resolve) => {
+        video.onloadedmetadata = () => {
+          video.play()
+          resolve(null)
+        }
+      })
+
+      const canvas = document.createElement("canvas")
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+
+      const ctx = canvas.getContext("2d")
+      ctx?.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+      // Stop all video streams
+      stream.getTracks().forEach((track) => track.stop())
+
+      // Convert canvas to blob
+      const blob = await new Promise<Blob>((resolve) => canvas.toBlob((blob) => resolve(blob!), "image/jpeg", 0.8))
+
+      // Create a File object from the blob
+      const file = new File([blob], `camera-${Date.now()}.jpg`, { type: "image/jpeg" })
+
+      // Add preview
+      const fileWithPreview = Object.assign(file, {
+        preview: URL.createObjectURL(blob),
+      })
+
+      setFiles((prev) => [...prev, fileWithPreview])
+      setIsCameraActive(false)
+    } catch (error) {
+      console.error("Camera error:", error)
+      toast({
+        title: "カメラエラー",
+        description: "カメラへのアクセスに失敗しました。",
+        variant: "destructive",
+      })
+      setIsCameraActive(false)
+    }
+  }
+
+  const cancelCamera = () => {
+    setIsCameraActive(false)
+  }
+
   const uploadFiles = async () => {
     if (!dealId || files.length === 0) return
 
@@ -79,7 +139,7 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
         setUploadProgress(newProgress)
 
         // Upload file to Supabase Storage
-        const { data, error } = await supabase.storage.from("deal_files").upload(filePath, file, {
+        const { data, error } = await supabase.storage.from(STORAGE_BUCKET_NAME).upload(filePath, file, {
           contentType: file.type,
           upsert: false,
         })
@@ -89,7 +149,7 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
         }
 
         // Get public URL
-        const publicUrl = supabase.storage.from("deal_files").getPublicUrl(data.path).data.publicUrl
+        const publicUrl = supabase.storage.from(STORAGE_BUCKET_NAME).getPublicUrl(data.path).data.publicUrl
 
         // Insert metadata into database
         const { data: fileData, error: dbError } = await supabase
@@ -157,10 +217,10 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
 
       // Extract the path from the URL
       const urlParts = file.url.split("/")
-      const filePath = urlParts.slice(urlParts.indexOf("deal_files") + 1).join("/")
+      const filePath = urlParts.slice(urlParts.indexOf(STORAGE_BUCKET_NAME) + 1).join("/")
 
       // Delete from storage
-      const { error: storageError } = await supabase.storage.from("deal_files").remove([filePath])
+      const { error: storageError } = await supabase.storage.from(STORAGE_BUCKET_NAME).remove([filePath])
 
       if (storageError) {
         throw storageError
@@ -248,14 +308,39 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
     }
   }
 
+  if (isCameraActive) {
+    return (
+      <div className="space-y-4">
+        <div className="relative w-full h-64 bg-black rounded-lg overflow-hidden">
+          <video id="camera-preview" autoPlay playsInline className="w-full h-full object-cover" />
+          <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-4">
+            <Button type="button" variant="destructive" onClick={cancelCamera}>
+              キャンセル
+            </Button>
+            <Button type="button" onClick={capturePhoto}>
+              撮影
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap gap-2 mb-2">
+        <Button type="button" variant="outline" onClick={activateCamera} className="flex items-center">
+          <Camera className="mr-2 h-4 w-4" />
+          カメラで撮影
+        </Button>
+      </div>
+
       <div
         {...getRootProps()}
         className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
           ${isDragActive ? "border-primary bg-primary/5" : "border-gray-300 hover:border-primary/50"}`}
       >
-        <input {...getInputProps()} capture="environment" />
+        <input {...getInputProps()} />
         <div className="flex flex-col items-center justify-center space-y-2">
           {isUploading ? (
             <Loader2 className="h-10 w-10 text-primary animate-spin" />
