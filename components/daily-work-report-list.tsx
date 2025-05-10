@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { DailyReportFormDialog } from "./daily-report-form-dialog"
 import { getClientSupabase } from "@/lib/supabase-utils"
 import { useToast } from "@/components/ui/use-toast"
-import { ImageIcon, FileText, Calendar, Clock, CloudSun, Search, RefreshCw, Filter } from "lucide-react"
+import { ImageIcon, FileText, Calendar, Clock, CloudSun, Search, RefreshCw, Filter, Pencil } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -573,9 +573,9 @@ function ReportCard({ report, getWeatherIcon, getWeatherText, isOwnReport, onSho
               variant="outline"
               size="sm"
               onClick={onShowDetails}
-              className="border-gold text-gold hover:bg-gold/10"
+              className="border-gold text-gold hover:bg-gold/10 flex items-center gap-1"
             >
-              詳細
+              <Pencil className="h-3.5 w-3.5" /> 編集
             </Button>
             {isOwnReport && (
               <Button variant="ghost" size="sm" onClick={handleDelete} className="text-darkgray hover:bg-darkgray/10">
