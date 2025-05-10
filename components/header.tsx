@@ -22,7 +22,6 @@ import {
   FileText,
   UserPlus,
 } from "lucide-react"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { InstallButton } from "@/components/pwa-install-prompt"
 
 export function Header() {
@@ -199,9 +198,6 @@ export function Header() {
               )}
             </div>
             <div className="flex items-center">
-              <div className="mr-4">
-                <ThemeToggle />
-              </div>
               <div className="flex items-center gap-2">
                 <InstallButton />
                 <UserNav user={user} />

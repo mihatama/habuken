@@ -16,6 +16,7 @@ import {
   AlertCircle,
   Calendar,
   Trash2,
+  FileText,
 } from "lucide-react"
 import Link from "next/link"
 import { format } from "date-fns"
@@ -41,7 +42,7 @@ interface DealWithResources extends Deal {
   vehicles?: { id: string; name: string }[]
   tools?: { id: string; name: string }[]
   contract_amount?: number
-  // files と pdf_url プロパティを削除
+  // pdf_url はすでに Deal 型に含まれているはずです
 }
 
 export function EnhancedDealsList() {
@@ -65,7 +66,7 @@ export function EnhancedDealsList() {
       setLoading(true)
       const supabase = getClientSupabase()
 
-      // 案件データを取得
+      // 1. 案件データを取得
       const { data: dealsData, error: dealsError } = await supabase
         .from("deals")
         .select("*")
@@ -73,48 +74,54 @@ export function EnhancedDealsList() {
 
       if (dealsError) throw dealsError
 
-      // 各案件のリソース情報を取得
-      const dealsWithResources: DealWithResources[] = []
+      // 2. 関連データを一括で取得
+      // スタッフ情報を一括取得
+      const { data: allStaffData, error: staffError } = await supabase
+        .from("deal_staff")
+        .select("deal_id, staff:staff_id(id, full_name)")
 
-      for (const deal of dealsData || []) {
-        const dealWithResources: DealWithResources = { ...deal }
+      if (staffError) throw staffError
 
-        // スタッフ情報を取得
-        const { data: staffData } = await supabase
-          .from("deal_staff")
-          .select("staff_id, staff:staff_id(id, full_name)")
-          .eq("deal_id", deal.id)
+      // 重機情報を一括取得
+      const { data: allMachineryData, error: machineryError } = await supabase
+        .from("deal_machinery")
+        .select("deal_id, machinery:machinery_id(id, name)")
 
-        dealWithResources.staff = staffData?.map((item) => item.staff) || []
+      if (machineryError) throw machineryError
 
-        // 重機情報を取得
-        const { data: machineryData } = await supabase
-          .from("deal_machinery")
-          .select("machinery_id, machinery:machinery_id(id, name)")
-          .eq("deal_id", deal.id)
+      // 車両情報を一括取得
+      const { data: allVehiclesData, error: vehiclesError } = await supabase
+        .from("deal_vehicles")
+        .select("deal_id, vehicle:vehicle_id(id, name)")
 
-        dealWithResources.machinery = machineryData?.map((item) => item.machinery) || []
+      if (vehiclesError) throw vehiclesError
 
-        // 車両情報を取得
-        const { data: vehiclesData } = await supabase
-          .from("deal_vehicles")
-          .select("vehicle_id, vehicle:vehicle_id(id, name)")
-          .eq("deal_id", deal.id)
+      // 備品情報を一括取得
+      const { data: allToolsData, error: toolsError } = await supabase
+        .from("deal_tools")
+        .select("deal_id, tool:tool_id(id, name)")
 
-        dealWithResources.vehicles = vehiclesData?.map((item) => item.vehicle) || []
+      if (toolsError) throw toolsError
 
-        // 備品情報を取得
-        const { data: toolsData } = await supabase
-          .from("deal_tools")
-          .select("tool_id, tool:tool_id(id, name)")
-          .eq("deal_id", deal.id)
+      // 3. データを整形
+      const dealsWithResources: DealWithResources[] = dealsData.map((deal) => {
+        // 各案件に関連するデータをフィルタリング
+        const staffData = allStaffData?.filter((item) => item.deal_id === deal.id) || []
+        const machineryData = allMachineryData?.filter((item) => item.deal_id === deal.id) || []
+        const vehiclesData = allVehiclesData?.filter((item) => item.deal_id === deal.id) || []
+        const toolsData = allToolsData?.filter((item) => item.deal_id === deal.id) || []
 
-        dealWithResources.tools = toolsData?.map((item) => item.tool) || []
-
-        dealsWithResources.push(dealWithResources)
-      }
+        return {
+          ...deal,
+          staff: staffData.map((item) => item.staff),
+          machinery: machineryData.map((item) => item.machinery),
+          vehicles: vehiclesData.map((item) => item.vehicle),
+          tools: toolsData.map((item) => item.tool),
+        }
+      })
 
       setDeals(dealsWithResources)
+      console.log("現場データの取得が完了しました。件数:", dealsWithResources.length)
     } catch (err: any) {
       console.error("現場データの取得エラー:", err)
       setError("現場データの取得中にエラーが発生しました。")
@@ -403,6 +410,29 @@ export function EnhancedDealsList() {
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">備品は割り当てられていません</p>
+                  )}
+                </div>
+
+                {/* PDFファイル情報 */}
+                <div className="mb-4">
+                  <h4 className="text-sm font-medium flex items-center gap-2 mb-2">
+                    <FileText className="h-4 w-4 text-red-500" />
+                    PDFファイル
+                  </h4>
+                  {deal.pdf_url ? (
+                    <div className="bg-red-50 rounded-md px-3 py-1.5 text-sm flex justify-between items-center">
+                      <span className="font-medium">契約書類</span>
+                      <a
+                        href={deal.pdf_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 underline text-xs"
+                      >
+                        表示
+                      </a>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">PDFファイルはアップロードされていません</p>
                   )}
                 </div>
 

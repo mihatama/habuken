@@ -19,7 +19,6 @@ import {
   UserPlus,
 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
-import { ThemeToggle } from "@/components/theme-toggle"
 
 interface MobileNavProps {
   isOpen: boolean
@@ -190,15 +189,6 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
         </div>
 
         <div className="border-t border-gold/20 p-2 mt-2">
-          <Button
-            variant="ghost"
-            className="flex w-full justify-start gap-3 p-3 text-white hover:bg-darkgray-light hover:text-gold"
-          >
-            <div className="flex items-center">
-              <span className="mr-2">テーマ切替</span>
-              <ThemeToggle />
-            </div>
-          </Button>
           <Button
             variant="ghost"
             className="flex w-full justify-start gap-3 p-3 text-white hover:bg-destructive hover:text-white"
