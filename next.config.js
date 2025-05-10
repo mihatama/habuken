@@ -1,24 +1,23 @@
 /** @type {import('next').NextConfig} */
 const withPWA = require("next-pwa")({
   dest: "public",
-  register: false, // 手動で登録するため無効化
-  skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
+  register: true,
+  skipWaiting: true,
 })
 
 const nextConfig = withPWA({
   reactStrictMode: true,
-  // SSR enabled by default (removing output: "export")
 
-  // Enable image optimization (removing unoptimized: true)
+  // 画像最適化の設定
   images: {
-    domains: ["v0.blob.com"], // Add any domains you need for external images
+    domains: ["v0.blob.com"],
   },
 
-  // Remove trailing slash (not needed for Vercel)
+  // 末尾のスラッシュを削除
   trailingSlash: false,
 
-  // Enable build-time checks for better quality
+  // ビルド時のチェックを無効化して、ビルドエラーを回避
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -26,21 +25,12 @@ const nextConfig = withPWA({
     ignoreBuildErrors: true,
   },
 
-  // Add security headers
+  // セキュリティヘッダーを簡素化
   async headers() {
     return [
       {
         source: "/(.*)",
         headers: [
-          {
-            key: "Content-Security-Policy",
-            value:
-              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://v0.blob.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://*.vercel-insights.com",
-          },
-          {
-            key: "X-Frame-Options",
-            value: "DENY",
-          },
           {
             key: "X-Content-Type-Options",
             value: "nosniff",
@@ -49,13 +39,16 @@ const nextConfig = withPWA({
             key: "Referrer-Policy",
             value: "origin-when-cross-origin",
           },
-          {
-            key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()",
-          },
         ],
       },
     ]
+  },
+
+  // 実験的機能を無効化
+  experimental: {
+    // 実験的機能を無効化して安定性を向上
+    optimizeCss: false,
+    scrollRestoration: false,
   },
 })
 
