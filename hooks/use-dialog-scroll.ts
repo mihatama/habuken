@@ -1,60 +1,57 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect } from "react"
 
 /**
- * ダイアログのスクロール問題を解決するためのカスタムフック
+ * ダイアログが開いているときのスクロール動作を制御するフック
+ *
  * @param isOpen ダイアログが開いているかどうか
- * @param allowBackgroundScroll 背景のスクロールを許可するかどうか
+ * @param allowBackgroundScroll 背景のスクロールを許可するかどうか（デフォルト: false）
+ * @param scrollToTopOnOpen ダイアログが開いたときに先頭にスクロールするかどうか（デフォルト: true）
  */
-export function useDialogScroll(isOpen: boolean, allowBackgroundScroll = false) {
-  const previousBodyPosition = useRef<string>("")
-  const previousBodyOverflow = useRef<string>("")
-  const previousScrollY = useRef<number>(0)
-
+export function useDialogScroll(isOpen: boolean, allowBackgroundScroll = false, scrollToTopOnOpen = true): void {
   useEffect(() => {
     if (typeof document === "undefined") return
 
+    const body = document.body
+    const originalStyle = {
+      overflow: body.style.overflow,
+      paddingRight: body.style.paddingRight,
+    }
+
     if (isOpen) {
-      // ダイアログが開いたときの処理
-      if (allowBackgroundScroll) {
-        // 背景のスクロールを許可する場合は何もしない
-        return
+      // ダイアログが開いたとき
+      if (!allowBackgroundScroll) {
+        // スクロールバーの幅を計算して、その分だけpaddingを追加
+        const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
+        body.style.overflow = "hidden"
+        body.style.paddingRight = `${scrollbarWidth}px`
       }
 
-      // 現在の状態を保存
-      previousBodyPosition.current = document.body.style.position
-      previousBodyOverflow.current = document.body.style.overflow
-      previousScrollY.current = window.scrollY
-
-      // スクロールをロック
-      document.body.style.position = "fixed"
-      document.body.style.top = `-${previousScrollY.current}px`
-      document.body.style.width = "100%"
-      document.body.style.overflow = "hidden"
+      // ダイアログ内のスクロール可能な要素を探して先頭にスクロール
+      if (scrollToTopOnOpen) {
+        setTimeout(() => {
+          const dialogContent = document.querySelector(".dialog-content-scroll")
+          if (dialogContent) {
+            dialogContent.scrollTop = 0
+          }
+        }, 10)
+      }
     } else {
-      // ダイアログが閉じたときの処理
-      if (document.body.style.position === "fixed") {
-        // 元の状態に戻す
-        document.body.style.position = previousBodyPosition.current
-        document.body.style.top = ""
-        document.body.style.width = ""
-        document.body.style.overflow = previousBodyOverflow.current
-
-        // スクロール位置を復元
-        window.scrollTo(0, previousScrollY.current)
+      // ダイアログが閉じたとき
+      if (!allowBackgroundScroll) {
+        // 元のスタイルに戻す
+        body.style.overflow = originalStyle.overflow
+        body.style.paddingRight = originalStyle.paddingRight
       }
     }
 
+    // クリーンアップ関数
     return () => {
-      // コンポーネントのアンマウント時にクリーンアップ
-      if (document.body.style.position === "fixed") {
-        document.body.style.position = previousBodyPosition.current
-        document.body.style.top = ""
-        document.body.style.width = ""
-        document.body.style.overflow = previousBodyOverflow.current
-        window.scrollTo(0, previousScrollY.current)
+      if (!allowBackgroundScroll) {
+        body.style.overflow = originalStyle.overflow
+        body.style.paddingRight = originalStyle.paddingRight
       }
     }
-  }, [isOpen, allowBackgroundScroll])
+  }, [isOpen, allowBackgroundScroll, scrollToTopOnOpen])
 }

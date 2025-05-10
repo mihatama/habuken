@@ -7,8 +7,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { format } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
-import { X, Mic, MicOff, Loader2 } from "lucide-react"
+import { X, Mic, MicOff, Loader2, Camera, Plus, ImageIcon } from "lucide-react"
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition"
+import { Badge } from "@/components/ui/badge"
 import { getClientSupabase } from "@/lib/supabase-utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
@@ -1210,7 +1211,7 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
                               }`}
                             >
                               <span className="flex items-center justify-center w-5 h-5 rounded-full bg-red-500 dark:bg-red-600 text-white text-xs">
-                                ○
+                                ×
                               </span>
                               <span className="ml-1 text-xs text-red-600 dark:text-red-400">危険</span>
                             </button>
@@ -1260,7 +1261,92 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
 
         <div>
           <Label>写真添付</Label>
-          {!bucketExists}
+          {!bucketExists && (
+            <div className="text-amber-500 text-sm mb-2">
+              ※ 写真保存用のストレージが設定されていません。写真は保存されません。
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2 mt-1">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleCameraCapture}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-1"
+              disabled={isCompressing}
+            >
+              {isCompressing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus size={16} />} 写真を選択
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => cameraInputRef.current?.click()}
+              className="flex items-center gap-1"
+              disabled={isCompressing}
+            >
+              {isCompressing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Camera size={16} />} カメラで撮影
+            </Button>
+          </div>
+          {isCompressing && (
+            <div className="text-sm text-blue-600 animate-pulse mt-2">写真を最適化中... しばらくお待ちください</div>
+          )}
+          <div className="flex flex-wrap gap-2 mt-2">
+            {formData.photoFiles.map((file, index) => (
+              <Badge key={index} variant="outline" className="flex items-center gap-1 p-1">
+                <ImageIcon className="h-3 w-3 mr-1" />
+                <span className="max-w-[150px] truncate">{file.name}</span>
+                {photoSizes[file.name] && (
+                  <span className="text-xs text-gray-500 mx-1">
+                    ({formatFileSize(photoSizes[file.name].compressed)})
+                  </span>
+                )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 w-5 p-0 ml-1"
+                  onClick={() => removePhoto(index)}
+                >
+                  <X size={12} />
+                </Button>
+              </Badge>
+            ))}
+          </div>
+        </div>
 
-
-\
+        <div className="flex justify-end">
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="bg-black text-white px-4 py-2 rounded-md hover:bg-gray-800"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 保存中...
+              </>
+            ) : (
+              "保存する"
+            )}
+          </Button>
+        </div>
+      </form>
+    </div>
+  )
+}
