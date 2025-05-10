@@ -180,8 +180,8 @@ html {
   appearance: none;
   /* スクロールバウンスを無効化 */
   overscroll-behavior: none;
-  /* 追加: 横スクロール防止 */
-  overflow-x: hidden;
+  /* 横スクロール許可 */
+  overflow-x: auto;
   width: 100%;
 }
 
@@ -198,12 +198,12 @@ html {
   bottom: 0;
   /* スクロールを有効にする */
   overflow-y: auto;
+  /* 横スクロールを許可 */
+  overflow-x: auto;
   /* スクロールを滑らかにする */
   -webkit-overflow-scrolling: touch;
   /* スクロールバウンスを無効化 */
   overscroll-behavior: none;
-  /* 追加: 横スクロール防止 */
-  overflow-x: hidden;
   max-width: 100%;
 }
 
@@ -284,6 +284,7 @@ header nav .flex.items-center.space-x-6::-webkit-scrollbar {
   body {
     height: 100vh;
     overflow: auto;
+    overflow-x: auto; /* 横スクロール許可 */
     position: fixed;
     top: 0;
     left: 0;
@@ -362,7 +363,7 @@ header nav .flex.items-center.space-x-6::-webkit-scrollbar {
 /* モバイル表示時の修正 */
 @media (max-width: 640px) {
   body {
-    overflow-x: auto;
+    overflow-x: auto; /* 横スクロールを許可 */
     width: 100%;
   }
 
