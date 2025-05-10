@@ -27,12 +27,11 @@ export default function LoginPage() {
     hideSplash()
   }, [hideSplash])
 
-  // ユーザーが既にログインしている場合はダッシュボードに即時リダイレクト
+  // ユーザーが既にログインしている場合はダッシュボードにリダイレクト
   useEffect(() => {
     if (user) {
-      console.log("ユーザーは既にログインしています。即時リダイレクトします。")
-      // replace: true を使用して履歴にログインページを残さないようにする
-      router.replace("/dashboard")
+      console.log("ユーザーは既にログインしています。ダッシュボードにリダイレクトします。")
+      router.push("/dashboard")
     }
   }, [user, router])
 
@@ -51,8 +50,8 @@ export default function LoginPage() {
       console.log("ログイン処理を開始します")
       const result = await signIn(email, password)
       if (result.success) {
-        console.log("ログイン成功、即時リダイレクトします")
-        // 認証コンテキストがリダイレクトを処理するため、ここでは何もしない
+        console.log("ログイン成功、リダイレクトします")
+        // 認証コンテキストがリダイレクトを処理します
       } else {
         setError(result.error || "ログインに失敗しました")
         setIsSubmitting(false)

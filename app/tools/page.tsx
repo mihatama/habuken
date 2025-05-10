@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import ToolsPageClient from "./tools-page-client"
 import { SortableToolList } from "@/components/sortable-tool-list"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+// Import the Box icon at the top of the file
 import { Box } from "lucide-react"
 
 export const metadata: Metadata = {
@@ -9,11 +10,20 @@ export const metadata: Metadata = {
   description: "備品・工具の登録、編集、使用状況管理を行います",
 }
 
+// Update the page title to include the Box icon
 export default function ToolsPage() {
   return (
     <div className="container mx-auto py-6">
+      <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
+        <Box className="h-6 w-6" />
+        工具管理
+      </h1>
 
       <Tabs defaultValue="list">
+        <TabsList className="mb-4">
+          <TabsTrigger value="list">一覧</TabsTrigger>
+          <TabsTrigger value="sort">並び替え</TabsTrigger>
+        </TabsList>
 
         <TabsContent value="list">
           <ToolsPageClient />

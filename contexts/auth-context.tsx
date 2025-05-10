@@ -39,12 +39,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 認証状態に基づいてリダイレクト
   useEffect(() => {
     if (!loading && !isRedirecting) {
-      // ログイン済みでログインページにいる場合はダッシュボードに即時リダイレクト
+      // ログイン済みでログインページにいる場合はダッシュボードにリダイレクト
       if (user && (pathname === "/login" || pathname === "/signup" || pathname === "/")) {
-        console.log("認証済みユーザーがログインページにいます。即時リダイレクトします。")
+        console.log("認証済みユーザーがログインページにいます。ダッシュボードにリダイレクトします。")
         setIsRedirecting(true)
-        // replace: true を使用して履歴にログインページを残さないようにする
-        router.replace("/dashboard")
+        // 即時リダイレクト
+        router.push("/dashboard")
       }
     }
   }, [user, loading, pathname, router, isRedirecting])
@@ -182,12 +182,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("ユーザーメタデータ:", data.user.user_metadata)
       setUserFromSession(data.session)
 
-      // ログイン成功後、即座にダッシュボードにリダイレクト（ローディングなし）
-      console.log("ダッシュボードへ即時リダイレクトします")
+      // ログイン成功後、明示的にダッシュボードにリダイレクト
+      console.log("ダッシュボードへリダイレクトします")
       setIsRedirecting(true)
+      // 即時リダイレクトするために、setLoadingをfalseに設定してからリダイレクト
       setLoading(false)
-      // replace: true を使用して履歴にログインページを残さないようにする
-      router.replace("/dashboard")
+      router.push("/dashboard")
 
       return { success: true }
     } catch (error: any) {

@@ -36,10 +36,7 @@ export function NotificationSettings() {
 
   // 通知権限のリクエスト
   const handleEnableNotifications = async () => {
-    console.log("[通知設定] 通知有効化開始", { supported })
-
     if (!supported) {
-      console.log("[通知設定] 通知がサポートされていません")
       toast({
         title: "通知がサポートされていません",
         description: "お使いのブラウザは通知機能をサポートしていません",
@@ -48,9 +45,7 @@ export function NotificationSettings() {
       return
     }
 
-    console.log("[通知設定] 通知権限をリクエストします")
     const granted = await requestPermission()
-    console.log("[通知設定] 通知権限リクエスト結果:", granted)
 
     if (granted) {
       saveSettings(true)
@@ -59,7 +54,6 @@ export function NotificationSettings() {
         description: "現場情報の更新通知を受け取ることができます",
       })
     } else if (isDenied) {
-      console.log("[通知設定] 通知が拒否されました")
       toast({
         title: "通知が拒否されました",
         description: "ブラウザの設定から通知を有効にしてください",
@@ -70,15 +64,11 @@ export function NotificationSettings() {
 
   // 通知設定の切り替え
   const handleToggleDealsNotifications = (checked: boolean) => {
-    console.log("[通知設定] 通知設定変更:", { checked, isGranted })
-
     if (checked && !isGranted) {
-      console.log("[通知設定] 通知権限をリクエストします")
       handleEnableNotifications()
       return
     }
 
-    console.log("[通知設定] 設定を保存します:", checked)
     saveSettings(checked)
   }
 

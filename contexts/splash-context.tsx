@@ -30,10 +30,7 @@ export function SplashProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const hideSplash = () => {
-    setShowSplash(false)
-    localStorage.setItem("splashShown", "true") // スプラッシュを非表示にしたことを記録
-  }
+  const hideSplash = () => setShowSplash(false)
 
   return <SplashContext.Provider value={{ showSplash, hideSplash }}>{children}</SplashContext.Provider>
 }

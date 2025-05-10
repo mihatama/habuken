@@ -40,7 +40,7 @@ interface DailyReportFormProps {
   onSuccess?: () => void
 }
 
-// 画像圧縮用のユーティリティ���数
+// 画像圧縮用のユーティリティ関数
 async function compressImage(file: File): Promise<{ file: File; originalSize: number; compressedSize: number }> {
   return new Promise((resolve, reject) => {
     const originalSize = file.size
@@ -988,7 +988,7 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent allowScroll={true} className="max-w-3xl flex flex-col h-screen sm:h-auto" allowScroll={true}>
+      <DialogContent className="max-w-3xl flex flex-col h-screen sm:h-auto">
         <DialogHeader>
           <DialogTitle>作業日報の作成</DialogTitle>
           <DialogDescription>作業日報の詳細情報を入力してください。*は必須項目です。</DialogDescription>
@@ -998,7 +998,7 @@ export function DailyReportFormDialog({ open, onOpenChange, onSuccess }: DailyRe
             <p>データを読み込み中...</p>
           </div>
         ) : (
-          <div className="dialog-content-scroll overflow-auto flex-1 px-4 space-y-4">
+          <div className="overflow-auto flex-1 px-4 space-y-4">
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label>案件名 *</Label>

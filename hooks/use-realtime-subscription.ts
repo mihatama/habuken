@@ -1,54 +1,71 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { useEffect, useRef, useState } from "react"
 import type { RealtimeChannel } from "@supabase/supabase-js"
+import { subscribeToTable, unsubscribeFromChannel } from "@/lib/supabase-realtime"
+
+type SubscriptionEvent = "INSERT" | "UPDATE" | "DELETE" | "*"
 
 interface UseRealtimeSubscriptionOptions {
+  event?: SubscriptionEvent
+  filter?: string
   enabled?: boolean
 }
 
-export function useRealtimeSubscription(table: string, options: UseRealtimeSubscriptionOptions = {}) {
-  const { enabled = true } = options
+/**
+ * リアルタイムサブスクリプションを管理するカスタムフック
+ * @param tableName 監視するテーブル名
+ * @param options サブスクリプションオプション
+ * @returns 最新のペイロードデータ
+ */
+export function useRealtimeSubscription(tableName: string, options: UseRealtimeSubscriptionOptions = {}) {
+  const { event = "*", filter, enabled = true } = options
   const [payload, setPayload] = useState<any>(null)
-  const [channel, setChannel] = useState<RealtimeChannel | null>(null)
+  const channelRef = useRef<RealtimeChannel | null>(null)
 
   useEffect(() => {
-    if (!enabled) {
-      console.log("[リアルタイム] サブスクリプション無効")
-      return
-    }
+    // enabledがfalseの場合はサブスクリプションを作成しない
+    if (!enabled) return
 
-    console.log("[リアルタイム] サブスクリプション開始:", table)
-    const supabase = createClientComponentClient()
+    // サブスクリプションを作成
+    channelRef.current = subscribeToTable(
+      tableName,
+      (newPayload) => {
+        setPayload(newPayload)
+      },
+      { event, filter },
+    )
 
-    // リアルタイムチャンネルを作成
-    const channel = supabase
-      .channel(`public:${table}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table,
-        },
-        (payload) => {
-          console.log("[リアルタイム] 変更を検出:", payload)
-          setPayload(payload)
-        },
-      )
-      .subscribe((status) => {
-        console.log("[リアルタイム] サブスクリプション状態:", status)
-      })
-
-    setChannel(channel)
-
-    // クリーンアップ
+    // クリーンアップ関数
     return () => {
-      console.log("[リアルタイム] サブスクリプション終了:", table)
-      channel.unsubscribe()
+      if (channelRef.current) {
+        unsubscribeFromChannel(channelRef.current)
+        channelRef.current = null
+      }
     }
-  }, [table, enabled])
+  }, [tableName, event, filter, enabled])
 
   return payload
+}
+
+/**
+ * 特定のレコードのリアルタイムサブスクリプションを管理するカスタムフック
+ * @param tableName 監視するテーブル名
+ * @param recordId 監視するレコードのID
+ * @param options サブスクリプションオプション
+ * @returns 最新のペイロードデータ
+ */
+export function useRealtimeRecordSubscription(
+  tableName: string,
+  recordId: string | null,
+  options: Omit<UseRealtimeSubscriptionOptions, "filter"> = {},
+) {
+  // recordIdがnullの場合はサブスクリプションを無効化
+  const enabled = options.enabled !== false && recordId !== null
+
+  return useRealtimeSubscription(tableName, {
+    ...options,
+    filter: recordId ? `id=eq.${recordId}` : undefined,
+    enabled,
+  })
 }

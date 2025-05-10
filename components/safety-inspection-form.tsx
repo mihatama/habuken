@@ -1211,7 +1211,7 @@ export function SafetyInspectionForm({ onSuccess, onCancel }: SafetyInspectionFo
                               }`}
                             >
                               <span className="flex items-center justify-center w-5 h-5 rounded-full bg-red-500 dark:bg-red-600 text-white text-xs">
-                                ×
+                                ○
                               </span>
                               <span className="ml-1 text-xs text-red-600 dark:text-red-400">危険</span>
                             </button>

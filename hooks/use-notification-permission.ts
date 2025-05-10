@@ -21,22 +21,14 @@ export function useNotificationPermission() {
 
   // 通知の権限をリクエスト
   const requestPermission = async (): Promise<boolean> => {
-    console.log("[通知権限] リクエスト開始", { supported })
-
-    if (!supported) {
-      console.log("[通知権限] 通知がサポートされていません")
-      return false
-    }
+    if (!supported) return false
 
     try {
-      console.log("[通知権限] Notification.requestPermission を呼び出します")
       const result = await Notification.requestPermission()
-      console.log("[通知権限] 権限リクエスト結果:", result)
-
       setPermission(result as NotificationPermission)
       return result === "granted"
     } catch (error) {
-      console.error("[通知権限] 通知権限のリクエストに失敗しました:", error)
+      console.error("通知権限のリクエストに失敗しました:", error)
       return false
     }
   }

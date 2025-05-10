@@ -217,7 +217,7 @@ export function LeaveRequestForm({ open, onOpenChange, onSuccess }: LeaveRequest
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]" allowScroll={true}>
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>新規休暇申請</DialogTitle>
           <DialogDescription>

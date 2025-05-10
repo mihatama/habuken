@@ -9,21 +9,12 @@ import { SplashScreen } from "@/components/splash-screen"
 import { AppShell } from "@/components/app-shell"
 import { PWARegister } from "./pwa-register"
 import { HideAddressBar } from "@/components/hide-address-bar"
-import { DealsNotificationHandler } from "@/components/deals-notification-handler"
 
-// フォント設定を最適化
-const inter = Inter({
-  subsets: ["latin"],
-  display: "swap", // フォント読み込み中にシステムフォントを表示
-  preload: true, // 必要なフォントのみプリロード
-})
-
+const inter = Inter({ subsets: ["latin"] })
 const notoSerifJP = Noto_Serif_JP({
   weight: ["400", "700"],
   subsets: ["latin"],
   variable: "--font-kaisho",
-  display: "swap", // フォント読み込み中にシステムフォントを表示
-  preload: false, // 明示的にプリロードを無効化
 })
 
 export const metadata: Metadata = {
@@ -38,8 +29,8 @@ export const metadata: Metadata = {
   viewport: {
     width: "device-width",
     initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
+    maximumScale: 1, // 5から1に変更してピンチズームを制限
+    userScalable: false, // trueからfalseに変更
     viewportFit: "cover",
   },
   formatDetection: {
@@ -68,7 +59,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
-        {/* スプラッシュ画像は必要な場合のみ保持 */}
         <link
           rel="apple-touch-startup-image"
           href="/splash/apple-splash-1125-2436.png"
@@ -86,7 +76,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <div className="w-full px-0 sm:container sm:mx-auto sm:px-4">{children}</div>
               </AppShell>
               <PWARegister />
-              <DealsNotificationHandler />
             </SplashProvider>
           </AuthProvider>
         </Providers>

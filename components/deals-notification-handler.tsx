@@ -21,19 +21,11 @@ export function DealsNotificationHandler() {
   // 通知権限のリクエスト
   useEffect(() => {
     const requestNotificationPermission = async () => {
-      console.log("[通知デバッグ] 権限状態:", {
-        supported,
-        permission,
-        hasRequested: hasRequestedPermission.current,
-      })
-
       if (supported && permission === "default" && !hasRequestedPermission.current) {
         hasRequestedPermission.current = true
-        console.log("[通知デバッグ] 通知権限をリクエストします")
 
         // 通知権限をリクエスト
         const granted = await requestPermission()
-        console.log("[通知デバッグ] 通知権限リクエスト結果:", granted)
 
         if (granted) {
           toast({
@@ -41,7 +33,6 @@ export function DealsNotificationHandler() {
             description: "現場情報の更新通知を受け取ることができます",
           })
         } else if (permission === "denied") {
-          console.log("[通知デバッグ] 通知が拒否されました")
           toast({
             title: "通知が無効です",
             description: "ブラウザの設定から通知を有効にしてください",
@@ -56,21 +47,10 @@ export function DealsNotificationHandler() {
 
   // リアルタイム更新を監視して通知を送信
   useEffect(() => {
-    if (!payload) {
-      console.log("[通知デバッグ] payload がありません")
-      return
-    }
-
-    if (!isGranted) {
-      console.log("[通知デバッグ] 通知権限がありません", { permission })
-      return
-    }
-
-    console.log("[通知デバッグ] リアルタイム更新を受信:", payload)
+    if (!payload || !isGranted) return
 
     const handleNotification = async () => {
       const { eventType, new: newRecord, old: oldRecord } = payload
-      console.log("[通知デバッグ] イベントタイプ:", eventType, { newRecord, oldRecord })
 
       let title = ""
       let body = ""
@@ -93,13 +73,10 @@ export function DealsNotificationHandler() {
           dealId = oldRecord.id
           break
         default:
-          console.log("[通知デバッグ] 未知のイベントタイプ:", eventType)
           return
       }
 
-      console.log("[通知デバッグ] 通知を送信します:", { title, body, dealId })
-
-      const result = await notificationService.sendNotification({
+      await notificationService.sendNotification({
         title,
         body,
         tag: `deal-${dealId}`,
@@ -113,12 +90,10 @@ export function DealsNotificationHandler() {
           }
         },
       })
-
-      console.log("[通知デバッグ] 通知送信結果:", result)
     }
 
     handleNotification()
-  }, [payload, isGranted, router, permission])
+  }, [payload, isGranted, router])
 
   // UIは表示しない（バックグラウンド処理のみ）
   return null

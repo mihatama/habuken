@@ -57,21 +57,11 @@ class NotificationService {
    * 通知を送信
    */
   public async sendNotification(options: NotificationOptions): Promise<boolean> {
-    console.log("[通知サービス] 通知送信開始", options)
-
-    if (!this.isSupported()) {
-      console.log("[通知サービス] 通知がサポートされていません")
-      return false
-    }
-
-    if (Notification.permission !== "granted") {
-      console.log("[通知サービス] 通知権限がありません:", Notification.permission)
-      return false
-    }
+    if (!this.isSupported()) return false
+    if (Notification.permission !== "granted") return false
 
     try {
       const { title, body, icon, tag, data, onClick } = options
-      console.log("[通知サービス] 通知を作成します", { title, body, tag })
 
       const notification = new Notification(title, {
         body,
@@ -80,11 +70,8 @@ class NotificationService {
         data,
       })
 
-      console.log("[通知サービス] 通知作成成功")
-
       if (onClick) {
         notification.onclick = () => {
-          console.log("[通知サービス] 通知がクリックされました")
           notification.close()
           onClick()
         }
@@ -92,7 +79,7 @@ class NotificationService {
 
       return true
     } catch (error) {
-      console.error("[通知サービス] 通知の送信に失敗しました:", error)
+      console.error("通知の送信に失敗しました:", error)
       return false
     }
   }
