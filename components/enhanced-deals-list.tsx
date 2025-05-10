@@ -16,16 +16,13 @@ import {
   AlertCircle,
   Calendar,
   Trash2,
-  FileText,
-  ExternalLink,
-  FileIcon as FilePdf,
 } from "lucide-react"
 import Link from "next/link"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/components/ui/use-toast"
-import type { Deal, DealFile } from "@/types/supabase"
+import type { Deal } from "@/types/supabase"
 import { DealEditModal } from "@/components/deal-edit-modal"
 import {
   AlertDialog,
@@ -44,8 +41,7 @@ interface DealWithResources extends Deal {
   vehicles?: { id: string; name: string }[]
   tools?: { id: string; name: string }[]
   contract_amount?: number
-  files?: DealFile[] // 追加: ファイル情報
-  pdf_url?: string | null // 追加: PDFのURL
+  // files と pdf_url プロパティを削除
 }
 
 export function EnhancedDealsList() {
@@ -114,15 +110,6 @@ export function EnhancedDealsList() {
           .eq("deal_id", deal.id)
 
         dealWithResources.tools = toolsData?.map((item) => item.tool) || []
-
-        // ファイル情報を取得（追加）
-        const { data: filesData } = await supabase
-          .from("deal_files")
-          .select("*")
-          .eq("deal_id", deal.id)
-          .order("created_at", { ascending: false })
-
-        dealWithResources.files = filesData || []
 
         dealsWithResources.push(dealWithResources)
       }
@@ -292,11 +279,6 @@ export function EnhancedDealsList() {
                 <Package className="h-4 w-4 text-purple-500" />
                 <span>{deal.tools?.length || 0}</span>
               </div>
-              {/* ファイル数を表示（追加） */}
-              <div className="flex items-center gap-1 text-sm">
-                <FileText className="h-4 w-4 text-gray-500" />
-                <span>{deal.files?.length || 0}</span>
-              </div>
             </div>
 
             <Button
@@ -455,73 +437,6 @@ export function EnhancedDealsList() {
                     </span>
                   </div>
                 </div>
-
-                {/* PDF リンク - 請負金額の後に追加 */}
-                {deal.pdf_url && (
-                  <div className="mb-4 mt-4">
-                    <h4 className="text-xs font-medium flex items-center gap-2 mb-2">
-                      <FilePdf className="h-3.5 w-3.5 text-red-500" />
-                      PDF ドキュメント
-                    </h4>
-                    <div className="bg-gray-50 rounded-md p-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <FilePdf className="h-5 w-5 text-red-500 mr-2" />
-                          <span className="text-sm">{deal.name} PDF</span>
-                        </div>
-                        <a
-                          href={deal.pdf_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                        >
-                          <span>PDFを開く</span>
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* ファイル情報（追加） - PDFドキュメントがない場合のみ表示 */}
-                {!deal.pdf_url && (
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium flex items-center gap-2 mb-2">
-                      <FileText className="h-4 w-4 text-gray-500" />
-                      添付ファイル
-                    </h4>
-                    {deal.files && deal.files.length > 0 ? (
-                      <div className="grid gap-2">
-                        {deal.files.map((file) => (
-                          <div
-                            key={file.id}
-                            className="flex justify-between items-center bg-gray-50 rounded-md px-3 py-1.5 text-sm"
-                          >
-                            <div className="flex items-center gap-2">
-                              <FileText className="h-4 w-4 text-blue-500" />
-                              <span className="font-medium">{file.original_file_name || file.file_name}</span>
-                            </div>
-                            <div className="flex items-center">
-                              <span className="text-xs text-muted-foreground mr-2">
-                                {new Date(file.created_at).toLocaleDateString("ja-JP")}
-                              </span>
-                              <a
-                                href={file.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-500 hover:text-blue-700"
-                              >
-                                <ExternalLink className="h-4 w-4" />
-                              </a>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">添付ファイルはありません</p>
-                    )}
-                  </div>
-                )}
 
                 <div className="flex justify-end items-center gap-2 mt-4">
                   <Button
