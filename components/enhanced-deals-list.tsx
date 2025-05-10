@@ -18,7 +18,7 @@ import {
   Trash2,
   FileText,
   ExternalLink,
-  FileIcon,
+  FileIcon as FilePdf,
 } from "lucide-react"
 import Link from "next/link"
 import { format } from "date-fns"
@@ -37,7 +37,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 
 interface DealWithResources extends Deal {
   staff?: { id: string; full_name: string }[]
@@ -46,7 +45,7 @@ interface DealWithResources extends Deal {
   tools?: { id: string; name: string }[]
   contract_amount?: number
   files?: DealFile[] // 追加: ファイル情報
-  pdf_url?: string
+  pdf_url?: string | null // 追加: PDFのURL
 }
 
 export function EnhancedDealsList() {
@@ -457,12 +456,32 @@ export function EnhancedDealsList() {
                   </div>
                 </div>
 
+                {/* PDF プレビュー - 請負金額の後に追加 */}
                 {deal.pdf_url && (
-                  <div className="mt-4">
-                    <div className="flex items-center gap-2">
-                      <FileIcon className="h-5 w-5 text-blue-500" />
-                      <span className="font-medium">添付PDF:</span>
-                      <PDFPreview url={deal.pdf_url} />
+                  <div className="mb-4 mt-4">
+                    <h4 className="text-xs font-medium flex items-center gap-2 mb-2">
+                      <FilePdf className="h-3.5 w-3.5 text-red-500" />
+                      PDF プレビュー
+                    </h4>
+                    <div className="bg-gray-50 rounded-md p-2">
+                      <div className="aspect-[3/4] w-full max-h-[300px] overflow-hidden rounded border border-gray-200">
+                        <iframe
+                          src={`${deal.pdf_url}#toolbar=0&navpanes=0`}
+                          className="w-full h-full"
+                          title={`${deal.name} PDF`}
+                        />
+                      </div>
+                      <div className="mt-2 flex justify-end">
+                        <a
+                          href={deal.pdf_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                        >
+                          <span>PDFを開く</span>
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -481,29 +500,7 @@ export function EnhancedDealsList() {
                           className="flex justify-between items-center bg-gray-50 rounded-md px-3 py-1.5 text-sm"
                         >
                           <div className="flex items-center gap-2">
-                            {/* Display different icons based on file type */}
-                            {file.file_type.includes("pdf") ? (
-                              <FileText className="h-4 w-4 text-red-500" />
-                            ) : file.file_type.includes("image") ? (
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className="h-4 w-4 text-green-500"
-                              >
-                                <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                                <circle cx="9" cy="9" r="2" />
-                                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                              </svg>
-                            ) : (
-                              <FileText className="h-4 w-4 text-blue-500" />
-                            )}
+                            <FileText className="h-4 w-4 text-blue-500" />
                             <span className="font-medium">{file.original_file_name || file.file_name}</span>
                           </div>
                           <div className="flex items-center">
@@ -570,21 +567,5 @@ export function EnhancedDealsList() {
         <DealEditModal dealId={editingDealId} isOpen={!!editingDealId} onClose={() => setEditingDealId(null)} />
       )}
     </div>
-  )
-}
-
-// PDFPreviewコンポーネントを追加
-function PDFPreview({ url }: { url: string }) {
-  const [isOpen, setIsOpen] = useState(false)
-
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <button className="text-blue-600 hover:underline">プレビュー</button>
-      </DialogTrigger>
-      <DialogContent className="max-w-4xl h-[80vh]">
-        <iframe src={url} className="w-full h-full" title="PDF Preview" />
-      </DialogContent>
-    </Dialog>
   )
 }

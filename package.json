@@ -73,6 +73,7 @@
     "react-big-calendar": "latest",
     "react-day-picker": "8.10.1",
     "react-dom": "^19",
+    "react-dropzone": "latest",
     "react-hook-form": "latest",
     "react-resizable-panels": "^2.1.7",
     "recharts": "latest",
