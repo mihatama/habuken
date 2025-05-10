@@ -6,8 +6,7 @@ import { v4 as uuidv4 } from "uuid"
 import { toast } from "@/components/ui/use-toast"
 import { Loader2, X, FileText, FileIcon as FilePdf, Trash2 } from "lucide-react"
 import type { DealFile } from "@/types/supabase"
-import { STORAGE_BUCKET_NAME } from "@/lib/supabase-storage-utils"
-import { fileToBase64, extractFilePathFromUrl } from "@/utils/file-utils"
+import { fileToBase64 } from "@/utils/file-utils"
 
 interface DealFileUploadProps {
   dealId?: string
@@ -16,7 +15,7 @@ interface DealFileUploadProps {
 }
 
 export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: DealFileUploadProps) {
-  const [files, setFiles] = useState<(File & { uploading?: boolean })[]>([])
+  const [files, setFiles] = useState<(File & { uploading?: boolean; id?: string })[]>([])
   const [uploadedFiles, setUploadedFiles] = useState<DealFile[]>(existingFiles)
   const [isUploading, setIsUploading] = useState(false)
   const [isBucketChecked, setBucketChecked] = useState(false)
@@ -54,16 +53,26 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
     checkBucket()
   }, [])
 
-  const uploadFiles = async (filesToUpload: (File & { uploading?: boolean })[]) => {
+  const uploadFiles = async (filesToUpload: (File & { uploading?: boolean; id?: string })[]) => {
     if (filesToUpload.length === 0) return
 
     setIsUploading(true)
     const newUploadedFiles: DealFile[] = []
+    const uploadedFileIds: string[] = []
 
     try {
       for (const file of filesToUpload) {
+        const fileId = file.id || uuidv4()
+
+        // ファイルにIDを割り当て（まだない場合）
+        if (!file.id) {
+          file.id = fileId
+        }
+
         // マークファイルをアップロード中として
-        setFiles((prev) => prev.map((f) => (f === file ? { ...f, uploading: true } : f)))
+        setFiles((prev) =>
+          prev.map((f) => (f === file || f.id === file.id ? { ...f, uploading: true, id: fileId } : f)),
+        )
 
         // ファイルをBase64に変換
         const base64Data = await fileToBase64(file)
@@ -90,6 +99,9 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
 
         console.log("Upload successful, result:", result)
 
+        // アップロードが完了したファイルのIDを記録
+        uploadedFileIds.push(fileId)
+
         // ファイルメタデータがAPIから返された場合
         if (result.file) {
           newUploadedFiles.push(result.file)
@@ -101,16 +113,18 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
             id: uuidv4(),
             deal_id: dealId || "",
             file_name: file.name,
+            original_file_name: file.name,
             file_type: file.type,
             url: result.url,
             created_at: new Date().toISOString(),
           }
           newUploadedFiles.push(tempFile)
         }
-
-        // アップロード完了したファイルをリストから削除
-        setFiles((prev) => prev.filter((f) => f !== file))
       }
+
+      // アップロード完了したファイルをリストから削除
+      // IDベースで削除することで確実に削除する
+      setFiles((prev) => prev.filter((f) => !uploadedFileIds.includes(f.id || "")))
 
       // Update state with new uploaded files
       setUploadedFiles((prev) => [...prev, ...newUploadedFiles])
@@ -173,6 +187,7 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
       const filesForUpload = validFiles.map((file) =>
         Object.assign(file, {
           uploading: false,
+          id: uuidv4(), // 各ファイルに一意のIDを割り当て
         }),
       )
 
@@ -203,9 +218,6 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
 
   const deleteUploadedFile = async (file: DealFile) => {
     try {
-      // ファイルパスを抽出
-      const filePath = extractFilePathFromUrl(file.url, STORAGE_BUCKET_NAME)
-
       // APIを使用してファイルを削除
       const response = await fetch("/api/deal-files/delete", {
         method: "POST",
@@ -214,7 +226,7 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
         },
         body: JSON.stringify({
           fileId: file.id,
-          filePath,
+          filePath: file.file_name, // ファイル名をパスとして使用
         }),
       })
 
@@ -241,9 +253,9 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
     }
   }
 
-  const renderFilePreview = (file: File & { uploading?: boolean }, index: number) => {
+  const renderFilePreview = (file: File & { uploading?: boolean; id?: string }, index: number) => {
     return (
-      <div key={index} className="relative flex items-center p-2 w-full rounded border border-gray-200">
+      <div key={file.id || index} className="relative flex items-center p-2 w-full rounded border border-gray-200">
         <FileText className="h-6 w-6 mr-2 text-blue-500" />
         <span className="text-sm truncate max-w-[180px]">{file.name}</span>
         {file.uploading ? (
@@ -261,7 +273,7 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
     return (
       <div key={file.id} className="relative flex items-center p-2 w-full rounded border border-gray-200">
         <FileText className="h-6 w-6 mr-2 text-blue-500" />
-        <span className="text-sm truncate max-w-[180px]">{file.file_name}</span>
+        <span className="text-sm truncate max-w-[180px]">{file.original_file_name || file.file_name}</span>
         <button
           onClick={() => deleteUploadedFile(file)}
           className="ml-auto text-gray-500 hover:text-gray-700"
