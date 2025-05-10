@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Plus, Pencil, Trash2, Loader2, RefreshCw } from "lucide-react"
+import { Plus, Pencil, Trash2, Loader2, RefreshCw, GripVertical, ArrowDownAZ } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
@@ -62,7 +62,8 @@ export function StaffList() {
       setError(null)
 
       console.log("スタッフデータを取得中...")
-      const { data, error } = await supabase.from("staff").select("*").order("full_name", { ascending: true })
+      // display_orderカラムでソート
+      const { data, error } = await supabase.from("staff").select("*").order("display_order", { ascending: true })
 
       if (error) {
         console.error("スタッフ取得エラー:", error)
@@ -70,14 +71,46 @@ export function StaffList() {
       }
 
       console.log("取得したスタッフデータ:", data)
-      const sortedData = data?.sort((a, b) => (a.display_order || 0) - (b.display_order || 0)) || []
-      setStaff(sortedData)
+      setStaff(data || [])
     } catch (error: any) {
       console.error("スタッフの取得に失敗しました:", error)
       setError(error.message || "スタッフデータの取得に失敗しました")
       toast({
         title: "エラー",
         description: "スタッフの取得に失敗しました: " + (error.message || "不明なエラー"),
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  async function resetOrder() {
+    try {
+      setIsLoading(true)
+
+      // スタッフをfull_nameでソートした新しい配列を作成
+      const sortedByName = [...staff].sort((a, b) => a.full_name.localeCompare(b.full_name))
+
+      // update_staff_order関数を呼び出して表示順を更新
+      const { error } = await supabase.rpc("update_staff_order", {
+        id_list: sortedByName.map((item) => item.id),
+      })
+
+      if (error) throw error
+
+      toast({
+        title: "成功",
+        description: "スタッフの表示順を名前順にリセットしました",
+      })
+
+      // データを再取得
+      fetchStaff()
+    } catch (error: any) {
+      console.error("表示順のリセットに失敗しました:", error)
+      toast({
+        title: "エラー",
+        description: "表示順のリセットに失敗しました: " + (error.message || "不明なエラー"),
         variant: "destructive",
       })
     } finally {
@@ -257,7 +290,16 @@ export function StaffList() {
         id_list: newSortedStaff.map((item) => item.id),
       })
 
-      if (error) throw error
+      if (error) {
+        console.error("RPC関数エラー:", error)
+        // RPCエラーの場合は、直接各スタッフの表示順を更新する代替手段を実装
+        for (let i = 0; i < newSortedStaff.length; i++) {
+          await supabase
+            .from("staff")
+            .update({ display_order: i + 1 })
+            .eq("id", newSortedStaff[i].id)
+        }
+      }
 
       toast({
         title: "成功",
@@ -317,6 +359,9 @@ export function StaffList() {
           />
           <Button variant="outline" size="icon" onClick={fetchStaff} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+          </Button>
+          <Button variant="outline" size="icon" onClick={resetOrder} disabled={isLoading} title="名前順にリセット">
+            <ArrowDownAZ className="h-4 w-4" />
           </Button>
           <>
             <Button variant="gold" onClick={() => setIsAddDialogOpen(true)}>
@@ -414,25 +459,29 @@ export function StaffList() {
             </Button>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>名前</TableHead>
-                <TableHead>役職</TableHead>
-                <TableHead>部署</TableHead>
-                <TableHead>連絡先</TableHead>
-                <TableHead>ステータス</TableHead>
-                <TableHead className="text-right">操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredStaff.length > 0 ? (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                  modifiers={[restrictToVerticalAxis]}
-                >
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+            modifiers={[restrictToVerticalAxis]}
+          >
+            <div className="text-sm text-muted-foreground mb-2">
+              <GripVertical className="h-4 w-4 inline-block mr-1" /> ドラッグして並び替えができます
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[30px]"></TableHead>
+                  <TableHead>名前</TableHead>
+                  <TableHead>役職</TableHead>
+                  <TableHead>部署</TableHead>
+                  <TableHead>連絡先</TableHead>
+                  <TableHead>ステータス</TableHead>
+                  <TableHead className="text-right">操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredStaff.length > 0 ? (
                   <SortableContext
                     items={filteredStaff.map((staff) => staff.id)}
                     strategy={verticalListSortingStrategy}
@@ -453,16 +502,16 @@ export function StaffList() {
                       />
                     ))}
                   </SortableContext>
-                </DndContext>
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
-                    {searchTerm ? "検索条件に一致するスタッフが見つかりません" : "スタッフがありません"}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
+                      {searchTerm ? "検索条件に一致するスタッフが見つかりません" : "スタッフがありません"}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </DndContext>
         )}
       </CardContent>
     </Card>
@@ -499,11 +548,16 @@ function SortableTableRow({
     transition,
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 1 : 0,
-    position: "relative" as const,
+    backgroundColor: isDragging ? "var(--gold-50)" : undefined,
   }
 
   return (
-    <TableRow ref={setNodeRef} style={style} className="cursor-move" {...attributes} {...listeners}>
+    <TableRow ref={setNodeRef} style={style} className="transition-colors duration-200">
+      <TableCell className="w-[30px] p-2">
+        <div {...attributes} {...listeners} className="cursor-move flex items-center justify-center">
+          <GripVertical className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
+        </div>
+      </TableCell>
       <TableCell className="font-medium">{staff.full_name}</TableCell>
       <TableCell>{staff.position || "-"}</TableCell>
       <TableCell>{staff.department || "-"}</TableCell>

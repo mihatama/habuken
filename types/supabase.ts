@@ -89,6 +89,7 @@ export interface Database {
           created_at: string
           updated_at: string
           skills?: string[] | null
+          display_order?: number | null
         }
         Insert: {
           id?: string
@@ -102,6 +103,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           skills?: string[] | null
+          display_order?: number | null
         }
         Update: {
           id?: string
@@ -115,6 +117,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           skills?: string[] | null
+          display_order?: number | null
         }
       }
       deals: {
