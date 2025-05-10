@@ -19,62 +19,30 @@ export function useData(
 ) {
   const { queryKey = [table], select = "*", filters = [], order, enabled = true, onError } = options
 
-  const fetchDataFromTable = async (
-    tableName: string,
-    options: {
-      select: string
-      filters: any[]
-      order?: { column: string; ascending: boolean }
-    },
-  ) => {
-    const { select, filters, order } = options
-    const supabase = getClientSupabase()
-    let query = supabase.from(tableName).select(select)
-
-    // フィルターを適用
-    filters.forEach((filter) => {
-      if (filter.operator === "eq") {
-        query = query.eq(filter.column, filter.value)
-      } else if (filter.operator === "in") {
-        query = query.in(filter.column, filter.value)
-      }
-      // 他のフィルター条件も必要に応じて追加
-    })
-
-    // 並び順を適用
-    if (order) {
-      query = query.order(order.column, { ascending: order.ascending })
-    }
-
-    const { data, error } = await query
-
-    if (error) {
-      throw error
-    }
-
-    return data
-  }
-
-  // エラーハンドリングを強化
-  const handleError = (error: any) => {
-    console.error("API Error:", error)
-    if (error.status === 406) {
-      console.warn("Not Acceptable error. Check Accept headers and table structure.")
-    }
-    return { data: null, error }
-  }
-
   return useQuery({
     queryKey,
     queryFn: async () => {
-      try {
-        const result = await fetchDataFromTable(table, {
-          select,
-          filters,
-          order,
-        })
-        return result
-      } catch (error) {
+      const supabase = getClientSupabase()
+      let query = supabase.from(table).select(select)
+
+      // フィルターを適用
+      filters.forEach((filter) => {
+        if (filter.operator === "eq") {
+          query = query.eq(filter.column, filter.value)
+        } else if (filter.operator === "in") {
+          query = query.in(filter.column, filter.value)
+        }
+        // 他のフィルター条件も必要に応じて追加
+      })
+
+      // 並び順を適用
+      if (order) {
+        query = query.order(order.column, { ascending: order.ascending })
+      }
+
+      const { data, error } = await query
+
+      if (error) {
         const errorMessage = error instanceof Error ? error.message : `${table}データの取得に失敗しました`
         const { toast } = useToast()
         toast({
@@ -87,6 +55,8 @@ export function useData(
         }
         throw error
       }
+
+      return data
     },
     enabled,
     staleTime: 1000, // 1秒間はキャッシュを新鮮と見なす（短くして頻繁に再取得）

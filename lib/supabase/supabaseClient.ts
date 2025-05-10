@@ -86,22 +86,16 @@ export async function fetchDataFromTable(tableName: string, options: any = {}) {
   const { select = "*", filters = {}, order = {} } = options
   const supabase = getClientSupabase()
 
-  // 適切なヘッダーを設定
+  // CSRFトークンをヘッダーに追加
   const headers = {
-    "X-CSRF-Token": getCsrfToken(),
-    "Content-Type": "application/json",
-    Accept: "application/json",
+    "X-CSRF-Token": getCsrfToken(), // この関数は別途実装する必要があります
   }
 
   let query = supabase.from(tableName).select(select).headers(headers)
 
-  // フィルターの適用方法を修正
   if (filters) {
     Object.entries(filters).forEach(([key, value]) => {
-      // nullチェックを追加
-      if (value !== undefined && value !== null) {
-        query = query.eq(key, value)
-      }
+      query = query.eq(key, value)
     })
   }
 
