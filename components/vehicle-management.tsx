@@ -397,6 +397,7 @@ export function VehicleManagement() {
                             setCurrentVehicle(vehicle)
                             setIsEditDialogOpen(true)
                           }}
+                          className="border-gold text-gold hover:bg-gold/10"
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
