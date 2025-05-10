@@ -160,6 +160,16 @@ html {
   .hidden-desktop {
     @apply block md:hidden;
   }
+
+  /* スクロールバーを非表示にするユーティリティクラス */
+  .hide-scrollbar {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
 }
 
 /* PWAモード用のスタイル */
@@ -170,7 +180,8 @@ html {
   appearance: none;
   /* スクロールバウンスを無効化 */
   overscroll-behavior: none;
-  /* 横スクロールを許可 */
+  /* 追加: 横スクロール防止 */
+  overflow-x: hidden;
   width: 100%;
 }
 
@@ -187,12 +198,12 @@ html {
   bottom: 0;
   /* スクロールを有効にする */
   overflow-y: auto;
-  /* 横スクロールを許可 */
-  overflow-x: auto;
   /* スクロールを滑らかにする */
   -webkit-overflow-scrolling: touch;
   /* スクロールバウンスを無効化 */
   overscroll-behavior: none;
+  /* 追加: 横スクロール防止 */
+  overflow-x: hidden;
   max-width: 100%;
 }
 
@@ -213,40 +224,34 @@ html {
   z-index: 40;
 }
 
-/* ナビゲーションスタイル */
-.nav-links {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+/* ヘッダーのナビゲーションスタイル修正 */
+header nav {
+  max-width: calc(100% - 100px); /* ユーザーナビゲーション用のスペースを確保 */
+}
+
+header nav .flex.items-center.space-x-6 {
+  max-width: 100%;
   overflow-x: auto;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
-  padding-right: 1rem;
 }
 
-.nav-links::-webkit-scrollbar {
+header nav .flex.items-center.space-x-6::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
 }
 
-.nav-link {
-  display: flex;
-  align-items: center;
-  white-space: nowrap;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.25rem;
-  color: white;
-  font-size: 0.875rem;
-  transition: all 0.2s ease;
-}
+/* モバイル表示時のヘッダーメニュー修正 */
+@media (max-width: 768px) {
+  header .container {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    overflow: hidden;
+  }
 
-.nav-link:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: #ffd700;
-}
-
-.nav-link.text-gold {
-  color: #ffd700;
-  background-color: rgba(255, 215, 0, 0.1);
+  /* モバイル表示時はメニューを完全に非表示にする */
+  header nav {
+    display: none;
+  }
 }
 
 @media (min-width: 1024px) {
@@ -254,16 +259,6 @@ html {
     max-width: 100%;
     padding-left: 1rem;
     padding-right: 1rem;
-  }
-
-  .nav-links {
-    gap: 0.75rem;
-  }
-}
-
-@media (min-width: 1280px) {
-  .nav-links {
-    gap: 1rem;
   }
 }
 
@@ -367,15 +362,13 @@ html {
 /* モバイル表示時の修正 */
 @media (max-width: 640px) {
   body {
-    /* 横スクロールを許可 */
-    overflow-x: auto;
+    overflow-x: hidden;
     width: 100%;
   }
 
   .container {
     width: 100%;
-    /* 最小幅を設定して横スクロールを促進 */
-    min-width: 640px;
+    max-width: 100%;
     padding-left: 1rem;
     padding-right: 1rem;
   }
@@ -383,6 +376,11 @@ html {
   /* モバイルでのスクロール問題を修正 */
   .overflow-x-auto {
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* モバイル表示時のヘッダーメニュー修正 */
+  header .container {
+    overflow: hidden;
   }
 }
 
@@ -406,30 +404,4 @@ html {
     cursor: pointer;
     touch-action: manipulation;
   }
-}
-
-/* 横スクロール許可のグローバルスタイル */
-.allow-horizontal-scroll {
-  overflow-x: auto;
-  white-space: nowrap;
-  width: auto;
-  min-width: 100%;
-}
-
-/* テーブルやリスト要素の横スクロール対応 */
-table,
-.table-container,
-.list-container,
-.card-container,
-.grid-container {
-  min-width: 640px;
-  overflow-x: auto;
-  white-space: nowrap;
-}
-
-/* フレックスコンテナの折り返し防止 */
-.flex-container {
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  min-width: 640px;
 }

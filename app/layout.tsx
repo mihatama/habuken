@@ -65,14 +65,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
         />
       </head>
-      <body className={`${inter.className} ${notoSerifJP.variable} allow-horizontal-scroll`}>
+      <body className={`${inter.className} ${notoSerifJP.variable}`}>
         <Providers>
           <AuthProvider>
             <SplashProvider>
               {/* 初回アクセス時のみスプラッシュスクリーンを表示 */}
               <SplashScreen />
               <HideAddressBar />
-              <AppShell>{children}</AppShell>
+              <AppShell>
+                <div className="w-full px-0 sm:container sm:mx-auto sm:px-4">{children}</div>
+              </AppShell>
               <PWARegister />
             </SplashProvider>
           </AuthProvider>

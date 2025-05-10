@@ -421,7 +421,7 @@ export function EnhancedDealsList() {
                   </h4>
                   {deal.pdf_url ? (
                     <div className="bg-red-50 rounded-md px-3 py-1.5 text-sm flex justify-between items-center">
-                      <span className="font-medium">契約書類</span>
+                      <span className="font-medium">添付書類</span>
                       <a
                         href={deal.pdf_url}
                         target="_blank"

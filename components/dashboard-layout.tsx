@@ -4,7 +4,6 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { Header } from "@/components/header"
 import { getClientSupabase } from "@/lib/supabase-utils"
 
 interface DashboardLayoutProps {
@@ -73,8 +72,7 @@ export function DashboardLayout({ children, title, description, isAdmin = false 
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Header user={user} />
-      <main className="flex-1 pt-16 pb-6 px-0 sm:p-6">
+      <main className="flex-1 pb-6 px-0 sm:p-6">
         <div className="mx-auto max-w-7xl">
           {title && (
             <div className="mb-8">
