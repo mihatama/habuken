@@ -157,6 +157,17 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
 
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
+      // 既にアップロード済みのファイルがある場合は新しいファイルを拒否
+      if (uploadedFiles.length > 0) {
+        toast({
+          title: "ファイル制限",
+          description:
+            "すでにファイルがアップロードされています。新しいファイルをアップロードするには、既存のファイルを削除してください。",
+          variant: "destructive",
+        })
+        return
+      }
+
       // PDFファイルのみをフィルタリング
       const pdfFiles = acceptedFiles.filter((file) => file.type === "application/pdf")
       const nonPdfFiles = acceptedFiles.filter((file) => file.type !== "application/pdf")
@@ -183,20 +194,18 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
 
       if (validFiles.length === 0) return
 
-      // PDFファイルをアップロード用に準備
-      const filesForUpload = validFiles.map((file) =>
-        Object.assign(file, {
-          uploading: false,
-          id: uuidv4(), // 各ファイルに一意のIDを割り当て
-        }),
-      )
+      // 最初の1つのファイルのみを使用
+      const fileForUpload = Object.assign(validFiles[0], {
+        uploading: false,
+        id: uuidv4(), // 一意のIDを割り当て
+      })
 
-      setFiles((prev) => [...prev, ...filesForUpload])
+      setFiles([fileForUpload])
 
       // 自動的にアップロードを開始
-      uploadFiles(filesForUpload)
+      uploadFiles([fileForUpload])
     },
-    [dealId, isBucketChecked],
+    [dealId, isBucketChecked, isUploading, uploadedFiles.length],
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -204,7 +213,7 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
     accept: {
       "application/pdf": [".pdf"],
     },
-    multiple: true,
+    multiple: false, // 複数ファイルを許可しない
     disabled: !isBucketChecked || isUploading, // バケットが確認されるまでまたはアップロード中はドロップゾーンを無効化
   })
 
@@ -315,7 +324,7 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
                 <FilePdf className="h-6 w-6 text-primary" />
               </div>
               <p className="text-sm font-medium">PDFファイルをドラッグ＆ドロップするか、クリックして選択</p>
-              <p className="text-xs text-gray-500">PDFファイルのみ（最大20MB）</p>
+              <p className="text-xs text-gray-500">PDFファイル1つのみ（最大20MB）</p>
             </>
           )}
         </div>

@@ -456,22 +456,19 @@ export function EnhancedDealsList() {
                   </div>
                 </div>
 
-                {/* PDF プレビュー - 請負金額の後に追加 */}
+                {/* PDF リンク - 請負金額の後に追加 */}
                 {deal.pdf_url && (
                   <div className="mb-4 mt-4">
                     <h4 className="text-xs font-medium flex items-center gap-2 mb-2">
                       <FilePdf className="h-3.5 w-3.5 text-red-500" />
-                      PDF プレビュー
+                      PDF ドキュメント
                     </h4>
-                    <div className="bg-gray-50 rounded-md p-2">
-                      <div className="aspect-[3/4] w-full max-h-[300px] overflow-hidden rounded border border-gray-200">
-                        <iframe
-                          src={`${deal.pdf_url}#toolbar=0&navpanes=0`}
-                          className="w-full h-full"
-                          title={`${deal.name} PDF`}
-                        />
-                      </div>
-                      <div className="mt-2 flex justify-end">
+                    <div className="bg-gray-50 rounded-md p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <FilePdf className="h-5 w-5 text-red-500 mr-2" />
+                          <span className="text-sm">{deal.name} PDF</span>
+                        </div>
                         <a
                           href={deal.pdf_url}
                           target="_blank"

@@ -195,13 +195,13 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
   }
 
   const handleFilesUploaded = (files: DealFile[]) => {
-    setDealFiles(files)
-
-    // 最初のPDFファイルのURLをフォームに設定
+    // 最初のファイルのみを使用
     if (files.length > 0) {
-      // pdf_url フィールドが存在しないため、form.setValue は使用せず、
-      // 後でデータ送信時に使用するために保存しておく
+      setDealFiles([files[0]])
       setPdfUrl(files[0].url)
+    } else {
+      setDealFiles([])
+      setPdfUrl(null)
     }
   }
 
@@ -520,7 +520,7 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
 
               <div className="mt-6">
                 <FormLabel>PDFファイル添付</FormLabel>
-                <FormDescription>現場に関連するPDFファイルを添付できます（最大20MB）</FormDescription>
+                <FormDescription>現場に関連するPDFファイルを1つ添付できます（最大20MB）</FormDescription>
                 <div className="mt-2">
                   <DealFileUpload dealId={pendingDealId || undefined} onFilesUploaded={handleFilesUploaded} />
                 </div>
