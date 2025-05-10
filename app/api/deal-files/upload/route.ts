@@ -116,6 +116,10 @@ export async function POST(request: Request) {
       }
     }
 
+    // 現場データを更新してリアルタイム通知をトリガー
+    console.log("[ファイルアップロード] 現場データを更新して通知をトリガー:", dealId)
+    await supabase.from("deals").update({ updated_at: new Date().toISOString() }).eq("id", dealId)
+
     return NextResponse.json({
       success: true,
       url: urlData?.publicUrl || "",

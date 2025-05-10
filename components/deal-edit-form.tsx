@@ -251,6 +251,8 @@ export function DealEditForm({ dealId, onSuccess, onCancel }: DealEditFormProps)
         description: "現場情報が正常に更新されました。",
       })
 
+      console.log("[現場編集] 現場更新成功 - 通知がトリガーされるはずです")
+
       // 成功時のコールバックがあれば実行（モーダルを閉じるなど）
       if (onSuccess) {
         onSuccess()

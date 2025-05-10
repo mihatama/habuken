@@ -403,22 +403,13 @@ header nav .flex.items-center.space-x-6::-webkit-scrollbar {
 @media (max-width: 640px) {
   /* ❶ 本体は必ず横スクロールできるようにする */
   html,
-  body,
-  #__next,
-  main,
-  .container,
-  .mobile-no-wrap {
-    overflow-x: auto !important; /* 水平スクロールを許可 */
-    -webkit-overflow-scrolling: touch;
+  body {
+    overflow-x: auto; /* 水平スクロールを許可 */
   }
 
   /* ❷ ルート幅を固定。ここでは 1280px を想定（必要に応じて調整） */
-  body,
-  #__next,
-  main,
-  .container,
-  .mobile-no-wrap {
-    min-width: 1280px !important; /* デスクトップの基準幅 */
+  body {
+    min-width: 1280px; /* デスクトップの基準幅 */
   }
 }
 
@@ -494,34 +485,5 @@ body {
   .flex-row,
   .flex-col {
     flex-wrap: nowrap !important;
-  }
-}
-
-/* 横スクロール問題修正のための追加スタイル */
-.overflow-x-auto {
-  overflow-x: auto !important;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* すべてのメインコンテンツコンテナに適用 */
-main,
-[role="main"],
-.main-content,
-.container,
-.content-area {
-  overflow-x: auto !important;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* PWAモードでの横スクロール強化 */
-@media all and (display-mode: standalone), all and (display-mode: fullscreen), all and (display-mode: minimal-ui) {
-  body,
-  .pwa-container,
-  .mobile-no-wrap,
-  main,
-  [role="main"],
-  .main-content {
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
   }
 }
