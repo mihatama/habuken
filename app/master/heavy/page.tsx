@@ -9,7 +9,9 @@ export default function HeavyMachineryPage() {
     <div className="flex min-h-screen flex-col">
       <main className="flex-1 p-6">
         <div className="container mx-auto">
-          <h1 className="text-2xl font-bold mb-6">重機管理</h1>
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold">重機管理</h1>
+          </div>
 
           <Tabs defaultValue="list" className="mb-6">
             <TabsList>

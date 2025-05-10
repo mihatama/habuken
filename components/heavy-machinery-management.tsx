@@ -218,13 +218,13 @@ export function HeavyMachineryManagement() {
   const getOwnershipBadge = (type: string) => {
     switch (type) {
       case "自社保有":
-        return <Badge variant="outline">自社所有</Badge>
+        return <Badge className="bg-green-500 hover:bg-green-600">自社所有</Badge>
       case "リース":
-        return <Badge variant="outline">リース</Badge>
+        return <Badge className="bg-blue-500 hover:bg-blue-600">リース</Badge>
       case "その他":
-        return <Badge variant="outline">その他</Badge>
+        return <Badge className="bg-yellow-500 hover:bg-yellow-600">その他</Badge>
       default:
-        return <Badge variant="outline">{type}</Badge>
+        return <Badge>{type}</Badge>
     }
   }
 
@@ -374,10 +374,12 @@ export function HeavyMachineryManagement() {
                         : "-"}
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm">
-                        {machine.daily_rate ? `¥${machine.daily_rate.toLocaleString()}/日` : "-"}
-                        {machine.weekly_rate ? ` · ¥${machine.weekly_rate.toLocaleString()}/週` : ""}
-                        {machine.monthly_rate ? ` · ¥${machine.monthly_rate.toLocaleString()}/月` : ""}
+                      <div>{machine.daily_rate ? `¥${machine.daily_rate.toLocaleString()}/日` : "-"}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {machine.weekly_rate ? `¥${machine.weekly_rate.toLocaleString()}/週` : "-"}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {machine.monthly_rate ? `¥${machine.monthly_rate.toLocaleString()}/月` : "-"}
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
