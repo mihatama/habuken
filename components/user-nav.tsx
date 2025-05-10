@@ -81,6 +81,8 @@ export function UserNav({ user }: UserNavProps) {
             <span>ログアウト</span>
           </Button>
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <div className="px-2 py-1.5 text-xs text-center text-muted-foreground">v1.0.0</div>
       </DropdownMenuContent>
     </DropdownMenu>
   )

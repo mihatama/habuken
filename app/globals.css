@@ -362,7 +362,7 @@ header nav .flex.items-center.space-x-6::-webkit-scrollbar {
 /* モバイル表示時の修正 */
 @media (max-width: 640px) {
   body {
-    overflow-x: hidden;
+    overflow-x: auto;
     width: 100%;
   }
 
