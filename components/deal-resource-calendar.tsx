@@ -108,7 +108,7 @@ export function DealResourceCalendar({ embedded = false }: DealResourceCalendarP
     const { data: staffAssignments } = await supabase
       .from("deal_staff")
       .select("*, staff:staff_id(id, full_name), deal:deal_id(name)")
-      .not("start_date", "is", null)
+      .filter("start_date", "not.is", null)
 
     if (staffAssignments) {
       for (const assignment of staffAssignments) {
@@ -132,7 +132,7 @@ export function DealResourceCalendar({ embedded = false }: DealResourceCalendarP
     const { data: machineryAssignments } = await supabase
       .from("deal_machinery")
       .select("*, machinery:machinery_id(id, name), deal:deal_id(name)")
-      .not("start_date", "is", null)
+      .filter("start_date", "not.is", null)
 
     if (machineryAssignments) {
       for (const assignment of machineryAssignments) {
@@ -156,7 +156,7 @@ export function DealResourceCalendar({ embedded = false }: DealResourceCalendarP
     const { data: vehicleAssignments } = await supabase
       .from("deal_vehicles")
       .select("*, vehicle:vehicle_id(id, name), deal:deal_id(name)")
-      .not("start_date", "is", null)
+      .filter("start_date", "not.is", null)
 
     if (vehicleAssignments) {
       for (const assignment of vehicleAssignments) {
@@ -180,7 +180,7 @@ export function DealResourceCalendar({ embedded = false }: DealResourceCalendarP
     const { data: toolAssignments } = await supabase
       .from("deal_tools")
       .select("*, tool:tool_id(id, name), deal:deal_id(name)")
-      .not("start_date", "is", null)
+      .filter("start_date", "not.is", null)
 
     if (toolAssignments) {
       for (const assignment of toolAssignments) {
