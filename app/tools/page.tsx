@@ -12,16 +12,8 @@ export const metadata: Metadata = {
 export default function ToolsPage() {
   return (
     <div className="container mx-auto py-6">
-      <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
-        <Box className="h-6 w-6" />
-        工具管理
-      </h1>
 
       <Tabs defaultValue="list">
-        <TabsList className="mb-4">
-          <TabsTrigger value="list">一覧</TabsTrigger>
-          <TabsTrigger value="sort">並び替え</TabsTrigger>
-        </TabsList>
 
         <TabsContent value="list">
           <ToolsPageClient />

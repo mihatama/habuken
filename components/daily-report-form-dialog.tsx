@@ -40,7 +40,7 @@ interface DailyReportFormProps {
   onSuccess?: () => void
 }
 
-// 画像圧縮用のユーティリティ関数
+// 画像圧縮用のユーティリティ���数
 async function compressImage(file: File): Promise<{ file: File; originalSize: number; compressedSize: number }> {
   return new Promise((resolve, reject) => {
     const originalSize = file.size

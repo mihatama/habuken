@@ -79,7 +79,7 @@ export function ResourceSelector({
     fetchResources()
   }, [resourceType])
 
-  // リソースの選択状態を変更する関数
+  // リソースの選��状態を変更する関数
   const handleResourceChange = (resourceId: string, checked: boolean) => {
     if (checked) {
       onSelectedResourcesChange([

@@ -331,7 +331,7 @@ export function EnhancedDealsList() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">スタッフは割り当てられていません</p>
+                    <p className="text-sm text-muted-foreground">スタッフは��り当てられていません</p>
                   )}
                 </div>
 
