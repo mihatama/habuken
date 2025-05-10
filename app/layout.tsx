@@ -72,7 +72,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {/* 初回アクセス時のみスプラッシュスクリーンを表示 */}
               <SplashScreen />
               <HideAddressBar />
-              <AppShell>{children}</AppShell>
+              <AppShell>
+                <div className="max-w-full sm:container sm:mx-auto sm:px-4">{children}</div>
+              </AppShell>
               <PWARegister />
             </SplashProvider>
           </AuthProvider>
