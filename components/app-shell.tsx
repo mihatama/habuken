@@ -60,7 +60,7 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <div
-      className={`relative flex min-h-screen w-full flex-col overflow-x-auto overscroll-x-contain ${isStandalone ? "pwa-container" : ""}`}
+      className={`relative flex min-h-screen w-full flex-col overflow-x-auto overscroll-x-contain ${isStandalone ? "pwa-container" : "mobile-no-wrap"}`}
     >
       {showHeader && <Header />}
       <OfflineIndicator />

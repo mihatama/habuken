@@ -423,3 +423,67 @@ body {
   -webkit-overflow-scrolling: touch; /* 慣性スクロール for iOS */
   touch-action: pan-x pan-y; /* 両方向パンを許可（JS ジェスチャと競合しない範囲で） */
 }
+
+/* モバイル表示時の横スクロール対応（すべての画面で折り返しなし） */
+@media (max-width: 768px) {
+  html,
+  body {
+    overflow-x: auto !important;
+    min-width: 1280px !important; /* デスクトップ幅を最小幅として設定 */
+    max-width: none !important;
+    width: auto !important;
+  }
+
+  /* すべてのコンテナ要素が横スクロールを許可するように */
+  .container,
+  main,
+  div[class*="container"],
+  div[class*="wrapper"],
+  section,
+  article {
+    min-width: inherit !important;
+    max-width: none !important;
+    width: auto !important;
+  }
+
+  /* 固定幅のテーブルなどが切れないように */
+  table {
+    width: auto !important;
+    min-width: 100% !important;
+  }
+
+  /* スクロールを滑らかにする */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* PWA モードでの横スクロール対応を強化 */
+.pwa-container {
+  overflow-x: auto !important;
+  min-width: 1280px !important;
+  max-width: none !important;
+}
+
+/* 既存の mobile-no-wrap セクションを強化 */
+@media (max-width: 768px) {
+  body {
+    min-width: 1280px !important; /* デスクトップの基準幅を強制 */
+    overflow-x: auto !important;
+  }
+
+  /* レスポンシブ設定を上書き */
+  .container-responsive,
+  .flex-responsive,
+  .grid-responsive {
+    width: auto !important;
+    min-width: inherit !important;
+  }
+
+  /* フレックスボックスの折り返しを防止 */
+  .flex,
+  .flex-row,
+  .flex-col {
+    flex-wrap: nowrap !important;
+  }
+}
