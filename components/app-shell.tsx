@@ -59,12 +59,10 @@ export function AppShell({ children }: AppShellProps) {
   const showHeader = !hideHeaderPaths.includes(pathname)
 
   return (
-    <div
-      className={`relative flex min-h-screen w-full flex-col overflow-x-auto overscroll-x-contain ${isStandalone ? "pwa-container" : "mobile-no-wrap"}`}
-    >
+    <div className={`relative flex min-h-screen w-full flex-col ${isStandalone ? "pwa-container" : "mobile-no-wrap"}`}>
       {showHeader && <Header />}
       <OfflineIndicator />
-      <div className={`flex-1 w-full ${showHeader ? "pt-16 sm:pt-20 pb-4" : ""}`}>{children}</div>
+      <div className={`flex-1 w-full overflow-x-auto ${showHeader ? "pt-16 sm:pt-20 pb-4" : ""}`}>{children}</div>
     </div>
   )
 }
