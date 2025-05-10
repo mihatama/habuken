@@ -21,34 +21,127 @@ interface DealFileUploadProps {
 }
 
 export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: DealFileUploadProps) {
-  const [files, setFiles] = useState<(File & { preview?: string })[]>([])
+  const [files, setFiles] = useState<(File & { preview?: string; uploading?: boolean })[]>([])
   const [uploadedFiles, setUploadedFiles] = useState<DealFile[]>(existingFiles)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({})
   const [isCameraActive, setIsCameraActive] = useState(false)
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    // Filter files larger than 20MB
-    const validFiles = acceptedFiles.filter((file) => file.size <= 20 * 1024 * 1024)
-    const oversizedFiles = acceptedFiles.filter((file) => file.size > 20 * 1024 * 1024)
+  const uploadFiles = async (filesToUpload: (File & { preview?: string; uploading?: boolean })[]) => {
+    if (!dealId || filesToUpload.length === 0) return
 
-    if (oversizedFiles.length > 0) {
+    setIsUploading(true)
+    const supabase = getClientSupabase()
+    const newUploadedFiles: DealFile[] = []
+    const newProgress = { ...uploadProgress }
+
+    try {
+      for (const file of filesToUpload) {
+        // マークファイルをアップロード中として
+        setFiles((prev) => prev.map((f) => (f === file ? { ...f, uploading: true } : f)))
+
+        const fileId = uuidv4()
+        const filePath = `${dealId}/${fileId}-${file.name}`
+        newProgress[fileId] = 0
+        setUploadProgress(newProgress)
+
+        // Upload file to Supabase Storage
+        const { data, error } = await supabase.storage.from(STORAGE_BUCKET_NAME).upload(filePath, file, {
+          contentType: file.type,
+          upsert: false,
+        })
+
+        if (error) {
+          throw error
+        }
+
+        // Get public URL
+        const publicUrl = supabase.storage.from(STORAGE_BUCKET_NAME).getPublicUrl(data.path).data.publicUrl
+
+        // Insert metadata into database
+        const { data: fileData, error: dbError } = await supabase
+          .from("deal_files")
+          .insert({
+            deal_id: dealId,
+            file_name: file.name,
+            file_type: file.type,
+            url: publicUrl,
+          })
+          .select()
+          .single()
+
+        if (dbError) {
+          throw dbError
+        }
+
+        newProgress[fileId] = 100
+        setUploadProgress(newProgress)
+        newUploadedFiles.push(fileData)
+
+        // アップロード完了したファイルをリストから削除
+        setFiles((prev) => prev.filter((f) => f !== file))
+      }
+
+      // Update state with new uploaded files
+      setUploadedFiles((prev) => [...prev, ...newUploadedFiles])
+
+      // Notify parent component
+      if (onFilesUploaded) {
+        onFilesUploaded([...uploadedFiles, ...newUploadedFiles])
+      }
+
+      if (newUploadedFiles.length > 0) {
+        toast({
+          title: "アップロード完了",
+          description: `${newUploadedFiles.length}個のファイルがアップロードされました。`,
+        })
+      }
+    } catch (error: any) {
+      console.error("File upload error:", error)
       toast({
-        title: "ファイルサイズエラー",
-        description: `${oversizedFiles.length}個のファイルが20MBを超えています。アップロードできませんでした。`,
+        title: "アップロードエラー",
+        description: `ファイルのアップロードに失敗しました: ${error.message || "不明なエラー"}`,
         variant: "destructive",
       })
+
+      // エラーが発生したファイルのアップロード中フラグをリセット
+      setFiles((prev) => prev.map((f) => (filesToUpload.includes(f) ? { ...f, uploading: false } : f)))
+    } finally {
+      setIsUploading(false)
     }
+  }
 
-    // Create preview for image files
-    const filesWithPreview = validFiles.map((file) =>
-      Object.assign(file, {
-        preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
-      }),
-    )
+  const onDrop = useCallback(
+    (acceptedFiles: File[]) => {
+      // Filter files larger than 20MB
+      const validFiles = acceptedFiles.filter((file) => file.size <= 20 * 1024 * 1024)
+      const oversizedFiles = acceptedFiles.filter((file) => file.size > 20 * 1024 * 1024)
 
-    setFiles((prev) => [...prev, ...filesWithPreview])
-  }, [])
+      if (oversizedFiles.length > 0) {
+        toast({
+          title: "ファイルサイズエラー",
+          description: `${oversizedFiles.length}個のファイルが20MBを超えています。アップロードできませんでした。`,
+          variant: "destructive",
+        })
+      }
+
+      if (validFiles.length === 0) return
+
+      // Create preview for image files
+      const filesWithPreview = validFiles.map((file) =>
+        Object.assign(file, {
+          preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
+          uploading: false,
+        }),
+      )
+
+      setFiles((prev) => [...prev, ...filesWithPreview])
+
+      // 自動的にアップロードを開始
+      uploadFiles(filesWithPreview)
+    },
+    [dealId],
+  )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -104,10 +197,14 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
       // Add preview
       const fileWithPreview = Object.assign(file, {
         preview: URL.createObjectURL(blob),
+        uploading: false,
       })
 
       setFiles((prev) => [...prev, fileWithPreview])
       setIsCameraActive(false)
+
+      // 自動的にアップロードを開始
+      uploadFiles([fileWithPreview])
     } catch (error) {
       console.error("Camera error:", error)
       toast({
@@ -121,80 +218,6 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
 
   const cancelCamera = () => {
     setIsCameraActive(false)
-  }
-
-  const uploadFiles = async () => {
-    if (!dealId || files.length === 0) return
-
-    setIsUploading(true)
-    const supabase = getClientSupabase()
-    const newUploadedFiles: DealFile[] = []
-    const newProgress = { ...uploadProgress }
-
-    try {
-      for (const file of files) {
-        const fileId = uuidv4()
-        const filePath = `${dealId}/${fileId}-${file.name}`
-        newProgress[fileId] = 0
-        setUploadProgress(newProgress)
-
-        // Upload file to Supabase Storage
-        const { data, error } = await supabase.storage.from(STORAGE_BUCKET_NAME).upload(filePath, file, {
-          contentType: file.type,
-          upsert: false,
-        })
-
-        if (error) {
-          throw error
-        }
-
-        // Get public URL
-        const publicUrl = supabase.storage.from(STORAGE_BUCKET_NAME).getPublicUrl(data.path).data.publicUrl
-
-        // Insert metadata into database
-        const { data: fileData, error: dbError } = await supabase
-          .from("deal_files")
-          .insert({
-            deal_id: dealId,
-            file_name: file.name,
-            file_type: file.type,
-            url: publicUrl,
-          })
-          .select()
-          .single()
-
-        if (dbError) {
-          throw dbError
-        }
-
-        newProgress[fileId] = 100
-        setUploadProgress(newProgress)
-        newUploadedFiles.push(fileData)
-      }
-
-      // Update state with new uploaded files
-      setUploadedFiles((prev) => [...prev, ...newUploadedFiles])
-      setFiles([])
-
-      // Notify parent component
-      if (onFilesUploaded) {
-        onFilesUploaded([...uploadedFiles, ...newUploadedFiles])
-      }
-
-      toast({
-        title: "アップロード完了",
-        description: `${newUploadedFiles.length}個のファイルがアップロードされました。`,
-      })
-    } catch (error: any) {
-      console.error("File upload error:", error)
-      toast({
-        title: "アップロードエラー",
-        description: `ファイルのアップロードに失敗しました: ${error.message || "不明なエラー"}`,
-        variant: "destructive",
-      })
-    } finally {
-      setIsUploading(false)
-    }
   }
 
   const removeFile = (index: number) => {
@@ -250,18 +273,24 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
     }
   }
 
-  const renderFilePreview = (file: File & { preview?: string }, index: number) => {
+  const renderFilePreview = (file: File & { preview?: string; uploading?: boolean }, index: number) => {
     if (file.type.startsWith("image/") && file.preview) {
       return (
         <div key={index} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
           <Image src={file.preview || "/placeholder.svg"} alt={file.name} fill style={{ objectFit: "cover" }} />
-          <button
-            onClick={() => removeFile(index)}
-            className="absolute top-1 right-1 bg-black bg-opacity-50 rounded-full p-1 text-white"
-            type="button"
-          >
-            <X size={14} />
-          </button>
+          {file.uploading ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
+              <Loader2 className="h-6 w-6 text-white animate-spin" />
+            </div>
+          ) : (
+            <button
+              onClick={() => removeFile(index)}
+              className="absolute top-1 right-1 bg-black bg-opacity-50 rounded-full p-1 text-white"
+              type="button"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
       )
     } else {
@@ -269,9 +298,17 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
         <div key={index} className="relative flex items-center p-2 w-full rounded border border-gray-200">
           <FileText className="h-6 w-6 mr-2 text-blue-500" />
           <span className="text-sm truncate max-w-[180px]">{file.name}</span>
-          <button onClick={() => removeFile(index)} className="ml-auto text-gray-500 hover:text-gray-700" type="button">
-            <X size={16} />
-          </button>
+          {file.uploading ? (
+            <Loader2 className="ml-auto h-4 w-4 text-gray-500 animate-spin" />
+          ) : (
+            <button
+              onClick={() => removeFile(index)}
+              className="ml-auto text-gray-500 hover:text-gray-700"
+              type="button"
+            >
+              <X size={16} />
+            </button>
+          )}
         </div>
       )
     }
@@ -358,12 +395,8 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
 
       {files.length > 0 && (
         <div className="space-y-2">
-          <div className="text-sm font-medium">選択されたファイル</div>
+          <div className="text-sm font-medium">アップロード中のファイル</div>
           <div className="flex flex-wrap gap-2">{files.map((file, index) => renderFilePreview(file, index))}</div>
-          <Button type="button" onClick={uploadFiles} disabled={isUploading} className="mt-2">
-            {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            アップロード
-          </Button>
         </div>
       )}
 
