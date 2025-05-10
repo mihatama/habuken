@@ -344,6 +344,32 @@ export interface Database {
           updated_at?: string
         }
       }
+      deal_files: {
+        Row: {
+          id: string
+          deal_id: string
+          file_name: string
+          file_type: string
+          url: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          deal_id: string
+          file_name: string
+          file_type: string
+          url: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          deal_id?: string
+          file_name?: string
+          file_type?: string
+          url?: string
+          created_at?: string
+        }
+      }
       // 他のテーブル定義は省略
     }
     Views: {
@@ -365,3 +391,4 @@ export type DealVehicle = Database["public"]["Tables"]["deal_vehicles"]["Row"]
 export type DealTool = Database["public"]["Tables"]["deal_tools"]["Row"]
 export type DealPeriod = Database["public"]["Tables"]["deal_periods"]["Row"]
 export type Staff = Database["public"]["Tables"]["staff"]["Row"]
+export type DealFile = Database["public"]["Tables"]["deal_files"]["Row"]

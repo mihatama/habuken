@@ -19,6 +19,9 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ResourceSelector } from "@/components/resource-selector"
+import { v4 as uuidv4 } from "uuid"
+import { DealFileUpload } from "@/components/deal-file-upload"
+import type { DealFile } from "@/types/supabase"
 
 // 案件登録フォームのスキーマ
 const dealFormSchema = z
@@ -82,6 +85,8 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
     [],
   )
   const [selectedTools, setSelectedTools] = useState<{ id: string; startDate: string; endDate: string | null }[]>([])
+  const [dealFiles, setDealFiles] = useState<DealFile[]>([])
+  const [pendingDealId, setPendingDealId] = useState<string | null>(null)
 
   // 新規案件作成時のデフォルト値を「pendding」から「未選択」に変更
   const defaultValues: Partial<DealFormValues> = {
@@ -188,6 +193,10 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
     }
   }
 
+  const handleFilesUploaded = (files: DealFile[]) => {
+    setDealFiles(files)
+  }
+
   async function onSubmit(data: DealFormValues) {
     // 終了日が開始日より前の場合はエラーを表示して処理を中断
     if (data.end_date && data.start_date && data.end_date < data.start_date) {
@@ -216,10 +225,25 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
         return
       }
 
+      // Generate a UUID for the deal if files need to be uploaded first
+      const newDealId = uuidv4()
+
+      // If files are selected but not yet uploaded, set the pending deal ID
+      if (dealFiles.length > 0 && dealFiles.length === 0) {
+        setPendingDealId(newDealId)
+        toast({
+          title: "ファイルのアップロードが必要です",
+          description: "選択されたファイルをアップロードしてから、案件を登録してください。",
+        })
+        setIsSubmitting(false)
+        return
+      }
+
       // 案件データを登録
       const { data: deal, error } = await supabase
         .from("deals")
         .insert({
+          id: pendingDealId || newDealId, // Use the pending ID if available
           name: data.name,
           client_name: data.client_name || "", // nullではなく空文字列を使用
           start_date: format(data.start_date, "yyyy-MM-dd"),
@@ -261,6 +285,8 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
       setSelectedMachinery([])
       setSelectedVehicles([])
       setSelectedTools([])
+      setDealFiles([])
+      setPendingDealId(null)
 
       // 成功時のコールバックがあれば実行（モーダルを閉じるなど）
       if (onSuccess) {
@@ -481,6 +507,13 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
                     </FormItem>
                   )}
                 />
+
+                <div className="col-span-1 md:col-span-2">
+                  <FormLabel>ファイル添付</FormLabel>
+                  <div className="mt-1">
+                    <DealFileUpload dealId={pendingDealId || undefined} onFilesUploaded={handleFilesUploaded} />
+                  </div>
+                </div>
               </div>
 
               <FormField
