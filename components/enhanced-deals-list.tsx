@@ -483,43 +483,45 @@ export function EnhancedDealsList() {
                   </div>
                 )}
 
-                {/* ファイル情報（追加） */}
-                <div className="mb-4">
-                  <h4 className="text-sm font-medium flex items-center gap-2 mb-2">
-                    <FileText className="h-4 w-4 text-gray-500" />
-                    添付ファイル
-                  </h4>
-                  {deal.files && deal.files.length > 0 ? (
-                    <div className="grid gap-2">
-                      {deal.files.map((file) => (
-                        <div
-                          key={file.id}
-                          className="flex justify-between items-center bg-gray-50 rounded-md px-3 py-1.5 text-sm"
-                        >
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-blue-500" />
-                            <span className="font-medium">{file.original_file_name || file.file_name}</span>
+                {/* ファイル情報（追加） - PDFドキュメントがない場合のみ表示 */}
+                {!deal.pdf_url && (
+                  <div className="mb-4">
+                    <h4 className="text-sm font-medium flex items-center gap-2 mb-2">
+                      <FileText className="h-4 w-4 text-gray-500" />
+                      添付ファイル
+                    </h4>
+                    {deal.files && deal.files.length > 0 ? (
+                      <div className="grid gap-2">
+                        {deal.files.map((file) => (
+                          <div
+                            key={file.id}
+                            className="flex justify-between items-center bg-gray-50 rounded-md px-3 py-1.5 text-sm"
+                          >
+                            <div className="flex items-center gap-2">
+                              <FileText className="h-4 w-4 text-blue-500" />
+                              <span className="font-medium">{file.original_file_name || file.file_name}</span>
+                            </div>
+                            <div className="flex items-center">
+                              <span className="text-xs text-muted-foreground mr-2">
+                                {new Date(file.created_at).toLocaleDateString("ja-JP")}
+                              </span>
+                              <a
+                                href={file.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-500 hover:text-blue-700"
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </a>
+                            </div>
                           </div>
-                          <div className="flex items-center">
-                            <span className="text-xs text-muted-foreground mr-2">
-                              {new Date(file.created_at).toLocaleDateString("ja-JP")}
-                            </span>
-                            <a
-                              href={file.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-500 hover:text-blue-700"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">添付ファイルはありません</p>
-                  )}
-                </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">添付ファイルはありません</p>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex justify-end items-center gap-2 mt-4">
                   <Button

@@ -288,6 +288,9 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
         description: "現場情報が正常に登録されました。",
       })
 
+      // 現場一覧ページにリダイレクト
+      router.push("/deals")
+
       // フォームをリセット
       form.reset()
       setSelectedStaff([])
