@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Loader2, Cloud, Sun, CloudRain, CloudSnow, CloudLightning, Wind } from "lucide-react"
-import { OPENWEATHER_API_KEY, DEFAULT_LOCATION } from "@/lib/constants"
+import { DEFAULT_LOCATION } from "@/lib/constants"
 
 interface WeatherData {
   name: string
@@ -50,12 +50,11 @@ export function WeatherForecast() {
       setIsLoading(true)
       setError(null)
 
-      const response = await fetch(
-        `https://api.openweathermap.org/data/2.5/weather?zip=${zipCode},jp&units=metric&lang=ja&appid=${OPENWEATHER_API_KEY}`,
-      )
+      const response = await fetch(`/api/weather?zipCode=${zipCode}`)
 
       if (!response.ok) {
-        throw new Error("天気データの取得に失敗しました")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "天気データの取得に失敗しました")
       }
 
       const data = await response.json()
@@ -73,12 +72,11 @@ export function WeatherForecast() {
       setIsLoading(true)
       setError(null)
 
-      const response = await fetch(
-        `https://api.openweathermap.org/data/2.5/weather?q=${location}&units=metric&lang=ja&appid=${OPENWEATHER_API_KEY}`,
-      )
+      const response = await fetch(`/api/weather?city=${location}`)
 
       if (!response.ok) {
-        throw new Error("天気データの取得に失敗しました")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "天気データの取得に失敗しました")
       }
 
       const data = await response.json()

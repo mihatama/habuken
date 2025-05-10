@@ -4,6 +4,14 @@ import { type NextRequest, NextResponse } from "next/server"
 const OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY
 
 export async function GET(request: NextRequest) {
+  // APIキーが設定されているか確認
+  if (!OPENWEATHER_API_KEY) {
+    return NextResponse.json(
+      { error: "OpenWeather APIキーが設定されていません。環境変数を確認してください。" },
+      { status: 500 },
+    )
+  }
+
   const searchParams = request.nextUrl.searchParams
   const zipCode = searchParams.get("zipCode")
   const city = searchParams.get("city")
@@ -40,6 +48,8 @@ export async function GET(request: NextRequest) {
         errorMessage = zipCode
           ? `郵便番号 ${zipCode} に対応する地域が見つかりませんでした。別の郵便番号または都市名をお試しください。`
           : `都市 ${city} が見つかりませんでした。別の都市名をお試しください。`
+      } else if (errorData.message === "Invalid API key") {
+        errorMessage = "OpenWeather APIキーが無効です。環境変数を確認してください。"
       } else if (errorData.message) {
         errorMessage = `エラー: ${errorData.message}`
       }

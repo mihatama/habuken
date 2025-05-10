@@ -70,7 +70,7 @@ export default function Dashboard() {
                 </TabsTrigger>
                 <TabsTrigger value="tools" className="flex items-center">
                   <BoxIcon className="h-4 w-4 mr-2" />
-                  備品カレンダー
+                  工具カレンダー
                 </TabsTrigger>
               </TabsList>
               <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isRefreshing}>

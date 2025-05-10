@@ -4,6 +4,14 @@ import { type NextRequest, NextResponse } from "next/server"
 const OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY
 
 export async function GET(request: NextRequest) {
+  // APIキーが設定されているか確認
+  if (!OPENWEATHER_API_KEY) {
+    return NextResponse.json(
+      { error: "OpenWeather APIキーが設定されていません。環境変数を確認してください。" },
+      { status: 500 },
+    )
+  }
+
   const searchParams = request.nextUrl.searchParams
   const lat = searchParams.get("lat")
   const lon = searchParams.get("lon")
@@ -23,7 +31,9 @@ export async function GET(request: NextRequest) {
       console.error(`OpenWeatherMap Forecast API error: ${response.status} - ${JSON.stringify(errorData)}`)
 
       let errorMessage = "天気予報の取得に失敗しました"
-      if (errorData.message) {
+      if (errorData.message === "Invalid API key") {
+        errorMessage = "OpenWeather APIキーが無効です。環境変数を確認してください。"
+      } else if (errorData.message) {
         errorMessage = `エラー: ${errorData.message}`
       }
 
