@@ -2,12 +2,10 @@
 
 import { useState, useCallback, useEffect } from "react"
 import { useDropzone } from "react-dropzone"
-import Image from "next/image"
 import { v4 as uuidv4 } from "uuid"
 import { getClientSupabase } from "@/lib/supabase-utils"
-import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/use-toast"
-import { Loader2, X, FileText, ImageIcon, Trash2, Camera } from "lucide-react"
+import { Loader2, X, FileText, FileIcon as FilePdf, Trash2 } from "lucide-react"
 import type { DealFile } from "@/types/supabase"
 
 // バケット名を定数として定義
@@ -21,19 +19,16 @@ interface DealFileUploadProps {
 }
 
 export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: DealFileUploadProps) {
-  const [files, setFiles] = useState<(File & { preview?: string; uploading?: boolean })[]>([])
+  const [files, setFiles] = useState<(File & { uploading?: boolean })[]>([])
   const [uploadedFiles, setUploadedFiles] = useState<DealFile[]>(existingFiles)
   const [isUploading, setIsUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({})
-  const [isCameraActive, setIsCameraActive] = useState(false)
 
-  const uploadFiles = async (filesToUpload: (File & { preview?: string; uploading?: boolean })[]) => {
+  const uploadFiles = async (filesToUpload: (File & { uploading?: boolean })[]) => {
     if (!dealId || filesToUpload.length === 0) return
 
     setIsUploading(true)
     const supabase = getClientSupabase()
     const newUploadedFiles: DealFile[] = []
-    const newProgress = { ...uploadProgress }
 
     try {
       for (const file of filesToUpload) {
@@ -42,21 +37,30 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
 
         const fileId = uuidv4()
         const filePath = `${dealId}/${fileId}-${file.name}`
-        newProgress[fileId] = 0
-        setUploadProgress(newProgress)
+
+        console.log(`Uploading PDF to ${STORAGE_BUCKET_NAME}/${filePath}`)
 
         // Upload file to Supabase Storage
         const { data, error } = await supabase.storage.from(STORAGE_BUCKET_NAME).upload(filePath, file, {
-          contentType: file.type,
+          contentType: "application/pdf",
           upsert: false,
         })
 
         if (error) {
+          console.error("Storage upload error:", error)
           throw error
         }
 
+        console.log("Upload successful, data:", data)
+
         // Get public URL
-        const publicUrl = supabase.storage.from(STORAGE_BUCKET_NAME).getPublicUrl(data.path).data.publicUrl
+        const { data: urlData } = supabase.storage.from(STORAGE_BUCKET_NAME).getPublicUrl(filePath)
+
+        console.log("Public URL:", urlData?.publicUrl)
+
+        if (!urlData?.publicUrl) {
+          throw new Error("Failed to get public URL for uploaded file")
+        }
 
         // Insert metadata into database
         const { data: fileData, error: dbError } = await supabase
@@ -65,17 +69,17 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
             deal_id: dealId,
             file_name: file.name,
             file_type: file.type,
-            url: publicUrl,
+            url: urlData.publicUrl,
           })
           .select()
           .single()
 
         if (dbError) {
+          console.error("Database insert error:", dbError)
           throw dbError
         }
 
-        newProgress[fileId] = 100
-        setUploadProgress(newProgress)
+        console.log("Database insert successful, fileData:", fileData)
         newUploadedFiles.push(fileData)
 
         // アップロード完了したファイルをリストから削除
@@ -93,14 +97,14 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
       if (newUploadedFiles.length > 0) {
         toast({
           title: "アップロード完了",
-          description: `${newUploadedFiles.length}個のファイルがアップロードされました。`,
+          description: `${newUploadedFiles.length}個のPDFファイルがアップロードされました。`,
         })
       }
     } catch (error: any) {
       console.error("File upload error:", error)
       toast({
         title: "アップロードエラー",
-        description: `ファイルのアップロードに失敗しました: ${error.message || "不明なエラー"}`,
+        description: `PDFファイルのアップロードに失敗しました: ${error.message || "不明なエラー"}`,
         variant: "destructive",
       })
 
@@ -113,9 +117,21 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
 
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
+      // PDFファイルのみをフィルタリング
+      const pdfFiles = acceptedFiles.filter((file) => file.type === "application/pdf")
+      const nonPdfFiles = acceptedFiles.filter((file) => file.type !== "application/pdf")
+
+      if (nonPdfFiles.length > 0) {
+        toast({
+          title: "ファイル形式エラー",
+          description: `${nonPdfFiles.length}個のファイルがPDF形式ではありません。PDFファイルのみアップロードできます。`,
+          variant: "destructive",
+        })
+      }
+
       // Filter files larger than 20MB
-      const validFiles = acceptedFiles.filter((file) => file.size <= 20 * 1024 * 1024)
-      const oversizedFiles = acceptedFiles.filter((file) => file.size > 20 * 1024 * 1024)
+      const validFiles = pdfFiles.filter((file) => file.size <= 20 * 1024 * 1024)
+      const oversizedFiles = pdfFiles.filter((file) => file.size > 20 * 1024 * 1024)
 
       if (oversizedFiles.length > 0) {
         toast({
@@ -127,18 +143,17 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
 
       if (validFiles.length === 0) return
 
-      // Create preview for image files
-      const filesWithPreview = validFiles.map((file) =>
+      // PDFファイルをアップロード用に準備
+      const filesForUpload = validFiles.map((file) =>
         Object.assign(file, {
-          preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
           uploading: false,
         }),
       )
 
-      setFiles((prev) => [...prev, ...filesWithPreview])
+      setFiles((prev) => [...prev, ...filesForUpload])
 
       // 自動的にアップロードを開始
-      uploadFiles(filesWithPreview)
+      uploadFiles(filesForUpload)
     },
     [dealId],
   )
@@ -147,86 +162,20 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
     onDrop,
     accept: {
       "application/pdf": [".pdf"],
-      "image/*": [".png", ".jpg", ".jpeg", ".gif", ".webp"],
     },
     multiple: true,
   })
 
-  // Clean up previews when component unmounts
+  // Clean up when component unmounts
   useEffect(() => {
     return () => {
-      files.forEach((file) => {
-        if (file.preview) URL.revokeObjectURL(file.preview)
-      })
+      // 特に必要なクリーンアップはないが、将来的に必要になる可能性があるため残しておく
     }
-  }, [files])
-
-  const activateCamera = () => {
-    setIsCameraActive(true)
-  }
-
-  const capturePhoto = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true })
-      const video = document.createElement("video")
-      video.srcObject = stream
-
-      await new Promise((resolve) => {
-        video.onloadedmetadata = () => {
-          video.play()
-          resolve(null)
-        }
-      })
-
-      const canvas = document.createElement("canvas")
-      canvas.width = video.videoWidth
-      canvas.height = video.videoHeight
-
-      const ctx = canvas.getContext("2d")
-      ctx?.drawImage(video, 0, 0, canvas.width, canvas.height)
-
-      // Stop all video streams
-      stream.getTracks().forEach((track) => track.stop())
-
-      // Convert canvas to blob
-      const blob = await new Promise<Blob>((resolve) => canvas.toBlob((blob) => resolve(blob!), "image/jpeg", 0.8))
-
-      // Create a File object from the blob
-      const file = new File([blob], `camera-${Date.now()}.jpg`, { type: "image/jpeg" })
-
-      // Add preview
-      const fileWithPreview = Object.assign(file, {
-        preview: URL.createObjectURL(blob),
-        uploading: false,
-      })
-
-      setFiles((prev) => [...prev, fileWithPreview])
-      setIsCameraActive(false)
-
-      // 自動的にアップロードを開始
-      uploadFiles([fileWithPreview])
-    } catch (error) {
-      console.error("Camera error:", error)
-      toast({
-        title: "カメラエラー",
-        description: "カメラへのアクセスに失敗しました。",
-        variant: "destructive",
-      })
-      setIsCameraActive(false)
-    }
-  }
-
-  const cancelCamera = () => {
-    setIsCameraActive(false)
-  }
+  }, [])
 
   const removeFile = (index: number) => {
     setFiles((prev) => {
       const newFiles = [...prev]
-      const file = newFiles[index]
-      if (file.preview) {
-        URL.revokeObjectURL(file.preview)
-      }
       newFiles.splice(index, 1)
       return newFiles
     })
@@ -242,10 +191,13 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
       const urlParts = file.url.split("/")
       const filePath = urlParts.slice(urlParts.indexOf(STORAGE_BUCKET_NAME) + 1).join("/")
 
+      console.log("Deleting file from path:", filePath)
+
       // Delete from storage
       const { error: storageError } = await supabase.storage.from(STORAGE_BUCKET_NAME).remove([filePath])
 
       if (storageError) {
+        console.error("Storage delete error:", storageError)
         throw storageError
       }
 
@@ -253,6 +205,7 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
       const { error: dbError } = await supabase.from("deal_files").delete().eq("id", file.id)
 
       if (dbError) {
+        console.error("Database delete error:", dbError)
         throw dbError
       }
 
@@ -261,117 +214,52 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
 
       toast({
         title: "ファイル削除",
-        description: "ファイルが正常に削除されました。",
+        description: "PDFファイルが正常に削除されました。",
       })
     } catch (error: any) {
       console.error("File deletion error:", error)
       toast({
         title: "削除エラー",
-        description: `ファイルの削除に失敗しました: ${error.message || "不明なエラー"}`,
+        description: `PDFファイルの削除に失敗しました: ${error.message || "不明なエラー"}`,
         variant: "destructive",
       })
     }
   }
 
-  const renderFilePreview = (file: File & { preview?: string; uploading?: boolean }, index: number) => {
-    if (file.type.startsWith("image/") && file.preview) {
-      return (
-        <div key={index} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
-          <Image src={file.preview || "/placeholder.svg"} alt={file.name} fill style={{ objectFit: "cover" }} />
-          {file.uploading ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
-              <Loader2 className="h-6 w-6 text-white animate-spin" />
-            </div>
-          ) : (
-            <button
-              onClick={() => removeFile(index)}
-              className="absolute top-1 right-1 bg-black bg-opacity-50 rounded-full p-1 text-white"
-              type="button"
-            >
-              <X size={14} />
-            </button>
-          )}
-        </div>
-      )
-    } else {
-      return (
-        <div key={index} className="relative flex items-center p-2 w-full rounded border border-gray-200">
-          <FileText className="h-6 w-6 mr-2 text-blue-500" />
-          <span className="text-sm truncate max-w-[180px]">{file.name}</span>
-          {file.uploading ? (
-            <Loader2 className="ml-auto h-4 w-4 text-gray-500 animate-spin" />
-          ) : (
-            <button
-              onClick={() => removeFile(index)}
-              className="ml-auto text-gray-500 hover:text-gray-700"
-              type="button"
-            >
-              <X size={16} />
-            </button>
-          )}
-        </div>
-      )
-    }
+  const renderFilePreview = (file: File & { uploading?: boolean }, index: number) => {
+    return (
+      <div key={index} className="relative flex items-center p-2 w-full rounded border border-gray-200">
+        <FileText className="h-6 w-6 mr-2 text-blue-500" />
+        <span className="text-sm truncate max-w-[180px]">{file.name}</span>
+        {file.uploading ? (
+          <Loader2 className="ml-auto h-4 w-4 text-gray-500 animate-spin" />
+        ) : (
+          <button onClick={() => removeFile(index)} className="ml-auto text-gray-500 hover:text-gray-700" type="button">
+            <X size={16} />
+          </button>
+        )}
+      </div>
+    )
   }
 
   const renderUploadedFile = (file: DealFile) => {
-    if (file.file_type.startsWith("image/")) {
-      return (
-        <div key={file.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
-          <Image src={file.url || "/placeholder.svg"} alt={file.file_name} fill style={{ objectFit: "cover" }} />
-          <button
-            onClick={() => deleteUploadedFile(file)}
-            className="absolute top-1 right-1 bg-black bg-opacity-50 rounded-full p-1 text-white"
-            type="button"
-          >
-            <Trash2 size={14} />
-          </button>
-        </div>
-      )
-    } else {
-      return (
-        <div key={file.id} className="relative flex items-center p-2 w-full rounded border border-gray-200">
-          <FileText className="h-6 w-6 mr-2 text-blue-500" />
-          <span className="text-sm truncate max-w-[180px]">{file.file_name}</span>
-          <button
-            onClick={() => deleteUploadedFile(file)}
-            className="ml-auto text-gray-500 hover:text-gray-700"
-            type="button"
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
-      )
-    }
-  }
-
-  if (isCameraActive) {
     return (
-      <div className="space-y-4">
-        <div className="relative w-full h-64 bg-black rounded-lg overflow-hidden">
-          <video id="camera-preview" autoPlay playsInline className="w-full h-full object-cover" />
-          <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-4">
-            <Button type="button" variant="destructive" onClick={cancelCamera}>
-              キャンセル
-            </Button>
-            <Button type="button" onClick={capturePhoto}>
-              撮影
-            </Button>
-          </div>
-        </div>
+      <div key={file.id} className="relative flex items-center p-2 w-full rounded border border-gray-200">
+        <FileText className="h-6 w-6 mr-2 text-blue-500" />
+        <span className="text-sm truncate max-w-[180px]">{file.file_name}</span>
+        <button
+          onClick={() => deleteUploadedFile(file)}
+          className="ml-auto text-gray-500 hover:text-gray-700"
+          type="button"
+        >
+          <Trash2 size={16} />
+        </button>
       </div>
     )
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2 mb-2">
-        <Button type="button" variant="outline" onClick={activateCamera} className="flex items-center">
-          <Camera className="mr-2 h-4 w-4" />
-          カメラで撮影
-        </Button>
-      </div>
-
       <div
         {...getRootProps()}
         className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
@@ -384,10 +272,10 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
           ) : (
             <>
               <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10">
-                <ImageIcon className="h-6 w-6 text-primary" />
+                <FilePdf className="h-6 w-6 text-primary" />
               </div>
-              <p className="text-sm font-medium">ファイルをドラッグ＆ドロップするか、クリックして選択</p>
-              <p className="text-xs text-gray-500">PDFまたは画像ファイル（最大20MB）</p>
+              <p className="text-sm font-medium">PDFファイルをドラッグ＆ドロップするか、クリックして選択</p>
+              <p className="text-xs text-gray-500">PDFファイルのみ（最大20MB）</p>
             </>
           )}
         </div>
@@ -396,14 +284,14 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
       {files.length > 0 && (
         <div className="space-y-2">
           <div className="text-sm font-medium">アップロード中のファイル</div>
-          <div className="flex flex-wrap gap-2">{files.map((file, index) => renderFilePreview(file, index))}</div>
+          <div className="flex flex-col gap-2">{files.map((file, index) => renderFilePreview(file, index))}</div>
         </div>
       )}
 
       {uploadedFiles.length > 0 && (
         <div className="space-y-2">
           <div className="text-sm font-medium">アップロード済みファイル</div>
-          <div className="flex flex-wrap gap-2">{uploadedFiles.map((file) => renderUploadedFile(file))}</div>
+          <div className="flex flex-col gap-2">{uploadedFiles.map((file) => renderUploadedFile(file))}</div>
         </div>
       )}
     </div>

@@ -510,8 +510,8 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
               </div>
 
               <div className="mt-6">
-                <FormLabel>ファイル添付</FormLabel>
-                <FormDescription>PDFや写真を追加できます。カメラで撮影することも可能です。</FormDescription>
+                <FormLabel>PDFファイル添付</FormLabel>
+                <FormDescription>現場に関連するPDFファイルを添付できます（最大20MB）</FormDescription>
                 <div className="mt-2">
                   <DealFileUpload dealId={pendingDealId || undefined} onFilesUploaded={handleFilesUploaded} />
                 </div>
