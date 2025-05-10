@@ -1,10 +1,17 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { ProfileForm } from "@/components/profile-form"
 
 export const metadata: Metadata = {
   title: "利用者情報 | 工事管理システム",
   description: "利用者情報の設定ができます",
+}
+
+export const viewport: Viewport = {
+  themeColor: "#ffffff",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 }
 
 export default function ProfilePage() {
