@@ -3,11 +3,11 @@
 import { useState, useCallback, useEffect } from "react"
 import { useDropzone } from "react-dropzone"
 import { v4 as uuidv4 } from "uuid"
-import { getClientSupabase } from "@/lib/supabase-utils"
 import { toast } from "@/components/ui/use-toast"
 import { Loader2, X, FileText, FileIcon as FilePdf, Trash2 } from "lucide-react"
 import type { DealFile } from "@/types/supabase"
-import { STORAGE_BUCKET_NAME, ensureStorageBucketExists } from "@/lib/supabase-storage-utils"
+import { STORAGE_BUCKET_NAME } from "@/lib/supabase-storage-utils"
+import { fileToBase64, extractFilePathFromUrl } from "@/utils/file-utils"
 
 interface DealFileUploadProps {
   dealId?: string
@@ -25,9 +25,18 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
   useEffect(() => {
     async function checkBucket() {
       try {
-        const { success, error } = await ensureStorageBucketExists()
-        if (!success) {
-          console.error("バケット確認/作成エラー:", error)
+        // APIを使用してバケットの存在を確認
+        const response = await fetch("/api/setup-storage", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+
+        const data = await response.json()
+
+        if (!data.success) {
+          console.error("バケット確認/作成エラー:", data.error)
           toast({
             title: "ストレージエラー",
             description: "ファイルストレージの準備に失敗しました。管理者にお問い合わせください。",
@@ -46,84 +55,58 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
   }, [])
 
   const uploadFiles = async (filesToUpload: (File & { uploading?: boolean })[]) => {
-    if (!dealId || filesToUpload.length === 0) return
-
-    // バケットが確認されていない場合は再確認
-    if (!isBucketChecked) {
-      const { success } = await ensureStorageBucketExists()
-      if (!success) {
-        toast({
-          title: "ストレージエラー",
-          description: "ファイルストレージの準備に失敗しました。管理者にお問い合わせください。",
-          variant: "destructive",
-        })
-        return
-      }
-      setBucketChecked(true)
-    }
+    if (filesToUpload.length === 0) return
 
     setIsUploading(true)
-    const supabase = getClientSupabase()
     const newUploadedFiles: DealFile[] = []
 
     try {
-      // バケットの一覧を取得して確認
-      const { data: buckets } = await supabase.storage.listBuckets()
-      console.log(
-        "Available buckets:",
-        buckets?.map((b) => b.name),
-      )
-
       for (const file of filesToUpload) {
         // マークファイルをアップロード中として
         setFiles((prev) => prev.map((f) => (f === file ? { ...f, uploading: true } : f)))
 
-        const fileId = uuidv4()
-        const filePath = `${dealId}/${fileId}-${file.name}`
+        // ファイルをBase64に変換
+        const base64Data = await fileToBase64(file)
 
-        console.log(`Uploading PDF to ${STORAGE_BUCKET_NAME}/${filePath}`)
-
-        // Upload file to Supabase Storage
-        const { data, error } = await supabase.storage.from(STORAGE_BUCKET_NAME).upload(filePath, file, {
-          contentType: "application/pdf",
-          upsert: false,
+        // APIを使用してファイルをアップロード
+        const response = await fetch("/api/deal-files/upload", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            base64Data,
+            fileName: file.name,
+            contentType: file.type,
+            dealId,
+          }),
         })
 
-        if (error) {
-          console.error("Storage upload error:", error)
-          throw error
+        const result = await response.json()
+
+        if (!result.success) {
+          throw new Error(result.error || "不明なエラー")
         }
 
-        console.log("Upload successful, data:", data)
+        console.log("Upload successful, result:", result)
 
-        // Get public URL
-        const { data: urlData } = supabase.storage.from(STORAGE_BUCKET_NAME).getPublicUrl(filePath)
-
-        console.log("Public URL:", urlData?.publicUrl)
-
-        if (!urlData?.publicUrl) {
-          throw new Error("Failed to get public URL for uploaded file")
+        // ファイルメタデータがAPIから返された場合
+        if (result.file) {
+          newUploadedFiles.push(result.file)
         }
-
-        // Insert metadata into database
-        const { data: fileData, error: dbError } = await supabase
-          .from("deal_files")
-          .insert({
-            deal_id: dealId,
+        // APIからファイルメタデータが返されなかった場合（dealIdがない場合など）
+        else if (result.url) {
+          // 仮のファイルメタデータを作成
+          const tempFile: DealFile = {
+            id: uuidv4(),
+            deal_id: dealId || "",
             file_name: file.name,
             file_type: file.type,
-            url: urlData.publicUrl,
-          })
-          .select()
-          .single()
-
-        if (dbError) {
-          console.error("Database insert error:", dbError)
-          throw dbError
+            url: result.url,
+            created_at: new Date().toISOString(),
+          }
+          newUploadedFiles.push(tempFile)
         }
-
-        console.log("Database insert successful, fileData:", fileData)
-        newUploadedFiles.push(fileData)
 
         // アップロード完了したファイルをリストから削除
         setFiles((prev) => prev.filter((f) => f !== file))
@@ -207,7 +190,7 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
       "application/pdf": [".pdf"],
     },
     multiple: true,
-    disabled: !isBucketChecked, // バケットが確認されるまでドロップゾーンを無効化
+    disabled: !isBucketChecked || isUploading, // バケットが確認されるまでまたはアップロード中はドロップゾーンを無効化
   })
 
   const removeFile = (index: number) => {
@@ -219,31 +202,26 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
   }
 
   const deleteUploadedFile = async (file: DealFile) => {
-    if (!dealId) return
-
     try {
-      const supabase = getClientSupabase()
+      // ファイルパスを抽出
+      const filePath = extractFilePathFromUrl(file.url, STORAGE_BUCKET_NAME)
 
-      // Extract the path from the URL
-      const urlParts = file.url.split("/")
-      const filePath = urlParts.slice(urlParts.indexOf(STORAGE_BUCKET_NAME) + 1).join("/")
+      // APIを使用してファイルを削除
+      const response = await fetch("/api/deal-files/delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fileId: file.id,
+          filePath,
+        }),
+      })
 
-      console.log("Deleting file from path:", filePath)
+      const result = await response.json()
 
-      // Delete from storage
-      const { error: storageError } = await supabase.storage.from(STORAGE_BUCKET_NAME).remove([filePath])
-
-      if (storageError) {
-        console.error("Storage delete error:", storageError)
-        throw storageError
-      }
-
-      // Delete from database
-      const { error: dbError } = await supabase.from("deal_files").delete().eq("id", file.id)
-
-      if (dbError) {
-        console.error("Database delete error:", dbError)
-        throw dbError
+      if (!result.success) {
+        throw new Error(result.error || "不明なエラー")
       }
 
       // Update state
@@ -301,7 +279,7 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
         {...getRootProps()}
         className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
           ${
-            !isBucketChecked
+            !isBucketChecked || isUploading
               ? "border-gray-300 bg-gray-100 cursor-not-allowed"
               : isDragActive
                 ? "border-primary bg-primary/5"

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { STORAGE_BUCKET_NAME, ensureStorageBucketExists } from "@/lib/supabase-storage-utils"
+import { sanitizeFileName } from "@/utils/file-utils"
 
 export async function POST(request: Request) {
   try {
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
     }
 
     // リクエストボディを取得
-    const { base64Data, fileName, contentType } = await request.json()
+    const { base64Data, fileName, contentType, dealId } = await request.json()
 
     if (!base64Data || !fileName) {
       return NextResponse.json({ error: "ファイルデータとファイル名は必須です" }, { status: 400 })
@@ -45,19 +46,16 @@ export async function POST(request: Request) {
     const binaryData = Buffer.from(base64OnlyData, "base64")
 
     // 安全なファイル名を生成
-    const timestamp = Date.now()
-    const randomString = Math.random().toString(36).substring(2, 15)
-    const extension = fileName.split(".").pop() || ""
-    const uniqueFileName = `${timestamp}-${randomString}.${extension}`
+    const safeFileName = sanitizeFileName(fileName)
 
-    // テスト用のファイルパス - test-uploadsフォルダを使用
-    const filePath = `test-uploads/${uniqueFileName}`
+    // ファイルパスを生成 - dealIdがある場合はそのフォルダに保存
+    const filePath = dealId ? `${dealId}/${safeFileName}` : `temp/${safeFileName}`
 
     console.log(`Uploading file to ${STORAGE_BUCKET_NAME}/${filePath}`)
 
     // ファイルをアップロード - サービスロールキーを使用しているので、RLSをバイパスする
     const { data, error } = await supabase.storage.from(STORAGE_BUCKET_NAME).upload(filePath, binaryData, {
-      contentType: contentType || "application/octet-stream",
+      contentType: contentType || "application/pdf",
       cacheControl: "3600",
       upsert: false,
     })
@@ -80,10 +78,41 @@ export async function POST(request: Request) {
 
     console.log("Public URL:", urlData?.publicUrl)
 
+    // ファイルメタデータをデータベースに保存（dealIdがある場合のみ）
+    let fileRecord = null
+    if (dealId) {
+      const { data: fileData, error: dbError } = await supabase
+        .from("deal_files")
+        .insert({
+          deal_id: dealId,
+          file_name: fileName,
+          file_type: contentType || "application/pdf",
+          url: urlData?.publicUrl || "",
+        })
+        .select()
+        .single()
+
+      if (dbError) {
+        console.error("API: ファイルメタデータ保存エラー:", dbError)
+        return NextResponse.json(
+          {
+            error: `ファイルメタデータの保存に失敗しました: ${dbError.message}`,
+            details: dbError,
+            url: urlData?.publicUrl || "",
+            path: filePath,
+          },
+          { status: 500 },
+        )
+      }
+
+      fileRecord = fileData
+    }
+
     return NextResponse.json({
       success: true,
       url: urlData?.publicUrl || "",
       path: filePath,
+      file: fileRecord,
     })
   } catch (error: any) {
     console.error("API: 予期しないエラー:", error)

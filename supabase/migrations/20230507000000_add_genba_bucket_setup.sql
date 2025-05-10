@@ -29,17 +29,32 @@ begin
     raise notice 'Policy "Users can delete their own files" does not exist or could not be dropped';
   end;
 
+  begin
+    drop policy if exists "Authenticated users can update files" on storage.objects;
+  exception when others then
+    raise notice 'Policy "Authenticated users can update files" does not exist or could not be dropped';
+  end;
+
   -- 新しいポリシーを作成
+  -- 閲覧ポリシー - 誰でも閲覧可能
   create policy "Public Access"
   on storage.objects for select
   using (bucket_id = 'genba');
 
+  -- アップロードポリシー - 認証済みユーザーはどこにでもアップロード可能
   create policy "Authenticated users can upload files"
   on storage.objects for insert
   to authenticated
   with check (bucket_id = 'genba');
 
-  create policy "Users can delete their own files"
+  -- 更新ポリシー - 認証済みユーザーは更新可能
+  create policy "Authenticated users can update files"
+  on storage.objects for update
+  to authenticated
+  using (bucket_id = 'genba');
+
+  -- 削除ポリシー - 認証済みユーザーは削除可能
+  create policy "Authenticated users can delete files"
   on storage.objects for delete
   to authenticated
   using (bucket_id = 'genba');

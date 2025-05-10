@@ -80,14 +80,25 @@ async function setupBucketPolicies(supabase: any) {
       // RPC関数が存在しない場合は、代替方法でポリシーを設定
       console.log("代替方法でポリシーを設定します")
 
-      // 閲覧ポリシー
+      // 既存のポリシーを削除
+      try {
+        await supabase.query(`
+          drop policy if exists "Public Access" on storage.objects;
+          drop policy if exists "Authenticated users can upload files" on storage.objects;
+          drop policy if exists "Users can delete their own files" on storage.objects;
+        `)
+      } catch (e) {
+        console.log("既存ポリシー削除中のエラー（無視します）:", e)
+      }
+
+      // 閲覧ポリシー - 誰でも閲覧可能
       await supabase.query(`
         create policy "Public Access"
         on storage.objects for select
         using (bucket_id = '${STORAGE_BUCKET_NAME}');
       `)
 
-      // アップロードポリシー
+      // アップロードポリシー - 認証済みユーザーはどこにでもアップロード可能
       await supabase.query(`
         create policy "Authenticated users can upload files"
         on storage.objects for insert
@@ -95,9 +106,17 @@ async function setupBucketPolicies(supabase: any) {
         with check (bucket_id = '${STORAGE_BUCKET_NAME}');
       `)
 
-      // 削除ポリシー
+      // 更新ポリシー - 認証済みユーザーは更新可能
       await supabase.query(`
-        create policy "Users can delete their own files"
+        create policy "Authenticated users can update files"
+        on storage.objects for update
+        to authenticated
+        using (bucket_id = '${STORAGE_BUCKET_NAME}');
+      `)
+
+      // 削除ポリシー - 認証済みユーザーは削除可能
+      await supabase.query(`
+        create policy "Authenticated users can delete files"
         on storage.objects for delete
         to authenticated
         using (bucket_id = '${STORAGE_BUCKET_NAME}');
