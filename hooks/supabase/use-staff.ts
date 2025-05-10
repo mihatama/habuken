@@ -22,9 +22,15 @@ export function useStaff(
 ) {
   const { filters = {}, enabled = true } = options
 
+  // user_idフィルターが存在するか確認し、存在しない場合は削除
+  const safeFilters = { ...filters }
+  if ("user_id" in safeFilters && !safeFilters.user_id) {
+    delete safeFilters.user_id
+  }
+
   return useData<Staff>("staff", {
-    queryKey: ["staff", filters],
-    filters,
+    queryKey: ["staff", safeFilters],
+    filters: safeFilters,
     order: { column: "display_order", ascending: true },
     enabled,
   })

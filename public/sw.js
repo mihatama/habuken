@@ -102,7 +102,7 @@ self.addEventListener("fetch", (event) => {
         // キャッシュにヒットした場合はそれを返し、バックグラウンドで更新
         const fetchPromise = fetch(request)
           .then((networkResponse) => {
-            // 有効なレスポンスの場合はキャッシュ���更新
+            // 有効なレスポンスの場合はキャッシュ更新
             if (networkResponse && networkResponse.status === 200) {
               const responseToCache = networkResponse.clone()
               caches.open(CACHE_NAME).then((cache) => {
@@ -159,18 +159,22 @@ self.addEventListener("notificationclick", (event) => {
   console.log("[ServiceWorker] 通知がクリックされました:", event)
   event.notification.close()
 
+  // 通知データからURLを取得
   const urlToOpen = event.notification.data?.url || "/"
+  // 現場IDがある場合は現場詳細ページに遷移
+  const dealId = event.notification.data?.dealId
+  const targetUrl = dealId ? `/deals/${dealId}` : urlToOpen
 
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
       // すでに開いているウィンドウがあればそれをフォーカス
       for (const client of clientList) {
-        if (client.url.includes(urlToOpen) && "focus" in client) {
+        if (client.url.includes(targetUrl) && "focus" in client) {
           return client.focus()
         }
       }
       // なければ新しいウィンドウを開く
-      return clients.openWindow(urlToOpen)
+      return clients.openWindow(targetUrl)
     }),
   )
 })
