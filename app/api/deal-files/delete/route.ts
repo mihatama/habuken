@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { STORAGE_BUCKET_NAME } from "@/lib/supabase-storage-utils"
+
+// バケット名を変更
+const BUCKET_NAME = "genba"
 
 export async function POST(request: Request) {
   try {
@@ -24,11 +26,13 @@ export async function POST(request: Request) {
       auth: { persistSession: false },
     })
 
-    // ストレージからファイルを削除
-    const { error: storageError } = await supabase.storage.from(STORAGE_BUCKET_NAME).remove([filePath])
+    console.log(`Deleting file from ${BUCKET_NAME}/${filePath}`)
+
+    // ファイルをストレージから削除
+    const { error: storageError } = await supabase.storage.from(BUCKET_NAME).remove([filePath])
 
     if (storageError) {
-      console.error("API: ストレージ削除エラー:", storageError)
+      console.error("API: ファイル削除エラー:", storageError)
       return NextResponse.json(
         {
           error: `ファイルの削除に失敗しました: ${storageError.message}`,
@@ -42,7 +46,7 @@ export async function POST(request: Request) {
     const { error: dbError } = await supabase.from("deal_files").delete().eq("id", fileId)
 
     if (dbError) {
-      console.error("API: データベース削除エラー:", dbError)
+      console.error("API: ファイルメタデータ削除エラー:", dbError)
       return NextResponse.json(
         {
           error: `ファイルメタデータの削除に失敗しました: ${dbError.message}`,
@@ -54,7 +58,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "ファイルが正常に削除されました",
     })
   } catch (error: any) {
     console.error("API: 予期しないエラー:", error)

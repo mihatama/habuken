@@ -1,21 +1,12 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { STORAGE_BUCKET_NAME, ensureStorageBucketExists } from "@/lib/supabase-storage-utils"
 import { sanitizeFileName } from "@/utils/file-utils"
+
+// バケット名を変更
+const BUCKET_NAME = "genba"
 
 export async function POST(request: Request) {
   try {
-    // バケットの存在確認と作成
-    const { success: bucketSuccess, error: bucketError } = await ensureStorageBucketExists()
-
-    if (!bucketSuccess) {
-      console.error("API: バケット確認/作成エラー:", bucketError)
-      return NextResponse.json(
-        { error: `ストレージバケットの確認/作成に失敗しました: ${bucketError}` },
-        { status: 500 },
-      )
-    }
-
     // リクエストボディを取得
     const { base64Data, fileName, contentType, dealId } = await request.json()
 
@@ -45,16 +36,18 @@ export async function POST(request: Request) {
     // バイナリデータに変換
     const binaryData = Buffer.from(base64OnlyData, "base64")
 
-    // 安全なファイル名を生成
-    const safeFileName = sanitizeFileName(fileName)
+    // 安全なファイル名を生成（一意のファイル名にするために日時を追加）
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
+    const fileExt = fileName.split(".").pop() || "pdf"
+    const safeFileName = `${sanitizeFileName(fileName.replace(`.${fileExt}`, ""))}_${timestamp}.${fileExt}`
 
-    // ファイルパスを生成 - dealIdがある場合はそのフォルダに保存
-    const filePath = dealId ? `${dealId}/${safeFileName}` : `temp/${safeFileName}`
+    // ファイルパスを生成 - public/genba/フォルダに直接保存
+    const filePath = `public/genba/${safeFileName}`
 
-    console.log(`Uploading file to ${STORAGE_BUCKET_NAME}/${filePath}`)
+    console.log(`Uploading file to ${BUCKET_NAME}/${filePath}`)
 
     // ファイルをアップロード - サービスロールキーを使用しているので、RLSをバイパスする
-    const { data, error } = await supabase.storage.from(STORAGE_BUCKET_NAME).upload(filePath, binaryData, {
+    const { data, error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, binaryData, {
       contentType: contentType || "application/pdf",
       cacheControl: "3600",
       upsert: false,
@@ -74,7 +67,7 @@ export async function POST(request: Request) {
     console.log("Upload successful, data:", data)
 
     // 公開URLを取得
-    const { data: urlData } = supabase.storage.from(STORAGE_BUCKET_NAME).getPublicUrl(filePath)
+    const { data: urlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath)
 
     console.log("Public URL:", urlData?.publicUrl)
 
@@ -85,7 +78,8 @@ export async function POST(request: Request) {
         .from("deal_files")
         .insert({
           deal_id: dealId,
-          file_name: fileName,
+          file_name: safeFileName,
+          original_file_name: fileName, // オリジナルのファイル名を保存
           file_type: contentType || "application/pdf",
           url: urlData?.publicUrl || "",
         })

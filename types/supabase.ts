@@ -349,6 +349,7 @@ export interface Database {
           id: string
           deal_id: string
           file_name: string
+          original_file_name: string
           file_type: string
           url: string
           created_at: string
@@ -357,6 +358,7 @@ export interface Database {
           id?: string
           deal_id: string
           file_name: string
+          original_file_name: string
           file_type: string
           url: string
           created_at?: string
@@ -365,6 +367,7 @@ export interface Database {
           id?: string
           deal_id?: string
           file_name?: string
+          original_file_name?: string
           file_type?: string
           url?: string
           created_at?: string
