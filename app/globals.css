@@ -405,3 +405,17 @@ header nav .flex.items-center.space-x-6::-webkit-scrollbar {
     touch-action: manipulation;
   }
 }
+
+/* ==== [mobile-no-wrap] スマホ時に横スクロールさせる ==== */
+@media (max-width: 640px) {
+  /* ❶ 本体は必ず横スクロールできるようにする */
+  html,
+  body {
+    overflow-x: auto; /* 水平スクロールを許可 */
+  }
+
+  /* ❷ ルート幅を固定。ここでは 1280px を想定（必要に応じて調整） */
+  body {
+    min-width: 1280px; /* デスクトップの基準幅 */
+  }
+}

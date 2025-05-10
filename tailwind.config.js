@@ -22,6 +22,9 @@ module.exports = {
       },
     },
     extend: {
+      minWidth: {
+        desktop: "1280px", // min-w-desktop が使えるようになる
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
