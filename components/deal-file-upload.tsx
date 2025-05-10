@@ -239,6 +239,11 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
       // Update state
       setUploadedFiles((prev) => prev.filter((f) => f.id !== file.id))
 
+      // Notify parent component if callback exists
+      if (onFilesUploaded) {
+        onFilesUploaded(uploadedFiles.filter((f) => f.id !== file.id))
+      }
+
       toast({
         title: "ファイル削除",
         description: "PDFファイルが正常に削除されました。",
