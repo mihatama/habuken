@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useStaff, type Staff } from "@/hooks/supabase/use-staff"
 import { SortableContainer } from "@/components/sortable/sortable-context"
 import { SortableItem } from "@/components/sortable/sortable-item"
@@ -18,11 +18,11 @@ export function SortableStaffList() {
   const [sortedIds, setSortedIds] = useState<string[]>([])
 
   // 初期データロード時にIDリストを設定
-  useState(() => {
+  useEffect(() => {
     if (staff && staff.length > 0 && sortedIds.length === 0) {
       setSortedIds(staff.map((item) => item.id))
     }
-  })
+  }, [staff, sortedIds.length])
 
   // 並び替え結果をサーバーに保存
   const saveOrder = async () => {

@@ -13,6 +13,24 @@ import { Plus, Pencil, Trash2, Loader2, RefreshCw } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core"
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers"
+import type { JSX } from "react"
 
 export function StaffList() {
   const { toast } = useToast()
@@ -52,7 +70,8 @@ export function StaffList() {
       }
 
       console.log("取得したスタッフデータ:", data)
-      setStaff(data || [])
+      const sortedData = data?.sort((a, b) => (a.display_order || 0) - (b.display_order || 0)) || []
+      setStaff(sortedData)
     } catch (error: any) {
       console.error("スタッフの取得に失敗しました:", error)
       setError(error.message || "スタッフデータの取得に失敗しました")
@@ -195,7 +214,66 @@ export function StaffList() {
     }
   }
 
-  const filteredStaff = staff.filter(
+  const [sortedStaff, setSortedStaff] = useState<any[]>([])
+
+  useEffect(() => {
+    if (staff.length > 0) {
+      setSortedStaff([...staff])
+    }
+  }, [staff])
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  )
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (!over || active.id === over.id) {
+      return
+    }
+
+    const oldIndex = sortedStaff.findIndex((item) => item.id === active.id)
+    const newIndex = sortedStaff.findIndex((item) => item.id === over.id)
+
+    if (oldIndex === -1 || newIndex === -1) return
+
+    const newSortedStaff = [...sortedStaff]
+    const [movedItem] = newSortedStaff.splice(oldIndex, 1)
+    newSortedStaff.splice(newIndex, 0, movedItem)
+
+    setSortedStaff(newSortedStaff)
+
+    try {
+      // 表示順を更新
+      const { error } = await supabase.rpc("update_staff_order", {
+        id_list: newSortedStaff.map((item) => item.id),
+      })
+
+      if (error) throw error
+
+      toast({
+        title: "成功",
+        description: "スタッフの表示順が更新されました",
+      })
+    } catch (error: any) {
+      console.error("表示順の更新に失敗しました:", error)
+      toast({
+        title: "エラー",
+        description: "表示順の更新に失敗しました: " + (error.message || "不明なエラー"),
+        variant: "destructive",
+      })
+    }
+  }
+
+  const filteredStaff = sortedStaff.filter(
     (s) =>
       s.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.position?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -349,132 +427,33 @@ export function StaffList() {
             </TableHeader>
             <TableBody>
               {filteredStaff.length > 0 ? (
-                filteredStaff.map((staff) => (
-                  <TableRow key={staff.id}>
-                    <TableCell className="font-medium">{staff.full_name}</TableCell>
-                    <TableCell>{staff.position || "-"}</TableCell>
-                    <TableCell>{staff.department || "-"}</TableCell>
-                    <TableCell>
-                      {staff.email ? (
-                        <div>
-                          <div>{staff.email}</div>
-                          {staff.phone && <div className="text-sm text-muted-foreground">{staff.phone}</div>}
-                        </div>
-                      ) : staff.phone ? (
-                        staff.phone
-                      ) : (
-                        "-"
-                      )}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(staff.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end space-x-2">
-                        <Dialog
-                          open={isEditDialogOpen && currentStaff?.id === staff.id}
-                          onOpenChange={(open) => {
-                            setIsEditDialogOpen(open)
-                            if (open) setCurrentStaff(staff)
-                          }}
-                        >
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => {
-                                setCurrentStaff(staff)
-                                setIsEditDialogOpen(true)
-                              }}
-                              className="border-gold text-gold hover:bg-gold/10"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>スタッフの編集</DialogTitle>
-                            </DialogHeader>
-                            {currentStaff && (
-                              <div className="grid gap-4 py-4">
-                                <div className="grid gap-2">
-                                  <Label htmlFor="edit-name">名前</Label>
-                                  <Input
-                                    id="edit-name"
-                                    value={currentStaff.full_name}
-                                    onChange={(e) => setCurrentStaff({ ...currentStaff, full_name: e.target.value })}
-                                  />
-                                </div>
-                                <div className="grid gap-2">
-                                  <Label htmlFor="edit-position">役職</Label>
-                                  <Input
-                                    id="edit-position"
-                                    value={currentStaff.position || ""}
-                                    onChange={(e) => setCurrentStaff({ ...currentStaff, position: e.target.value })}
-                                  />
-                                </div>
-                                <div className="grid gap-2">
-                                  <Label htmlFor="edit-department">部署</Label>
-                                  <Input
-                                    id="edit-department"
-                                    value={currentStaff.department || ""}
-                                    onChange={(e) => setCurrentStaff({ ...currentStaff, department: e.target.value })}
-                                  />
-                                </div>
-                                <div className="grid gap-2">
-                                  <Label htmlFor="edit-email">メールアドレス</Label>
-                                  <Input
-                                    id="edit-email"
-                                    type="email"
-                                    value={currentStaff.email || ""}
-                                    onChange={(e) => setCurrentStaff({ ...currentStaff, email: e.target.value })}
-                                  />
-                                </div>
-                                <div className="grid gap-2">
-                                  <Label htmlFor="edit-phone">電話番号</Label>
-                                  <Input
-                                    id="edit-phone"
-                                    value={currentStaff.phone || ""}
-                                    onChange={(e) => setCurrentStaff({ ...currentStaff, phone: e.target.value })}
-                                  />
-                                </div>
-                                <div className="grid gap-2">
-                                  <Label htmlFor="edit-status">ステータス</Label>
-                                  <select
-                                    id="edit-status"
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                    value={currentStaff.status}
-                                    onChange={(e) => setCurrentStaff({ ...currentStaff, status: e.target.value })}
-                                  >
-                                    <option value="active">在籍中</option>
-                                    <option value="inactive">休職中</option>
-                                    <option value="terminated">退職</option>
-                                  </select>
-                                </div>
-                              </div>
-                            )}
-                            <DialogFooter>
-                              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isLoading}>
-                                キャンセル
-                              </Button>
-                              <Button type="button" onClick={updateStaff} disabled={isLoading}>
-                                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                保存
-                              </Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => deleteStaff(staff.id)}
-                          disabled={isLoading}
-                          className="border-darkgray text-darkgray hover:bg-darkgray/10"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                  modifiers={[restrictToVerticalAxis]}
+                >
+                  <SortableContext
+                    items={filteredStaff.map((staff) => staff.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {filteredStaff.map((staff) => (
+                      <SortableTableRow
+                        key={staff.id}
+                        id={staff.id}
+                        staff={staff}
+                        isEditDialogOpen={isEditDialogOpen}
+                        setIsEditDialogOpen={setIsEditDialogOpen}
+                        currentStaff={currentStaff}
+                        setCurrentStaff={setCurrentStaff}
+                        getStatusBadge={getStatusBadge}
+                        deleteStaff={deleteStaff}
+                        updateStaff={updateStaff}
+                        isLoading={isLoading}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
               ) : (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
@@ -487,5 +466,166 @@ export function StaffList() {
         )}
       </CardContent>
     </Card>
+  )
+}
+
+function SortableTableRow({
+  id,
+  staff,
+  isEditDialogOpen,
+  setIsEditDialogOpen,
+  currentStaff,
+  setCurrentStaff,
+  getStatusBadge,
+  deleteStaff,
+  updateStaff,
+  isLoading,
+}: {
+  id: string
+  staff: any
+  isEditDialogOpen: boolean
+  setIsEditDialogOpen: (open: boolean) => void
+  currentStaff: any
+  setCurrentStaff: (staff: any) => void
+  getStatusBadge: (status: string) => JSX.Element
+  deleteStaff: (id: string) => Promise<void>
+  updateStaff: () => Promise<void>
+  isLoading: boolean
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1 : 0,
+    position: "relative" as const,
+  }
+
+  return (
+    <TableRow ref={setNodeRef} style={style} className="cursor-move" {...attributes} {...listeners}>
+      <TableCell className="font-medium">{staff.full_name}</TableCell>
+      <TableCell>{staff.position || "-"}</TableCell>
+      <TableCell>{staff.department || "-"}</TableCell>
+      <TableCell>
+        {staff.email ? (
+          <div>
+            <div>{staff.email}</div>
+            {staff.phone && <div className="text-sm text-muted-foreground">{staff.phone}</div>}
+          </div>
+        ) : staff.phone ? (
+          staff.phone
+        ) : (
+          "-"
+        )}
+      </TableCell>
+      <TableCell>{getStatusBadge(staff.status)}</TableCell>
+      <TableCell className="text-right">
+        <div className="flex justify-end space-x-2">
+          <Dialog
+            open={isEditDialogOpen && currentStaff?.id === staff.id}
+            onOpenChange={(open) => {
+              setIsEditDialogOpen(open)
+              if (open) setCurrentStaff(staff)
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  setCurrentStaff(staff)
+                  setIsEditDialogOpen(true)
+                }}
+                className="border-gold text-gold hover:bg-gold/10"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>スタッフの編集</DialogTitle>
+              </DialogHeader>
+              {currentStaff && (
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-name">名前</Label>
+                    <Input
+                      id="edit-name"
+                      value={currentStaff.full_name}
+                      onChange={(e) => setCurrentStaff({ ...currentStaff, full_name: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-position">役職</Label>
+                    <Input
+                      id="edit-position"
+                      value={currentStaff.position || ""}
+                      onChange={(e) => setCurrentStaff({ ...currentStaff, position: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-department">部署</Label>
+                    <Input
+                      id="edit-department"
+                      value={currentStaff.department || ""}
+                      onChange={(e) => setCurrentStaff({ ...currentStaff, department: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-email">メールアドレス</Label>
+                    <Input
+                      id="edit-email"
+                      type="email"
+                      value={currentStaff.email || ""}
+                      onChange={(e) => setCurrentStaff({ ...currentStaff, email: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-phone">電話番号</Label>
+                    <Input
+                      id="edit-phone"
+                      value={currentStaff.phone || ""}
+                      onChange={(e) => setCurrentStaff({ ...currentStaff, phone: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-status">ステータス</Label>
+                    <select
+                      id="edit-status"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={currentStaff.status}
+                      onChange={(e) => setCurrentStaff({ ...currentStaff, status: e.target.value })}
+                    >
+                      <option value="active">在籍中</option>
+                      <option value="inactive">休職中</option>
+                      <option value="terminated">退職</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isLoading}>
+                  キャンセル
+                </Button>
+                <Button type="button" onClick={updateStaff} disabled={isLoading}>
+                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  保存
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => deleteStaff(staff.id)}
+            disabled={isLoading}
+            className="border-darkgray text-darkgray hover:bg-darkgray/10"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
   )
 }
