@@ -170,6 +170,9 @@ html {
   appearance: none;
   /* スクロールバウンスを無効化 */
   overscroll-behavior: none;
+  /* 追加: 横スクロール防止 */
+  overflow-x: hidden;
+  width: 100%;
 }
 
 /* PWAコンテナのスタイル */
@@ -189,6 +192,9 @@ html {
   -webkit-overflow-scrolling: touch;
   /* スクロールバウンスを無効化 */
   overscroll-behavior: none;
+  /* 追加: 横スクロール防止 */
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 /* iOS用のセーフエリア対応 */
@@ -206,6 +212,60 @@ html {
   position: sticky;
   top: 0;
   z-index: 40;
+}
+
+/* ナビゲーションスタイル */
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  padding-right: 1rem;
+}
+
+.nav-links::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.25rem;
+  color: white;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffd700;
+}
+
+.nav-link.text-gold {
+  color: #ffd700;
+  background-color: rgba(255, 215, 0, 0.1);
+}
+
+@media (min-width: 1024px) {
+  header .container {
+    max-width: 100%;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .nav-links {
+    gap: 0.75rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .nav-links {
+    gap: 1rem;
+  }
 }
 
 /* PWAモードでのフッター固定 */
@@ -303,4 +363,46 @@ html {
 
 .animate-fade-in-blur {
   animation: fadeInBlur 1.5s ease-out forwards;
+}
+
+/* モバイル表示時の修正 */
+@media (max-width: 640px) {
+  body {
+    overflow-x: hidden;
+    width: 100%;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 100%;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /* モバイルでのスクロール問題を修正 */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* iOS用の追加修正 */
+@supports (-webkit-touch-callout: none) {
+  body {
+    /* iOS Safariでの100vh問題を修正 */
+    height: -webkit-fill-available;
+  }
+
+  .min-h-screen {
+    min-height: -webkit-fill-available;
+  }
+}
+
+/* モバイルでのタッチ操作改善 */
+@media (max-width: 640px) {
+  button,
+  [role="button"],
+  a {
+    cursor: pointer;
+    touch-action: manipulation;
+  }
 }

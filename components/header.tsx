@@ -35,26 +35,16 @@ export function Header() {
     if (user) {
       refreshUserData()
     }
-  }, [])
+  }, [refreshUserData, user])
 
   // ユーザーが管理者かどうかを確認
   const isAdmin = user?.user_metadata?.role === "admin"
 
-  // デバッグ用
-  useEffect(() => {
-    if (user) {
-      console.log("Header - ユーザーロール:", user.user_metadata?.role)
-      console.log("Header - 管理者判定:", isAdmin)
-    }
-  }, [user, isAdmin])
-
   // プログラムによるナビゲーション関数
   const handleNavigation = (path: string) => {
     try {
-      console.log(`${path} へ遷移します`)
       // 現在のパスと同じ場合は何もしない
       if (pathname === path) {
-        console.log("既に同じページにいます")
         return
       }
 
@@ -71,14 +61,14 @@ export function Header() {
 
   return (
     <header className="fixed top-0 z-40 w-full border-b border-gold bg-gray-600/80">
-      <div className="container flex h-16 items-center px-4 sm:px-6">
+      <div className="container flex h-16 items-center px-2 sm:px-4">
         <div className="flex items-center">
           <Link
-            href="/"
+            href="/dashboard"
             className="flex items-center mr-6"
             onClick={(e) => {
               e.preventDefault()
-              router.push("/")
+              router.push("/dashboard")
             }}
           >
             <div className="mr-2 p-0.5">
@@ -92,112 +82,85 @@ export function Header() {
 
         {!loading && user && (
           <nav className="hidden md:flex md:flex-1 md:items-center md:justify-between">
-            {/* ナビゲーションリンクにアイコンを追加 */}
-            <div className="flex items-center space-x-6">
-              <Link
-                href="/dashboard"
-                className={`transition-colors ${isActive("/dashboard")} flex items-center gap-1`}
-                onClick={(e) => {
-                  e.preventDefault()
-                  router.push("/dashboard")
-                }}
+            {/* ナビゲーションリンク */}
+            <div className="flex items-center space-x-4 overflow-x-auto nav-links">
+              <Button
+                variant="ghost"
+                className={`nav-link ${isActive("/dashboard")}`}
+                onClick={() => handleNavigation("/dashboard")}
               >
-                <LayoutDashboard className="h-4 w-4" />
+                <LayoutDashboard className="h-4 w-4 mr-2" />
                 一覧表示
-              </Link>
-              <Link
-                href="/deals"
-                className={`transition-colors ${isActive("/deals")} flex items-center gap-1`}
-                onClick={(e) => {
-                  e.preventDefault()
-                  router.push("/deals")
-                }}
+              </Button>
+              <Button
+                variant="ghost"
+                className={`nav-link ${isActive("/deals")}`}
+                onClick={() => handleNavigation("/deals")}
               >
-                <Briefcase className="h-4 w-4" />
+                <Briefcase className="h-4 w-4 mr-2" />
                 現場
-              </Link>
-              <Link
-                href="/master/staff"
-                className={`transition-colors ${isActive("/master/staff")} flex items-center gap-1`}
-                onClick={(e) => {
-                  e.preventDefault()
-                  router.push("/master/staff")
-                }}
+              </Button>
+              <Button
+                variant="ghost"
+                className={`nav-link ${isActive("/master/staff")}`}
+                onClick={() => handleNavigation("/master/staff")}
               >
-                <Users className="h-4 w-4" />
+                <Users className="h-4 w-4 mr-2" />
                 スタッフ
-              </Link>
-              <Link
-                href="/master/heavy"
-                className={`transition-colors ${isActive("/master/heavy")} flex items-center gap-1`}
-                onClick={(e) => {
-                  e.preventDefault()
-                  router.push("/master/heavy")
-                }}
+              </Button>
+              <Button
+                variant="ghost"
+                className={`nav-link ${isActive("/master/heavy")}`}
+                onClick={() => handleNavigation("/master/heavy")}
               >
-                <Truck className="h-4 w-4" />
+                <Truck className="h-4 w-4 mr-2" />
                 重機
-              </Link>
-              <Link
-                href="/master/vehicle"
-                className={`transition-colors ${isActive("/master/vehicle")} flex items-center gap-1`}
-                onClick={(e) => {
-                  e.preventDefault()
-                  router.push("/master/vehicle")
-                }}
+              </Button>
+              <Button
+                variant="ghost"
+                className={`nav-link ${isActive("/master/vehicle")}`}
+                onClick={() => handleNavigation("/master/vehicle")}
               >
-                <Car className="h-4 w-4" />
+                <Car className="h-4 w-4 mr-2" />
                 車両
-              </Link>
-              <Link
-                href="/tools"
-                className={`transition-colors ${isActive("/tools")} flex items-center gap-1`}
-                onClick={(e) => {
-                  e.preventDefault()
-                  router.push("/tools")
-                }}
+              </Button>
+              <Button
+                variant="ghost"
+                className={`nav-link ${isActive("/tools")}`}
+                onClick={() => handleNavigation("/tools")}
               >
-                <Package className="h-4 w-4" />
+                <Package className="h-4 w-4 mr-2" />
                 備品
-              </Link>
-              <Link
-                href="/leave"
-                className={`transition-colors ${isActive("/leave")} flex items-center gap-1`}
-                onClick={(e) => {
-                  e.preventDefault()
-                  router.push("/leave")
-                }}
+              </Button>
+              <Button
+                variant="ghost"
+                className={`nav-link ${isActive("/leave")}`}
+                onClick={() => handleNavigation("/leave")}
               >
-                <Calendar className="h-4 w-4" />
+                <Calendar className="h-4 w-4 mr-2" />
                 休暇申請
-              </Link>
-              <Link
-                href="/reports"
-                className={`transition-colors ${isActive("/reports")} flex items-center gap-1`}
-                onClick={(e) => {
-                  e.preventDefault()
-                  router.push("/reports")
-                }}
+              </Button>
+              <Button
+                variant="ghost"
+                className={`nav-link ${isActive("/reports")}`}
+                onClick={() => handleNavigation("/reports")}
               >
-                <FileText className="h-4 w-4" />
+                <FileText className="h-4 w-4 mr-2" />
                 現場報告
-              </Link>
+              </Button>
               {/* 管理者のみユーザー作成メニューを表示 */}
               {isAdmin && (
-                <Link
-                  href="/admin/create-user"
-                  className={`transition-colors ${isActive("/admin/create-user")} flex items-center gap-1`}
-                  onClick={(e) => {
-                    e.preventDefault()
-                    router.push("/admin/create-user")
-                  }}
+                <Button
+                  variant="ghost"
+                  className={`nav-link ${isActive("/admin/create-user")}`}
+                  onClick={() => handleNavigation("/admin/create-user")}
                 >
-                  <UserPlus className="h-4 w-4" />
+                  <UserPlus className="h-4 w-4 mr-2" />
                   ユーザー作成
-                </Link>
+                </Button>
               )}
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center ml-4">
               <div className="flex items-center gap-2">
                 <InstallButton />
                 <UserNav user={user} />
@@ -221,11 +184,7 @@ export function Header() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => {
-                // 既に開いていたら無視
-                if (isMobileNavOpen) return
-                setIsMobileNavOpen(true)
-              }}
+              onClick={() => setIsMobileNavOpen(true)}
               className="text-white hover:bg-darkgray-light hover:text-gold"
             >
               <span className="sr-only">メニューを開く</span>

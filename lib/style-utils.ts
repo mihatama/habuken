@@ -5,7 +5,7 @@ import { cn } from "./utils"
  * @param className 追加のクラス名
  */
 export function containerClass(className?: string) {
-  return cn("container px-4 md:px-6 lg:px-8", className)
+  return cn("w-full px-4 md:px-6 lg:px-8 mx-auto max-w-full sm:container", className)
 }
 
 /**
@@ -33,7 +33,7 @@ export function flexClass(
   gap = "gap-4",
   className?: string,
 ) {
-  return cn("flex", `flex-${direction}`, `md:flex-${mdDirection}`, gap, className)
+  return cn("flex w-full", `flex-${direction}`, `md:flex-${mdDirection}`, gap, className)
 }
 
 /**

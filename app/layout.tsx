@@ -29,8 +29,8 @@ export const metadata: Metadata = {
   viewport: {
     width: "device-width",
     initialScale: 1,
-    maximumScale: 5,
-    userScalable: true,
+    maximumScale: 1, // 5から1に変更してピンチズームを制限
+    userScalable: false, // trueからfalseに変更
     viewportFit: "cover",
   },
   formatDetection: {
@@ -72,9 +72,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {/* 初回アクセス時のみスプラッシュスクリーンを表示 */}
               <SplashScreen />
               <HideAddressBar />
-              <AppShell>
-                <div className="max-w-full sm:container sm:mx-auto sm:px-4">{children}</div>
-              </AppShell>
+              <AppShell>{children}</AppShell>
               <PWARegister />
             </SplashProvider>
           </AuthProvider>
