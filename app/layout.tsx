@@ -65,7 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
         />
       </head>
-      <body className={`${inter.className} ${notoSerifJP.variable} overflow-x-auto`}>
+      <body className={`${inter.className} ${notoSerifJP.variable} min-w-[100dvw] min-h-[100dvh] overflow-auto`}>
         <Providers>
           <AuthProvider>
             <SplashProvider>

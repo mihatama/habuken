@@ -582,7 +582,7 @@ function ReportCard({ report, getWeatherIcon, getWeatherText, isOwnReport, onSho
                 variant="outline"
                 size="icon"
                 onClick={handleDelete}
-                className="text-destructive hover:bg-destructive/10 border-destructive"
+                className="text-darkgray hover:bg-darkgray/10 border-darkgray"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>

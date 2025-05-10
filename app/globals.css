@@ -278,7 +278,7 @@ header nav .flex.items-center.space-x-6::-webkit-scrollbar {
 @media all and (display-mode: browser) {
   html {
     height: 100vh;
-    overflow: hidden;
+    overflow: auto; /* overflow: hidden から auto に変更 */
   }
 
   body {
@@ -291,14 +291,6 @@ header nav .flex.items-center.space-x-6::-webkit-scrollbar {
     right: 0;
     bottom: 0;
     -webkit-overflow-scrolling: touch;
-  }
-
-  /* iOS Safari用 */
-  @supports (-webkit-touch-callout: none) {
-    body {
-      /* iOS 15以降のSafariでアドレスバーを隠すハック */
-      min-height: -webkit-fill-available;
-    }
   }
 }
 
@@ -419,4 +411,15 @@ header nav .flex.items-center.space-x-6::-webkit-scrollbar {
   body {
     min-width: 1280px; /* デスクトップの基準幅 */
   }
+}
+
+/* ==== allow 2-axis scroll on mobile ==== */
+html,
+body {
+  min-width: 100dvw; /* 横方向の基準を viewport に合わせつつ */
+  min-height: 100dvh; /* iOS 17+ の動的ビューポートに対応 */
+  overflow-x: auto; /* ← 横スクロールを殺さない */
+  overflow-y: auto; /* ← 縦は従来どおり */
+  -webkit-overflow-scrolling: touch; /* 慣性スクロール for iOS */
+  touch-action: pan-x pan-y; /* 両方向パンを許可（JS ジェスチャと競合しない範囲で） */
 }
