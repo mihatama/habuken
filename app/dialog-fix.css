@@ -1,0 +1,30 @@
+/* ダイアログのスクロール問題を解決するためのスタイル */
+
+/* ダイアログ内のコンテンツがスクロール可能になるようにする */
+[role="dialog"] {
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 背景のスクロールを許可する場合 */
+[role="dialog"][data-allow-background-scroll="true"] {
+  position: absolute;
+}
+
+/* ダイアログのコンテンツ部分がスクロール可能になるようにする */
+[role="dialog"] > div:last-child {
+  overflow-y: auto;
+  max-height: calc(90vh - 4rem); /* ヘッダーの高さを考慮 */
+}
+
+/* モバイルデバイス向けの調整 */
+@media (max-width: 640px) {
+  [role="dialog"] {
+    max-height: 100vh;
+  }
+
+  [role="dialog"] > div:last-child {
+    max-height: calc(100vh - 4rem);
+  }
+}

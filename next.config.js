@@ -26,6 +26,17 @@ const nextConfig = withPWA({
     ignoreBuildErrors: true,
   },
 
+  // 不要なプリロードを制御するための設定を追加
+  experimental: {
+    // 自動プリロードの最適化
+    optimizeCss: true,
+    // 不要なプリロードを削減
+    optimizeServerReact: true,
+  },
+
+  // CSSの最適化設定
+  optimizeFonts: true,
+
   // Add security headers
   async headers() {
     return [
