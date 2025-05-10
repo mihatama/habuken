@@ -7,10 +7,7 @@ import { getClientSupabase } from "@/lib/supabase-utils"
 import { toast } from "@/components/ui/use-toast"
 import { Loader2, X, FileText, FileIcon as FilePdf, Trash2 } from "lucide-react"
 import type { DealFile } from "@/types/supabase"
-
-// バケット名を定数として定義
-const STORAGE_BUCKET_NAME = "genba"
-const STORAGE_FOLDER_NAME = "public/genba_files"
+import { STORAGE_BUCKET_NAME, ensureStorageBucketExists } from "@/lib/supabase-storage-utils"
 
 interface DealFileUploadProps {
   dealId?: string
@@ -22,15 +19,61 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
   const [files, setFiles] = useState<(File & { uploading?: boolean })[]>([])
   const [uploadedFiles, setUploadedFiles] = useState<DealFile[]>(existingFiles)
   const [isUploading, setIsUploading] = useState(false)
+  const [isBucketChecked, setBucketChecked] = useState(false)
+
+  // コンポーネントマウント時にバケットの存在確認
+  useEffect(() => {
+    async function checkBucket() {
+      try {
+        const { success, error } = await ensureStorageBucketExists()
+        if (!success) {
+          console.error("バケット確認/作成エラー:", error)
+          toast({
+            title: "ストレージエラー",
+            description: "ファイルストレージの準備に失敗しました。管理者にお問い合わせください。",
+            variant: "destructive",
+          })
+        } else {
+          console.log("バケット確認/作成成功")
+          setBucketChecked(true)
+        }
+      } catch (error) {
+        console.error("バケット確認中の予期しないエラー:", error)
+      }
+    }
+
+    checkBucket()
+  }, [])
 
   const uploadFiles = async (filesToUpload: (File & { uploading?: boolean })[]) => {
     if (!dealId || filesToUpload.length === 0) return
+
+    // バケットが確認されていない場合は再確認
+    if (!isBucketChecked) {
+      const { success } = await ensureStorageBucketExists()
+      if (!success) {
+        toast({
+          title: "ストレージエラー",
+          description: "ファイルストレージの準備に失敗しました。管理者にお問い合わせください。",
+          variant: "destructive",
+        })
+        return
+      }
+      setBucketChecked(true)
+    }
 
     setIsUploading(true)
     const supabase = getClientSupabase()
     const newUploadedFiles: DealFile[] = []
 
     try {
+      // バケットの一覧を取得して確認
+      const { data: buckets } = await supabase.storage.listBuckets()
+      console.log(
+        "Available buckets:",
+        buckets?.map((b) => b.name),
+      )
+
       for (const file of filesToUpload) {
         // マークファイルをアップロード中として
         setFiles((prev) => prev.map((f) => (f === file ? { ...f, uploading: true } : f)))
@@ -155,7 +198,7 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
       // 自動的にアップロードを開始
       uploadFiles(filesForUpload)
     },
-    [dealId],
+    [dealId, isBucketChecked],
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -164,14 +207,8 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
       "application/pdf": [".pdf"],
     },
     multiple: true,
+    disabled: !isBucketChecked, // バケットが確認されるまでドロップゾーンを無効化
   })
-
-  // Clean up when component unmounts
-  useEffect(() => {
-    return () => {
-      // 特に必要なクリーンアップはないが、将来的に必要になる可能性があるため残しておく
-    }
-  }, [])
 
   const removeFile = (index: number) => {
     setFiles((prev) => {
@@ -263,11 +300,19 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
       <div
         {...getRootProps()}
         className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
-          ${isDragActive ? "border-primary bg-primary/5" : "border-gray-300 hover:border-primary/50"}`}
+          ${
+            !isBucketChecked
+              ? "border-gray-300 bg-gray-100 cursor-not-allowed"
+              : isDragActive
+                ? "border-primary bg-primary/5"
+                : "border-gray-300 hover:border-primary/50"
+          }`}
       >
         <input {...getInputProps()} />
         <div className="flex flex-col items-center justify-center space-y-2">
-          {isUploading ? (
+          {!isBucketChecked ? (
+            <Loader2 className="h-10 w-10 text-gray-400 animate-spin" />
+          ) : isUploading ? (
             <Loader2 className="h-10 w-10 text-primary animate-spin" />
           ) : (
             <>

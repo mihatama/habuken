@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-
-// バケット名を定数として定義
-const STORAGE_BUCKET_NAME = "genba"
-const STORAGE_FOLDER_NAME = "public/genba_files"
+import { STORAGE_BUCKET_NAME, STORAGE_FOLDER_NAME, ensureStorageBucketExists } from "@/lib/supabase-storage-utils"
 
 export async function POST(request: Request) {
   try {
+    // バケットの存在確認と作成
+    const { success: bucketSuccess, error: bucketError } = await ensureStorageBucketExists()
+
+    if (!bucketSuccess) {
+      console.error("API: バケット確認/作成エラー:", bucketError)
+      return NextResponse.json(
+        { error: `ストレージバケットの確認/作成に失敗しました: ${bucketError}` },
+        { status: 500 },
+      )
+    }
+
     // リクエストボディを取得
     const { base64Data, fileName, contentType } = await request.json()
 
@@ -41,6 +49,13 @@ export async function POST(request: Request) {
     const filePath = `${STORAGE_FOLDER_NAME}/${uniqueFileName}`
 
     console.log(`Uploading file to ${STORAGE_BUCKET_NAME}/${filePath}`)
+
+    // バケットの一覧を取得して確認
+    const { data: buckets } = await supabase.storage.listBuckets()
+    console.log(
+      "Available buckets:",
+      buckets?.map((b) => b.name),
+    )
 
     // ファイルをアップロード
     const { data, error } = await supabase.storage.from(STORAGE_BUCKET_NAME).upload(filePath, binaryData, {
