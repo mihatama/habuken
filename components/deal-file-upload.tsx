@@ -1,12 +1,15 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useCallback, useEffect } from "react"
-import { useDropzone } from "react-dropzone"
 import { v4 as uuidv4 } from "uuid"
 import { toast } from "@/components/ui/use-toast"
-import { Loader2, X, FileText, FileIcon as FilePdf, Trash2 } from "lucide-react"
+import { Loader2, X, FileText, Trash2 } from "lucide-react"
 import type { DealFile } from "@/types/supabase"
 import { fileToBase64 } from "@/utils/file-utils"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 
 interface DealFileUploadProps {
   dealId?: string
@@ -15,10 +18,12 @@ interface DealFileUploadProps {
 }
 
 export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: DealFileUploadProps) {
-  const [files, setFiles] = useState<(File & { uploading?: boolean; id?: string })[]>([])
+  const [files, setFiles] = useState<DealFile[]>(existingFiles)
   const [uploadedFiles, setUploadedFiles] = useState<DealFile[]>(existingFiles)
   const [isUploading, setIsUploading] = useState(false)
   const [isBucketChecked, setBucketChecked] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [isDeleting, setIsDeleting] = useState<Record<string, boolean>>({})
 
   // コンポーネントマウント時にバケットの存在確認
   useEffect(() => {
@@ -70,9 +75,9 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
         }
 
         // マークファイルをアップロード中として
-        setFiles((prev) =>
-          prev.map((f) => (f === file || f.id === file.id ? { ...f, uploading: true, id: fileId } : f)),
-        )
+        // setFiles((prev) =>
+        //   prev.map((f) => (f === file || f.id === file.id ? { ...f, uploading: true, id: fileId } : f)),
+        // )
 
         // ファイルをBase64に変換
         const base64Data = await fileToBase64(file)
@@ -124,7 +129,7 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
 
       // アップロード完了したファイルをリストから削除
       // IDベースで削除することで確実に削除する
-      setFiles((prev) => prev.filter((f) => !uploadedFileIds.includes(f.id || "")))
+      // setFiles((prev) => prev.filter((f) => !uploadedFileIds.includes(f.id || "")))
 
       // Update state with new uploaded files
       setUploadedFiles((prev) => [...prev, ...newUploadedFiles])
@@ -149,7 +154,7 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
       })
 
       // エラーが発生したファイルのアップロード中フラグをリセット
-      setFiles((prev) => prev.map((f) => (filesToUpload.includes(f) ? { ...f, uploading: false } : f)))
+      // setFiles((prev) => prev.map((f) => (filesToUpload.includes(f) ? { ...f, uploading: false } : f)))
     } finally {
       setIsUploading(false)
     }
@@ -198,15 +203,6 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
     },
     [dealId, isBucketChecked],
   )
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      "application/pdf": [".pdf"],
-    },
-    multiple: true,
-    disabled: !isBucketChecked || isUploading, // バケットが確認されるまでまたはアップロード中はドロップゾーンを無効化
-  })
 
   const removeFile = (index: number) => {
     setFiles((prev) => {
@@ -290,48 +286,179 @@ export function DealFileUpload({ dealId, onFilesUploaded, existingFiles = [] }: 
     )
   }
 
+  // ファイルアップロード処理
+  const handleFileUpload = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const fileList = event.target.files
+      if (!fileList || fileList.length === 0) return
+
+      setIsUploading(true)
+      setUploadProgress(0)
+
+      try {
+        const file = fileList[0]
+        const formData = new FormData()
+        formData.append("file", file)
+        formData.append("dealId", dealId)
+
+        // アップロード進捗のシミュレーション
+        const progressInterval = setInterval(() => {
+          setUploadProgress((prev) => {
+            if (prev >= 90) {
+              clearInterval(progressInterval)
+              return 90
+            }
+            return prev + 10
+          })
+        }, 300)
+
+        const response = await fetch("/api/deal-files/upload", {
+          method: "POST",
+          body: formData,
+        })
+
+        clearInterval(progressInterval)
+        setUploadProgress(100)
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "ファイルのアップロードに失敗しました")
+        }
+
+        const data = await response.json()
+
+        if (data.success) {
+          toast({
+            title: "アップロード成功",
+            description: "ファイルが正常にアップロードされました",
+          })
+
+          // 新しいファイルを追加
+          const newFile = data.file
+          const updatedFiles = [...files, newFile]
+          setFiles(updatedFiles)
+
+          // 親コンポーネントに通知
+          if (onFilesUploaded) {
+            onFilesUploaded(updatedFiles)
+          }
+        } else {
+          throw new Error(data.error || "ファイルのアップロードに失敗しました")
+        }
+      } catch (error: any) {
+        console.error("アップロードエラー:", error)
+        toast({
+          title: "エラー",
+          description: `アップロード失敗: ${error.message}`,
+          variant: "destructive",
+        })
+      } finally {
+        setIsUploading(false)
+        setUploadProgress(0)
+        // ファイル入力をリセット
+        event.target.value = ""
+      }
+    },
+    [dealId, files, onFilesUploaded],
+  )
+
+  // ファイル削除処理
+  const deleteUploadedFile2 = useCallback(
+    async (file: DealFile) => {
+      if (!file || !file.file_name) return
+
+      setIsDeleting((prev) => ({ ...prev, [file.id]: true }))
+
+      try {
+        const response = await fetch("/api/deal-files/delete", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            fileName: file.file_name,
+            fileId: file.id,
+          }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "ファイルの削除に失敗しました")
+        }
+
+        const data = await response.json()
+
+        if (data.success) {
+          toast({
+            title: "削除成功",
+            description: "ファイルが正常に削除されました",
+          })
+
+          // 削除したファイルを除外
+          const updatedFiles = files.filter((f) => f.id !== file.id)
+          setFiles(updatedFiles)
+
+          // 親コンポーネントに通知
+          if (onFilesUploaded) {
+            onFilesUploaded(updatedFiles)
+          }
+        } else {
+          throw new Error(data.error || "ファイルの削除に失敗しました")
+        }
+      } catch (error: any) {
+        console.error("削除エラー:", error)
+        toast({
+          title: "エラー",
+          description: `削除失敗: ${error.message}`,
+          variant: "destructive",
+        })
+      } finally {
+        setIsDeleting((prev) => ({ ...prev, [file.id]: false }))
+      }
+    },
+    [files, onFilesUploaded],
+  )
+
   return (
     <div className="space-y-4">
-      <div
-        {...getRootProps()}
-        className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
-          ${
-            !isBucketChecked || isUploading
-              ? "border-gray-300 bg-gray-100 cursor-not-allowed"
-              : isDragActive
-                ? "border-primary bg-primary/5"
-                : "border-gray-300 hover:border-primary/50"
-          }`}
-      >
-        <input {...getInputProps()} />
-        <div className="flex flex-col items-center justify-center space-y-2">
-          {!isBucketChecked ? (
-            <Loader2 className="h-10 w-10 text-gray-400 animate-spin" />
-          ) : isUploading ? (
-            <Loader2 className="h-10 w-10 text-primary animate-spin" />
-          ) : (
-            <>
-              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10">
-                <FilePdf className="h-6 w-6 text-primary" />
-              </div>
-              <p className="text-sm font-medium">PDFファイルをドラッグ＆ドロップするか、クリックして選択</p>
-              <p className="text-xs text-gray-500">PDFファイルのみ（最大20MB）</p>
-            </>
-          )}
-        </div>
+      <div className="flex items-center gap-2">
+        <Input
+          type="file"
+          onChange={handleFileUpload}
+          disabled={isUploading}
+          className="flex-1"
+          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+        />
+        {isUploading && (
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm">{uploadProgress}%</span>
+          </div>
+        )}
       </div>
 
       {files.length > 0 && (
         <div className="space-y-2">
-          <div className="text-sm font-medium">アップロード中のファイル</div>
-          <div className="flex flex-col gap-2">{files.map((file, index) => renderFilePreview(file, index))}</div>
-        </div>
-      )}
-
-      {uploadedFiles.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-sm font-medium">アップロード済みファイル</div>
-          <div className="flex flex-col gap-2">{uploadedFiles.map((file) => renderUploadedFile(file))}</div>
+          <h4 className="text-sm font-medium">アップロード済みファイル</h4>
+          <div className="grid gap-2">
+            {files.map((file) => (
+              <div key={file.id} className="flex justify-between items-center bg-gray-50 rounded-md px-3 py-2 text-sm">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <FileText className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">{file.original_file_name || file.file_name}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => deleteUploadedFile2(file)}
+                  disabled={isDeleting[file.id]}
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                >
+                  {isDeleting[file.id] ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                </Button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

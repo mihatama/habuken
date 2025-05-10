@@ -22,6 +22,8 @@ import { ResourceSelector } from "@/components/resource-selector"
 import { v4 as uuidv4 } from "uuid"
 import { DealFileUpload } from "@/components/deal-file-upload"
 import type { DealFile } from "@/types/supabase"
+// 必要なインポートを追加します（既存のインポートの後に）
+import { FileUploader } from "./file-upload-test"
 
 // 案件登録フォームのスキーマ
 const dealFormSchema = z
@@ -87,6 +89,13 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
   const [selectedTools, setSelectedTools] = useState<{ id: string; startDate: string; endDate: string | null }[]>([])
   const [dealFiles, setDealFiles] = useState<DealFile[]>([])
   const [pendingDealId, setPendingDealId] = useState<string | null>(null)
+  // フォームの状態にpdfUrlを追加します
+  // 通常、formStateまたは類似の変数を探します
+  // 例: const [formState, setFormState] = useState({ ... });
+  // その中にpdfUrlを追加:
+  const [formState, setFormState] = useState({
+    pdf_url: "",
+  })
 
   // 新規案件作成時のデフォルト値を「pendding」から「未選択」に変更
   const defaultValues: Partial<DealFormValues> = {
@@ -195,6 +204,44 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
 
   const handleFilesUploaded = (files: DealFile[]) => {
     setDealFiles(files)
+  }
+
+  // ファイルアップロード処理関数を追加します
+  // コンポーネント内の適切な場所（他の関数の近く）に追加:
+
+  const handlePdfUpload = async (file: File) => {
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await fetch("/api/upload-image", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error("PDFのアップロードに失敗しました")
+      }
+
+      const data = await response.json()
+      // フォームの状態を更新
+      setFormState((prev) => ({
+        ...prev,
+        pdf_url: data.url,
+      }))
+
+      toast({
+        title: "PDFがアップロードされました",
+        description: "PDFが正常にアップロードされました。",
+      })
+    } catch (error) {
+      console.error("PDF upload error:", error)
+      toast({
+        title: "エラー",
+        description: "PDFのアップロードに失敗しました。",
+        variant: "destructive",
+      })
+    }
   }
 
   async function onSubmit(data: DealFormValues) {
@@ -480,6 +527,19 @@ export function DealRegistrationForm({ onSuccess }: DealRegistrationFormProps) {
                     </FormItem>
                   )}
                 />
+                {/* フォームのUIにPDFアップロード部分を追加します
+                // 通常、フォームフィールドを表示している部分に追加します
+                // 例えば、価格入力フィールドの後などに追加: */}
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">PDF添付</label>
+                  <FileUploader
+                    onUpload={(file) => handlePdfUpload(file)}
+                    acceptedFileTypes={".pdf"}
+                    maxFileSizeMB={10}
+                  />
+                  {formState.pdf_url && <div className="text-sm text-green-600">PDFがアップロードされました</div>}
+                </div>
 
                 <FormField
                   control={form.control}
